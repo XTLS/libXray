@@ -44,6 +44,10 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 转换 VMessAEAD/VLESS 分享为 Xray Json。
 
+### subscription.go
+
+转换 Xray Json 为订阅文本。
+
 ### uuid.go
 
 转换自定义文本为 uuid。
@@ -51,6 +55,8 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 ### xray_json.go
 
 Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进行解析。
+
+支持 flatten outbounds 。
 
 ### xray.go
 
