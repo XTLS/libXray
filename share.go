@@ -21,7 +21,21 @@ func ParseShareText(textPath string, xrayPath string) string {
 	text = strings.TrimSpace(text)
 
 	if strings.HasPrefix(text, "{") {
-		if err = filesystem.CopyFile(xrayPath, textPath); err != nil {
+		var xray xrayJson
+
+		err = json.Unmarshal(textBytes, &xray)
+		if err != nil {
+			return err.Error()
+		}
+
+		outbounds := xray.flattenOutbounds()
+		if len(outbounds) == 0 {
+			return "no valid outbounds"
+		}
+		xray.Outbounds = outbounds
+
+		err = writeXrayJson(&xray, xrayPath)
+		if err != nil {
 			return err.Error()
 		}
 		return ""
@@ -67,7 +81,6 @@ func parsePlainShareText(text string) (*xrayJson, error) {
 		link, err := url.Parse(proxy)
 		if err == nil {
 			var shareLink xrayShareLink
-			shareLink.text = proxy
 			shareLink.link = link
 			if outbound, err := shareLink.outbound(); err == nil {
 				outbounds = append(outbounds, *outbound)
@@ -125,7 +138,6 @@ func writeXrayJson(xray *xrayJson, xrayPath string) error {
 }
 
 type xrayShareLink struct {
-	text string
 	link *url.URL
 }
 
