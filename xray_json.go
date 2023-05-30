@@ -431,7 +431,7 @@ func (proxy xrayOutbound) shareLink() (*url.URL, error) {
 			return nil, err
 		}
 	}
-	proxy.streamSettingsLink(&shareUrl)
+	proxy.streamSettingsQuery(&shareUrl)
 
 	return &shareUrl, nil
 }
@@ -530,6 +530,9 @@ func (proxy xrayOutbound) trojanLink(link *url.URL) error {
 		return err
 	}
 
+	link.Fragment = proxy.Name
+	link.Scheme = "trojan"
+
 	for _, server := range settings.Servers {
 		link.Host = fmt.Sprintf("%s:%d", server.Address, server.Port)
 		link.User = url.User(server.Password)
@@ -537,7 +540,7 @@ func (proxy xrayOutbound) trojanLink(link *url.URL) error {
 	return nil
 }
 
-func (proxy xrayOutbound) streamSettingsLink(link *url.URL) {
+func (proxy xrayOutbound) streamSettingsQuery(link *url.URL) {
 	streamSettings := proxy.StreamSettings
 	if streamSettings == nil {
 		return
@@ -556,37 +559,62 @@ func (proxy xrayOutbound) streamSettingsLink(link *url.URL) {
 
 	switch streamSettings.Network {
 	case "tcp":
-		headerType := streamSettings.TcpSettings.Header.Type
+		if streamSettings.TcpSettings == nil || streamSettings.TcpSettings.Header == nil {
+			break
+		}
+		header := streamSettings.TcpSettings.Header
+		headerType := header.Type
 		if len(headerType) > 0 {
 			query = addQuery(query, "headerType", headerType)
+			if header.Request == nil {
+				break
+			}
+			path := header.Request.Path
+			if len(path) > 0 {
+				query = addQuery(query, "path", strings.Join(path, ","))
+			}
+			if header.Request.Headers == nil {
+				break
+			}
 			host := streamSettings.TcpSettings.Header.Request.Headers.Host
 			if len(host) > 0 {
 				query = addQuery(query, "host", strings.Join(host, ","))
 			}
-			path := streamSettings.TcpSettings.Header.Request.Path
-			if len(path) > 0 {
-				query = addQuery(query, "path", strings.Join(path, ","))
-			}
 		}
 	case "kcp":
+		if streamSettings.KcpSettings == nil {
+			break
+		}
+		seed := streamSettings.KcpSettings.Seed
+		if len(seed) > 0 {
+			query = addQuery(query, "seed", seed)
+		}
+		if streamSettings.KcpSettings.Header == nil {
+			break
+		}
 		headerType := streamSettings.KcpSettings.Header.Type
 		if len(headerType) > 0 {
 			query = addQuery(query, "headerType", headerType)
 		}
-		seed := streamSettings.KcpSettings.Seed
-		if len(headerType) > 0 {
-			query = addQuery(query, "seed", seed)
-		}
 	case "ws":
-		host := streamSettings.WsSettings.Headers.Host
-		if len(host) > 0 {
-			query = addQuery(query, "host", host)
+		if streamSettings.WsSettings == nil {
+			break
 		}
 		path := streamSettings.WsSettings.Path
 		if len(path) > 0 {
 			query = addQuery(query, "path", path)
 		}
+		if streamSettings.WsSettings.Headers == nil {
+			break
+		}
+		host := streamSettings.WsSettings.Headers.Host
+		if len(host) > 0 {
+			query = addQuery(query, "host", host)
+		}
 	case "grpc":
+		if streamSettings.GrpcSettings == nil {
+			break
+		}
 		mode := streamSettings.GrpcSettings.MultiMode
 		if mode {
 			query = addQuery(query, "mode", "multi")
@@ -598,9 +626,8 @@ func (proxy xrayOutbound) streamSettingsLink(link *url.URL) {
 			query = addQuery(query, "serviceName", serviceName)
 		}
 	case "quic":
-		headerType := streamSettings.KcpSettings.Header.Type
-		if len(headerType) > 0 {
-			query = addQuery(query, "headerType", headerType)
+		if streamSettings.QuicSettings == nil {
+			break
 		}
 		quicSecurity := streamSettings.QuicSettings.Security
 		if len(quicSecurity) > 0 {
@@ -610,7 +637,18 @@ func (proxy xrayOutbound) streamSettingsLink(link *url.URL) {
 		if len(key) > 0 {
 			query = addQuery(query, "key", key)
 		}
+		if streamSettings.KcpSettings.Header == nil {
+			break
+		}
+		headerType := streamSettings.KcpSettings.Header.Type
+		if len(headerType) > 0 {
+			query = addQuery(query, "headerType", headerType)
+		}
+
 	case "http":
+		if streamSettings.HttpSettings == nil {
+			break
+		}
 		host := streamSettings.HttpSettings.Host
 		if len(host) > 0 {
 			query = addQuery(query, "host", strings.Join(host, ","))
@@ -623,6 +661,9 @@ func (proxy xrayOutbound) streamSettingsLink(link *url.URL) {
 
 	switch streamSettings.Security {
 	case "tls":
+		if streamSettings.TlsSettings == nil {
+			break
+		}
 		fp := streamSettings.TlsSettings.Fingerprint
 		if len(fp) > 0 {
 			query = addQuery(query, "fp", fp)
@@ -636,6 +677,9 @@ func (proxy xrayOutbound) streamSettingsLink(link *url.URL) {
 			query = addQuery(query, "alpn", strings.Join(alpn, ","))
 		}
 	case "reality":
+		if streamSettings.RealitySettings == nil {
+			break
+		}
 		fp := streamSettings.RealitySettings.Fingerprint
 		if len(fp) > 0 {
 			query = addQuery(query, "fp", fp)
