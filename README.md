@@ -1,4 +1,4 @@
-# libxray
+# libXray
 
 This is an Xray wrapper focusing on improving the experience of [Xray-core](https://github.com/XTLS/Xray-core) mobile development.
 
@@ -72,7 +72,7 @@ Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进�
 
 ## Credits
 
-[Project X](https://github.com/xtls/xray-core)
+[Project X](https://github.com/XTLS/Xray-core)
 
 [VMessPing](https://github.com/v2fly/vmessping)
 
