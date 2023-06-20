@@ -4,8 +4,8 @@ import (
 	"github.com/xtls/xray-core/common/uuid"
 )
 
-func CustomUUID(str string) string {
-	id, err := uuid.ParseString(str)
+func CustomUUID(text string) string {
+	id, err := uuid.ParseString(text)
 	if err != nil {
 		return err.Error()
 	}

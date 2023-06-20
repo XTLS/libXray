@@ -40,7 +40,7 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 ### share.go
 
-转换 v2rayN 订阅为 Xray Json。不支持 VMessQRCode。
+转换 v2rayN 订阅为 Xray Json。
 
 转换 VMessAEAD/VLESS 分享为 Xray Json。
 

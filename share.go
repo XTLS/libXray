@@ -82,6 +82,7 @@ func parsePlainShareText(text string) (*xrayJson, error) {
 		if err == nil {
 			var shareLink xrayShareLink
 			shareLink.link = link
+			shareLink.rawText = proxy
 			if outbound, err := shareLink.outbound(); err == nil {
 				outbounds = append(outbounds, *outbound)
 			} else {
@@ -138,7 +139,8 @@ func writeXrayJson(xray *xrayJson, xrayPath string) error {
 }
 
 type xrayShareLink struct {
-	link *url.URL
+	link    *url.URL
+	rawText string
 }
 
 func (proxy xrayShareLink) outbound() (*xrayOutbound, error) {
@@ -220,6 +222,13 @@ func (proxy xrayShareLink) shadowsocksOutbound() (*xrayOutbound, error) {
 }
 
 func (proxy xrayShareLink) vmessOutbound() (*xrayOutbound, error) {
+	// try vmessQrCode
+	text := strings.ReplaceAll(proxy.rawText, "vmess://", "")
+	base64Text, err := decodeBase64Text(text)
+	if err == nil {
+		return parseVMessQrCode(base64Text)
+	}
+
 	var outbound xrayOutbound
 	outbound.Protocol = "vmess"
 	outbound.Name = proxy.link.Fragment

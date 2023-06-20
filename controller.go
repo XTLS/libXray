@@ -1,6 +1,8 @@
 package libxray
 
 import (
+	"syscall"
+
 	xinternet "github.com/xtls/xray-core/transport/internet"
 )
 
@@ -9,8 +11,8 @@ type DialerController interface {
 }
 
 func RegisterDialerController(controller DialerController) {
-	xinternet.RegisterDialerController(func(network, address string, fd uintptr) error {
-		controller.FdCallback(int(fd))
+	xinternet.RegisterDialerController(func(network, address string, conn syscall.RawConn) error {
+		//controller.FdCallback(int(fd))
 		return nil
 	})
 }

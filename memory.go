@@ -7,8 +7,6 @@ import (
 	"github.com/xtls/xray-core/common/platform"
 )
 
-// will be removed when 1.9.0 released
-
 func forceFree(interval time.Duration) {
 	go func() {
 		for {
