@@ -2,8 +2,10 @@ package libxray
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -17,15 +19,20 @@ const (
 	pingDelayError   int64 = 10000
 )
 
+type geoLocation struct {
+	Ip string `json:"ip,omitempty"`
+	Cc string `json:"cc,omitempty"`
+}
+
 func Ping(datDir string, config string, timeout int, url string, times int) string {
 	initEnv(datDir)
 	server, err := startXray(config)
 	if err != nil {
-		return fmt.Sprintf("%d:%s", pingDelayError, err)
+		return fmt.Sprintf("%d::%s", pingDelayError, err)
 	}
 
 	if err := server.Start(); err != nil {
-		return fmt.Sprintf("%d:%s", pingDelayError, err)
+		return fmt.Sprintf("%d::%s", pingDelayError, err)
 	}
 	defer server.Close()
 
@@ -36,14 +43,14 @@ func measureDelay(inst *core.Instance, timeout int, url string, times int) strin
 	httpTimeout := time.Second * time.Duration(timeout)
 	c, err := coreHTTPClient(inst, httpTimeout)
 	if err != nil {
-		return fmt.Sprintf("%d:%s", pingDelayError, err)
+		return fmt.Sprintf("%d::%s", pingDelayError, err)
 	}
 	delaySum := int64(0)
 	count := int64(0)
 	isValid := false
 	lastErr := ""
 	for i := 0; i < times; i++ {
-		delay, err := coreHTTPRequest(c, url)
+		delay, err := pingHTTPRequest(c, url)
 		if delay != pingDelayTimeout {
 			delaySum += delay
 			count += 1
@@ -53,9 +60,14 @@ func measureDelay(inst *core.Instance, timeout int, url string, times int) strin
 		}
 	}
 	if !isValid {
-		return fmt.Sprintf("%d:%s", pingDelayTimeout, lastErr)
+		return fmt.Sprintf("%d::%s", pingDelayTimeout, lastErr)
 	}
-	return fmt.Sprintf("%d:%s", delaySum/count, lastErr)
+	country, err := geolocationHTTPRequest(c)
+	if err != nil {
+		fmt.Println("geolocation error: ", err)
+	}
+
+	return fmt.Sprintf("%d:%s:%s", delaySum/count, country, lastErr)
 }
 
 func coreHTTPClient(inst *core.Instance, timeout time.Duration) (*http.Client, error) {
@@ -82,7 +94,7 @@ func coreHTTPClient(inst *core.Instance, timeout time.Duration) (*http.Client, e
 	return c, nil
 }
 
-func coreHTTPRequest(c *http.Client, url string) (int64, error) {
+func pingHTTPRequest(c *http.Client, url string) (int64, error) {
 	start := time.Now()
 	req, _ := http.NewRequest("GET", url, nil)
 	_, err := c.Do(req)
@@ -90,4 +102,22 @@ func coreHTTPRequest(c *http.Client, url string) (int64, error) {
 		return pingDelayTimeout, err
 	}
 	return time.Since(start).Milliseconds(), nil
+}
+
+func geolocationHTTPRequest(c *http.Client) (string, error) {
+	req, _ := http.NewRequest("GET", "https://ident.me/json", nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		return "", err
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var location geoLocation
+	if err = json.Unmarshal(body, &location); err != nil {
+		return "", err
+	}
+	return location.Cc, nil
 }
