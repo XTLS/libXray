@@ -1,4 +1,4 @@
-module libxray
+module github.com/xtls/libxray
 
 go 1.20
 

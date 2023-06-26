@@ -1,4 +1,4 @@
-package libxray
+package libXray
 
 import (
 	"fmt"

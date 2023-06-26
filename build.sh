@@ -1,6 +1,5 @@
 #!/bin/bash
 
-go mod init libxray
 go mod tidy
 go install golang.org/x/mobile/cmd/gomobile@latest
 gomobile init
