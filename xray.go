@@ -1,9 +1,11 @@
+// libXray is an Xray wrapper focusing on improving the experience of Xray-core mobile development.
 package libXray
 
 import (
 	"os"
 	"runtime/debug"
 
+	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/core"
 	_ "github.com/xtls/xray-core/main/distro/all"
@@ -33,10 +35,13 @@ func initEnv(datDir string) {
 }
 
 func setMaxMemory(maxMemory int64) {
-	os.Setenv("XRAY_MEMORY_FORCEFREE", "1")
-	initForceFree(maxMemory)
+	nodep.InitForceFree(maxMemory, 1)
 }
 
+// Run Xray instance.
+// datDir means the dir which geosite.dat and geoip.dat are in.
+// configPath means the config.json file path.
+// maxMemory means the soft memory limit of golang, see SetMemoryLimit to find more information.
 func RunXray(datDir string, configPath string, maxMemory int64) string {
 	initEnv(datDir)
 	if maxMemory > 0 {
@@ -55,6 +60,7 @@ func RunXray(datDir string, configPath string, maxMemory int64) string {
 	return ""
 }
 
+// Stop Xray instance.
 func StopXray() string {
 	if coreServer != nil {
 		err := coreServer.Close()
@@ -66,6 +72,14 @@ func StopXray() string {
 	return ""
 }
 
+// Xray's version
 func XrayVersion() string {
 	return core.Version()
+}
+
+// Wrapper of nodep.GetFreePorts
+// count means how many ports you need.
+// return ports divided by ":", like "1080:1081"
+func GetFreePorts(count int) string {
+	return nodep.GetFreePorts(count)
 }

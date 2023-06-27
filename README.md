@@ -12,10 +12,6 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 转换 Clash yaml，Clash.Meta yaml 为 Xray Json。
 
-### controller.go
-
-试验性的 Android Protect(fd)。
-
 ### file.go
 
 文件写入。

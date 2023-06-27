@@ -9,9 +9,12 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/platform/filesystem"
 )
 
+// Convert share text to xrayJson
+// support xrayJson, v2rayN plain text, v2rayN base64 text, clash yaml, Clash.Meta yaml
 func ParseShareText(textPath string, xrayPath string) string {
 	textBytes, err := filesystem.ReadFile(textPath)
 	if err != nil {
@@ -135,7 +138,7 @@ func writeXrayJson(xray *xrayJson, xrayPath string) error {
 		return err
 	}
 
-	return writeBytes(xrayBytes, xrayPath)
+	return nodep.WriteBytes(xrayBytes, xrayPath)
 }
 
 type xrayShareLink struct {

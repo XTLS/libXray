@@ -1,4 +1,4 @@
-package libXray
+package nodep
 
 import (
 	"fmt"

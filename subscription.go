@@ -8,9 +8,12 @@ import (
 
 	"net/url"
 
+	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/platform/filesystem"
 )
 
+// Convert XrayJson to share links.
+// VMess will generate VMessAEAD link.
 func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
 	xrayBytes, err := filesystem.ReadFile(xrayPath)
 	if err != nil {
@@ -40,7 +43,7 @@ func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
 		return "no valid outbounds"
 	}
 	text := strings.Join(links, "\n")
-	err = writeText(text, textPath)
+	err = nodep.WriteText(text, textPath)
 	if err != nil {
 		return err.Error()
 	}

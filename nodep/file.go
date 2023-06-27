@@ -1,10 +1,10 @@
-package libXray
+package nodep
 
 import (
 	"os"
 )
 
-func writeBytes(bytes []byte, path string) error {
+func WriteBytes(bytes []byte, path string) error {
 	fi, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0664)
 	if err != nil {
 		return err
@@ -18,7 +18,7 @@ func writeBytes(bytes []byte, path string) error {
 	return nil
 }
 
-func writeText(text string, path string) error {
+func WriteText(text string, path string) error {
 	fi, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0664)
 	if err != nil {
 		return err

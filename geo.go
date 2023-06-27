@@ -7,11 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/app/router"
 	"github.com/xtls/xray-core/common/platform/filesystem"
 	"google.golang.org/protobuf/proto"
 )
 
+// Read geo data and write all codes to text file.
+// dir means the dir which geosite.dat and geoip.dat are in.
 func LoadGeoData(dir string) string {
 	if err := loadGeoSite(dir); err != nil {
 		return err.Error()
@@ -22,7 +25,7 @@ func LoadGeoData(dir string) string {
 	ts := time.Now().Unix()
 	tsText := strconv.FormatInt(ts, 10)
 	tsPath := path.Join(dir, "timestamp.txt")
-	if err := writeText(tsText, tsPath); err != nil {
+	if err := nodep.WriteText(tsText, tsPath); err != nil {
 		return err.Error()
 	}
 	return ""
@@ -53,7 +56,7 @@ func loadGeoSite(dir string) error {
 		}
 	}
 	text := strings.Join(countries, "\n")
-	if err := writeText(text, txtPath); err != nil {
+	if err := nodep.WriteText(text, txtPath); err != nil {
 		return err
 	}
 
@@ -78,7 +81,7 @@ func loadGeoIP(dir string) error {
 	}
 
 	text := strings.Join(countries, "\n")
-	if err := writeText(text, txtPath); err != nil {
+	if err := nodep.WriteText(text, txtPath); err != nil {
 		return err
 	}
 
