@@ -12,7 +12,7 @@ import (
 
 // Convert share text to XrayJson
 // support XrayJson, v2rayN plain text, v2rayN base64 text, Clash yaml, Clash.Meta yaml
-func ParseShareText(textPath string, xrayPath string) string {
+func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
 	textBytes, err := os.ReadFile(textPath)
 	if err != nil {
 		return err.Error()
