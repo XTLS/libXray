@@ -1,4 +1,4 @@
-package libXray
+package nodep
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ type vmessQrCode struct {
 	Fp   string      `json:"fp,omitempty"`
 }
 
-func parseVMessQrCode(text string) (*xrayOutbound, error) {
+func parseVMessQrCode(text string) (*XrayOutbound, error) {
 	qrcodeBytes := []byte(text)
 	qrcode := vmessQrCode{}
 
@@ -35,16 +35,16 @@ func parseVMessQrCode(text string) (*xrayOutbound, error) {
 	return qrcode.outbound()
 }
 
-func (proxy vmessQrCode) outbound() (*xrayOutbound, error) {
-	var outbound xrayOutbound
+func (proxy vmessQrCode) outbound() (*XrayOutbound, error) {
+	var outbound XrayOutbound
 	outbound.Protocol = "vmess"
 	outbound.Name = proxy.Ps
 
-	var user xrayVMessVnextUser
+	var user XrayVMessVnextUser
 	user.Id = proxy.Id
 	user.Security = proxy.Scy
 
-	var vnext xrayVMessVnext
+	var vnext XrayVMessVnext
 	vnext.Address = proxy.Add
 	portStr := fmt.Sprintf("%v", proxy.Port)
 	port, err := strconv.Atoi(portStr)
@@ -53,10 +53,10 @@ func (proxy vmessQrCode) outbound() (*xrayOutbound, error) {
 	}
 	vnext.Port = port
 
-	vnext.Users = []xrayVMessVnextUser{user}
+	vnext.Users = []XrayVMessVnextUser{user}
 
-	var settings xrayVMess
-	settings.Vnext = []xrayVMessVnext{vnext}
+	var settings XrayVMess
+	settings.Vnext = []XrayVMessVnext{vnext}
 
 	setttingsBytes, err := json.Marshal(settings)
 	if err != nil {
@@ -69,8 +69,8 @@ func (proxy vmessQrCode) outbound() (*xrayOutbound, error) {
 	return &outbound, nil
 }
 
-func (proxy vmessQrCode) streamSettings() *xrayStreamSettings {
-	var streamSettings xrayStreamSettings
+func (proxy vmessQrCode) streamSettings() *XrayStreamSettings {
+	var streamSettings XrayStreamSettings
 	network := proxy.Net
 	if len(network) == 0 {
 		streamSettings.Network = "tcp"
@@ -82,31 +82,31 @@ func (proxy vmessQrCode) streamSettings() *xrayStreamSettings {
 	case "tcp":
 		headerType := proxy.Type
 		if headerType == "http" {
-			var request xrayTcpSettingsHeaderRequest
+			var request XrayTcpSettingsHeaderRequest
 			path := proxy.Path
 			if len(path) > 0 {
 				request.Path = strings.Split(path, ",")
 			}
 			host := proxy.Host
 			if len(host) > 0 {
-				var headers xrayTcpSettingsHeaderRequestHeaders
+				var headers XrayTcpSettingsHeaderRequestHeaders
 				headers.Host = strings.Split(host, ",")
 				request.Headers = &headers
 			}
-			var header xrayTcpSettingsHeader
+			var header XrayTcpSettingsHeader
 			header.Type = headerType
 			header.Request = &request
 
-			var tcpSettings xrayTcpSettings
+			var tcpSettings XrayTcpSettings
 			tcpSettings.Header = &header
 
 			streamSettings.TcpSettings = &tcpSettings
 		}
 	case "kcp":
-		var kcpSettings xrayKcpSettings
+		var kcpSettings XrayKcpSettings
 		headerType := proxy.Type
 		if len(headerType) > 0 {
-			var header xrayFakeHeader
+			var header XrayFakeHeader
 			header.Type = headerType
 			kcpSettings.Header = &header
 		}
@@ -114,28 +114,28 @@ func (proxy vmessQrCode) streamSettings() *xrayStreamSettings {
 
 		streamSettings.KcpSettings = &kcpSettings
 	case "ws":
-		var wsSettings xrayWsSettings
+		var wsSettings XrayWsSettings
 		wsSettings.Path = proxy.Path
 		host := proxy.Host
 		if len(host) > 0 {
-			var headers xrayWsSettingsHeaders
+			var headers XrayWsSettingsHeaders
 			headers.Host = host
 			wsSettings.Headers = &headers
 		}
 
 		streamSettings.WsSettings = &wsSettings
 	case "grpc":
-		var grcpSettings xrayGrpcSettings
+		var grcpSettings XrayGrpcSettings
 		grcpSettings.ServiceName = proxy.Path
 		mode := proxy.Type
 		grcpSettings.MultiMode = mode == "multi"
 
 		streamSettings.GrpcSettings = &grcpSettings
 	case "quic":
-		var quicSettings xrayQuicSettings
+		var quicSettings XrayQuicSettings
 		headerType := proxy.Type
 		if len(headerType) > 0 {
-			var header xrayFakeHeader
+			var header XrayFakeHeader
 			header.Type = headerType
 			quicSettings.Header = &header
 		}
@@ -144,7 +144,7 @@ func (proxy vmessQrCode) streamSettings() *xrayStreamSettings {
 
 		streamSettings.QuicSettings = &quicSettings
 	case "http":
-		var httpSettings xrayHttpSettings
+		var httpSettings XrayHttpSettings
 		host := proxy.Host
 		httpSettings.Host = strings.Split(host, ",")
 		httpSettings.Path = proxy.Path
@@ -157,8 +157,8 @@ func (proxy vmessQrCode) streamSettings() *xrayStreamSettings {
 	return &streamSettings
 }
 
-func (proxy vmessQrCode) parseSecurity(streamSettings *xrayStreamSettings) {
-	var tlsSettings xrayTlsSettings
+func (proxy vmessQrCode) parseSecurity(streamSettings *XrayStreamSettings) {
+	var tlsSettings XrayTlsSettings
 
 	tlsSettings.Fingerprint = proxy.Fp
 	tlsSettings.ServerName = proxy.Sni

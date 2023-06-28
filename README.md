@@ -8,7 +8,7 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 编译脚本。一键生成 xcframework 和 aar。
 
-### clash.go
+### Clash.go
 
 转换 Clash yaml，Clash.Meta yaml 为 Xray Json。
 

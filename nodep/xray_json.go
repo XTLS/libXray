@@ -1,107 +1,107 @@
-package libXray
+package nodep
 
 import (
 	"encoding/json"
 )
 
-type xrayJson struct {
-	Outbounds []xrayOutbound `json:"outbounds,omitempty"`
+type XrayJson struct {
+	Outbounds []XrayOutbound `json:"outbounds,omitempty"`
 }
 
-type xrayOutbound struct {
+type XrayOutbound struct {
 	Name           string              `json:"name,omitempty"`
 	Protocol       string              `json:"protocol,omitempty"`
 	Settings       *json.RawMessage    `json:"settings,omitempty"`
-	StreamSettings *xrayStreamSettings `json:"streamSettings,omitempty"`
+	StreamSettings *XrayStreamSettings `json:"streamSettings,omitempty"`
 }
 
-type xrayShadowsocks struct {
-	Servers []xrayShadowsocksServer `json:"servers,omitempty"`
+type XrayShadowsocks struct {
+	Servers []XrayShadowsocksServer `json:"servers,omitempty"`
 }
 
-type xrayShadowsocksServer struct {
+type XrayShadowsocksServer struct {
 	Address  string `json:"address,omitempty"`
 	Port     int    `json:"port,omitempty"`
 	Method   string `json:"method,omitempty"`
 	Password string `json:"password,omitempty"`
 }
 
-type xraySocks struct {
-	Servers []xraySocksServer `json:"servers,omitempty"`
+type XraySocks struct {
+	Servers []XraySocksServer `json:"servers,omitempty"`
 }
 
-type xraySocksServer struct {
+type XraySocksServer struct {
 	Address string                `json:"address,omitempty"`
 	Port    int                   `json:"port,omitempty"`
-	Users   []xraySocksServerUser `json:"users,omitempty"`
+	Users   []XraySocksServerUser `json:"users,omitempty"`
 }
 
-type xraySocksServerUser struct {
+type XraySocksServerUser struct {
 	User string `json:"user,omitempty"`
 	Pass string `json:"pass,omitempty"`
 }
 
-type xrayTrojan struct {
-	Servers []xrayTrojanServer `json:"servers,omitempty"`
+type XrayTrojan struct {
+	Servers []XrayTrojanServer `json:"servers,omitempty"`
 }
 
-type xrayTrojanServer struct {
+type XrayTrojanServer struct {
 	Address  string `json:"address,omitempty"`
 	Port     int    `json:"port,omitempty"`
 	Password string `json:"password,omitempty"`
 }
 
-type xrayVLESS struct {
-	Vnext []xrayVLESSVnext `json:"vnext,omitempty"`
+type XrayVLESS struct {
+	Vnext []XrayVLESSVnext `json:"vnext,omitempty"`
 }
 
-type xrayVLESSVnext struct {
+type XrayVLESSVnext struct {
 	Address string               `json:"address,omitempty"`
 	Port    int                  `json:"port,omitempty"`
-	Users   []xrayVLESSVnextUser `json:"users,omitempty"`
+	Users   []XrayVLESSVnextUser `json:"users,omitempty"`
 }
 
-type xrayVLESSVnextUser struct {
+type XrayVLESSVnextUser struct {
 	Id   string `json:"id,omitempty"`
 	Flow string `json:"flow,omitempty"`
 }
 
-type xrayVMess struct {
-	Vnext []xrayVMessVnext `json:"vnext,omitempty"`
+type XrayVMess struct {
+	Vnext []XrayVMessVnext `json:"vnext,omitempty"`
 }
 
-type xrayVMessVnext struct {
+type XrayVMessVnext struct {
 	Address string               `json:"address,omitempty"`
 	Port    int                  `json:"port,omitempty"`
-	Users   []xrayVMessVnextUser `json:"users,omitempty"`
+	Users   []XrayVMessVnextUser `json:"users,omitempty"`
 }
 
-type xrayVMessVnextUser struct {
+type XrayVMessVnextUser struct {
 	Id       string `json:"id,omitempty"`
 	Security string `json:"security,omitempty"`
 }
 
-type xrayStreamSettings struct {
+type XrayStreamSettings struct {
 	Network         string               `json:"network,omitempty"`
 	Security        string               `json:"security,omitempty"`
-	TlsSettings     *xrayTlsSettings     `json:"tlsSettings,omitempty"`
-	RealitySettings *xrayRealitySettings `json:"realitySettings,omitempty"`
-	TcpSettings     *xrayTcpSettings     `json:"tcpSettings,omitempty"`
-	KcpSettings     *xrayKcpSettings     `json:"kcpSettings,omitempty"`
-	WsSettings      *xrayWsSettings      `json:"wsSettings,omitempty"`
-	HttpSettings    *xrayHttpSettings    `json:"httpSettings,omitempty"`
-	QuicSettings    *xrayQuicSettings    `json:"quicSettings,omitempty"`
-	GrpcSettings    *xrayGrpcSettings    `json:"grpcSettings,omitempty"`
+	TlsSettings     *XrayTlsSettings     `json:"tlsSettings,omitempty"`
+	RealitySettings *XrayRealitySettings `json:"realitySettings,omitempty"`
+	TcpSettings     *XrayTcpSettings     `json:"tcpSettings,omitempty"`
+	KcpSettings     *XrayKcpSettings     `json:"kcpSettings,omitempty"`
+	WsSettings      *XrayWsSettings      `json:"wsSettings,omitempty"`
+	HttpSettings    *XrayHttpSettings    `json:"httpSettings,omitempty"`
+	QuicSettings    *XrayQuicSettings    `json:"quicSettings,omitempty"`
+	GrpcSettings    *XrayGrpcSettings    `json:"grpcSettings,omitempty"`
 }
 
-type xrayTlsSettings struct {
+type XrayTlsSettings struct {
 	ServerName    string   `json:"serverName,omitempty"`
 	AllowInsecure bool     `json:"allowInsecure,omitempty"`
 	Alpn          []string `json:"alpn,omitempty"`
 	Fingerprint   string   `json:"fingerprint,omitempty"`
 }
 
-type xrayRealitySettings struct {
+type XrayRealitySettings struct {
 	Fingerprint string `json:"fingerprint,omitempty"`
 	ServerName  string `json:"serverName,omitempty"`
 	PublicKey   string `json:"publicKey,omitempty"`
@@ -109,67 +109,67 @@ type xrayRealitySettings struct {
 	SpiderX     string `json:"spiderX,omitempty"`
 }
 
-type xrayTcpSettings struct {
-	Header *xrayTcpSettingsHeader `json:"header,omitempty"`
+type XrayTcpSettings struct {
+	Header *XrayTcpSettingsHeader `json:"header,omitempty"`
 }
 
-type xrayTcpSettingsHeader struct {
+type XrayTcpSettingsHeader struct {
 	Type    string                        `json:"type,omitempty"`
-	Request *xrayTcpSettingsHeaderRequest `json:"request,omitempty"`
+	Request *XrayTcpSettingsHeaderRequest `json:"request,omitempty"`
 }
 
-type xrayTcpSettingsHeaderRequest struct {
+type XrayTcpSettingsHeaderRequest struct {
 	Path    []string                             `json:"path,omitempty"`
-	Headers *xrayTcpSettingsHeaderRequestHeaders `json:"headers,omitempty"`
+	Headers *XrayTcpSettingsHeaderRequestHeaders `json:"headers,omitempty"`
 }
 
-type xrayTcpSettingsHeaderRequestHeaders struct {
+type XrayTcpSettingsHeaderRequestHeaders struct {
 	Host []string `json:"Host,omitempty"`
 }
 
-type xrayFakeHeader struct {
+type XrayFakeHeader struct {
 	Type string `json:"type,omitempty"`
 }
 
-type xrayKcpSettings struct {
-	Header *xrayFakeHeader `json:"header,omitempty"`
+type XrayKcpSettings struct {
+	Header *XrayFakeHeader `json:"header,omitempty"`
 	Seed   string          `json:"seed,omitempty"`
 }
 
-type xrayWsSettings struct {
+type XrayWsSettings struct {
 	Path    string                 `json:"path,omitempty"`
-	Headers *xrayWsSettingsHeaders `json:"headers,omitempty"`
+	Headers *XrayWsSettingsHeaders `json:"headers,omitempty"`
 }
 
-type xrayWsSettingsHeaders struct {
+type XrayWsSettingsHeaders struct {
 	Host string `json:"Host,omitempty"`
 }
 
-type xrayHttpSettings struct {
+type XrayHttpSettings struct {
 	Host []string `json:"host,omitempty"`
 	Path string   `json:"path,omitempty"`
 }
 
-type xrayQuicSettings struct {
+type XrayQuicSettings struct {
 	Security string          `json:"security,omitempty"`
 	Key      string          `json:"key,omitempty"`
-	Header   *xrayFakeHeader `json:"header,omitempty"`
+	Header   *XrayFakeHeader `json:"header,omitempty"`
 }
 
-type xrayGrpcSettings struct {
+type XrayGrpcSettings struct {
 	ServiceName string `json:"serviceName,omitempty"`
 	MultiMode   bool   `json:"multiMode,omitempty"`
 }
 
-func (xray xrayJson) flattenOutbounds() []xrayOutbound {
-	var outbounds []xrayOutbound
+func (xray XrayJson) FlattenOutbounds() []XrayOutbound {
+	var outbounds []XrayOutbound
 	for _, proxy := range xray.Outbounds {
 		outbounds = append(outbounds, proxy.flattenOutbounds()...)
 	}
 	return outbounds
 }
 
-func (proxy xrayOutbound) flattenOutbounds() []xrayOutbound {
+func (proxy XrayOutbound) flattenOutbounds() []XrayOutbound {
 	switch proxy.Protocol {
 	case "shadowsocks":
 		return proxy.shadowsocksOutbounds()
@@ -182,24 +182,24 @@ func (proxy xrayOutbound) flattenOutbounds() []xrayOutbound {
 	case "trojan":
 		return proxy.trojanOutbounds()
 	}
-	return []xrayOutbound{}
+	return []XrayOutbound{}
 }
 
-func (proxy xrayOutbound) shadowsocksOutbounds() []xrayOutbound {
-	var outbounds []xrayOutbound
+func (proxy XrayOutbound) shadowsocksOutbounds() []XrayOutbound {
+	var outbounds []XrayOutbound
 
-	var settings xrayShadowsocks
+	var settings XrayShadowsocks
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return outbounds
 	}
 
 	for _, server := range settings.Servers {
-		var newSettings xrayShadowsocks
-		newSettings.Servers = []xrayShadowsocksServer{server}
+		var newSettings XrayShadowsocks
+		newSettings.Servers = []XrayShadowsocksServer{server}
 		setttingsBytes, err := json.Marshal(newSettings)
 		if err == nil {
-			var outbound xrayOutbound
+			var outbound XrayOutbound
 			outbound.Protocol = proxy.Protocol
 			outbound.Name = proxy.Name
 			outbound.Settings = (*json.RawMessage)(&setttingsBytes)
@@ -211,10 +211,10 @@ func (proxy xrayOutbound) shadowsocksOutbounds() []xrayOutbound {
 	return outbounds
 }
 
-func (proxy xrayOutbound) vmessOutbounds() []xrayOutbound {
-	var outbounds []xrayOutbound
+func (proxy XrayOutbound) vmessOutbounds() []XrayOutbound {
+	var outbounds []XrayOutbound
 
-	var settings xrayVMess
+	var settings XrayVMess
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return outbounds
@@ -222,16 +222,16 @@ func (proxy xrayOutbound) vmessOutbounds() []xrayOutbound {
 
 	for _, vnext := range settings.Vnext {
 		for _, user := range vnext.Users {
-			var newVnext xrayVMessVnext
+			var newVnext XrayVMessVnext
 			newVnext.Address = vnext.Address
 			newVnext.Port = vnext.Port
-			newVnext.Users = []xrayVMessVnextUser{user}
+			newVnext.Users = []XrayVMessVnextUser{user}
 
-			var newSettings xrayVMess
-			newSettings.Vnext = []xrayVMessVnext{newVnext}
+			var newSettings XrayVMess
+			newSettings.Vnext = []XrayVMessVnext{newVnext}
 			setttingsBytes, err := json.Marshal(newSettings)
 			if err == nil {
-				var outbound xrayOutbound
+				var outbound XrayOutbound
 				outbound.Protocol = proxy.Protocol
 				outbound.Name = proxy.Name
 				outbound.Settings = (*json.RawMessage)(&setttingsBytes)
@@ -245,10 +245,10 @@ func (proxy xrayOutbound) vmessOutbounds() []xrayOutbound {
 	return outbounds
 }
 
-func (proxy xrayOutbound) vlessOutbounds() []xrayOutbound {
-	var outbounds []xrayOutbound
+func (proxy XrayOutbound) vlessOutbounds() []XrayOutbound {
+	var outbounds []XrayOutbound
 
-	var settings xrayVLESS
+	var settings XrayVLESS
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return outbounds
@@ -256,16 +256,16 @@ func (proxy xrayOutbound) vlessOutbounds() []xrayOutbound {
 
 	for _, vnext := range settings.Vnext {
 		for _, user := range vnext.Users {
-			var newVnext xrayVLESSVnext
+			var newVnext XrayVLESSVnext
 			newVnext.Address = vnext.Address
 			newVnext.Port = vnext.Port
-			newVnext.Users = []xrayVLESSVnextUser{user}
+			newVnext.Users = []XrayVLESSVnextUser{user}
 
-			var newSettings xrayVLESS
-			newSettings.Vnext = []xrayVLESSVnext{newVnext}
+			var newSettings XrayVLESS
+			newSettings.Vnext = []XrayVLESSVnext{newVnext}
 			setttingsBytes, err := json.Marshal(newSettings)
 			if err == nil {
-				var outbound xrayOutbound
+				var outbound XrayOutbound
 				outbound.Protocol = proxy.Protocol
 				outbound.Name = proxy.Name
 				outbound.Settings = (*json.RawMessage)(&setttingsBytes)
@@ -278,10 +278,10 @@ func (proxy xrayOutbound) vlessOutbounds() []xrayOutbound {
 	return outbounds
 }
 
-func (proxy xrayOutbound) socksOutbounds() []xrayOutbound {
-	var outbounds []xrayOutbound
+func (proxy XrayOutbound) socksOutbounds() []XrayOutbound {
+	var outbounds []XrayOutbound
 
-	var settings xraySocks
+	var settings XraySocks
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return outbounds
@@ -289,15 +289,15 @@ func (proxy xrayOutbound) socksOutbounds() []xrayOutbound {
 
 	for _, server := range settings.Servers {
 		if len(server.Users) == 0 {
-			var newServer xraySocksServer
+			var newServer XraySocksServer
 			newServer.Address = server.Address
 			newServer.Port = server.Port
 
-			var newSettings xraySocks
-			newSettings.Servers = []xraySocksServer{newServer}
+			var newSettings XraySocks
+			newSettings.Servers = []XraySocksServer{newServer}
 			setttingsBytes, err := json.Marshal(newSettings)
 			if err == nil {
-				var outbound xrayOutbound
+				var outbound XrayOutbound
 				outbound.Protocol = proxy.Protocol
 				outbound.Name = proxy.Name
 				outbound.Settings = (*json.RawMessage)(&setttingsBytes)
@@ -307,16 +307,16 @@ func (proxy xrayOutbound) socksOutbounds() []xrayOutbound {
 			}
 		} else {
 			for _, user := range server.Users {
-				var newServer xraySocksServer
+				var newServer XraySocksServer
 				newServer.Address = server.Address
 				newServer.Port = server.Port
-				newServer.Users = []xraySocksServerUser{user}
+				newServer.Users = []XraySocksServerUser{user}
 
-				var newSettings xraySocks
-				newSettings.Servers = []xraySocksServer{newServer}
+				var newSettings XraySocks
+				newSettings.Servers = []XraySocksServer{newServer}
 				setttingsBytes, err := json.Marshal(newSettings)
 				if err == nil {
-					var outbound xrayOutbound
+					var outbound XrayOutbound
 					outbound.Protocol = proxy.Protocol
 					outbound.Name = proxy.Name
 					outbound.Settings = (*json.RawMessage)(&setttingsBytes)
@@ -331,21 +331,21 @@ func (proxy xrayOutbound) socksOutbounds() []xrayOutbound {
 	return outbounds
 }
 
-func (proxy xrayOutbound) trojanOutbounds() []xrayOutbound {
-	var outbounds []xrayOutbound
+func (proxy XrayOutbound) trojanOutbounds() []XrayOutbound {
+	var outbounds []XrayOutbound
 
-	var settings xrayTrojan
+	var settings XrayTrojan
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return outbounds
 	}
 
 	for _, server := range settings.Servers {
-		var newSettings xrayTrojan
-		newSettings.Servers = []xrayTrojanServer{server}
+		var newSettings XrayTrojan
+		newSettings.Servers = []XrayTrojanServer{server}
 		setttingsBytes, err := json.Marshal(newSettings)
 		if err == nil {
-			var outbound xrayOutbound
+			var outbound XrayOutbound
 			outbound.Protocol = proxy.Protocol
 			outbound.Name = proxy.Name
 			outbound.Settings = (*json.RawMessage)(&setttingsBytes)

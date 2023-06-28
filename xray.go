@@ -76,10 +76,3 @@ func StopXray() string {
 func XrayVersion() string {
 	return core.Version()
 }
-
-// Wrapper of nodep.GetFreePorts
-// count means how many ports you need.
-// return ports divided by ":", like "1080:1081"
-func GetFreePorts(count int) string {
-	return nodep.GetFreePorts(count)
-}

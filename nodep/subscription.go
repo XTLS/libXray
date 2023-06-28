@@ -1,40 +1,37 @@
-package libXray
+package nodep
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
-
 	"net/url"
-
-	"github.com/xtls/libxray/nodep"
-	"github.com/xtls/xray-core/common/platform/filesystem"
+	"os"
+	"strings"
 )
 
 // Convert XrayJson to share links.
 // VMess will generate VMessAEAD link.
 func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
-	xrayBytes, err := filesystem.ReadFile(xrayPath)
+	xrayBytes, err := os.ReadFile(xrayPath)
 	if err != nil {
 		return err.Error()
 	}
 
-	var xray xrayJson
+	var xray XrayJson
 
 	err = json.Unmarshal(xrayBytes, &xray)
 	if err != nil {
 		return err.Error()
 	}
 
-	outbounds := xray.flattenOutbounds()
+	outbounds := xray.FlattenOutbounds()
 	if len(outbounds) == 0 {
 		return "no valid outbounds"
 	}
 
 	var links []string
 	for _, outbound := range outbounds {
-		link, err := outbound.shareLink()
+		link, err := outbound.ShareLink()
 		if err == nil {
 			links = append(links, link.String())
 		}
@@ -43,7 +40,7 @@ func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
 		return "no valid outbounds"
 	}
 	text := strings.Join(links, "\n")
-	err = nodep.WriteText(text, textPath)
+	err = WriteText(text, textPath)
 	if err != nil {
 		return err.Error()
 	}
@@ -51,7 +48,7 @@ func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
 	return ""
 }
 
-func (proxy xrayOutbound) shareLink() (*url.URL, error) {
+func (proxy XrayOutbound) ShareLink() (*url.URL, error) {
 	var shareUrl url.URL
 
 	switch proxy.Protocol {
@@ -86,8 +83,8 @@ func (proxy xrayOutbound) shareLink() (*url.URL, error) {
 	return &shareUrl, nil
 }
 
-func (proxy xrayOutbound) shadowsocksLink(link *url.URL) error {
-	var settings xrayShadowsocks
+func (proxy XrayOutbound) shadowsocksLink(link *url.URL) error {
+	var settings XrayShadowsocks
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -105,8 +102,8 @@ func (proxy xrayOutbound) shadowsocksLink(link *url.URL) error {
 	return nil
 }
 
-func (proxy xrayOutbound) vmessLink(link *url.URL) error {
-	var settings xrayVMess
+func (proxy XrayOutbound) vmessLink(link *url.URL) error {
+	var settings XrayVMess
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -125,8 +122,8 @@ func (proxy xrayOutbound) vmessLink(link *url.URL) error {
 	return nil
 }
 
-func (proxy xrayOutbound) vlessLink(link *url.URL) error {
-	var settings xrayVLESS
+func (proxy XrayOutbound) vlessLink(link *url.URL) error {
+	var settings XrayVLESS
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -147,8 +144,8 @@ func (proxy xrayOutbound) vlessLink(link *url.URL) error {
 	return nil
 }
 
-func (proxy xrayOutbound) socksLink(link *url.URL) error {
-	var settings xraySocks
+func (proxy XrayOutbound) socksLink(link *url.URL) error {
+	var settings XraySocks
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -173,8 +170,8 @@ func (proxy xrayOutbound) socksLink(link *url.URL) error {
 	return nil
 }
 
-func (proxy xrayOutbound) trojanLink(link *url.URL) error {
-	var settings xrayTrojan
+func (proxy XrayOutbound) trojanLink(link *url.URL) error {
+	var settings XrayTrojan
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -190,7 +187,7 @@ func (proxy xrayOutbound) trojanLink(link *url.URL) error {
 	return nil
 }
 
-func (proxy xrayOutbound) streamSettingsQuery(link *url.URL) {
+func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 	streamSettings := proxy.StreamSettings
 	if streamSettings == nil {
 		return

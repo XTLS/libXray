@@ -14,26 +14,26 @@ import (
 )
 
 // Read geo data and write all codes to text file.
-// dir means the dir which geosite.dat and geoip.dat are in.
-func LoadGeoData(dir string) string {
-	if err := loadGeoSite(dir); err != nil {
+// datDir means the dir which geosite.dat and geoip.dat are in.
+func LoadGeoData(datDir string) string {
+	if err := loadGeoSite(datDir); err != nil {
 		return err.Error()
 	}
-	if err := loadGeoIP(dir); err != nil {
+	if err := loadGeoIP(datDir); err != nil {
 		return err.Error()
 	}
 	ts := time.Now().Unix()
 	tsText := strconv.FormatInt(ts, 10)
-	tsPath := path.Join(dir, "timestamp.txt")
+	tsPath := path.Join(datDir, "timestamp.txt")
 	if err := nodep.WriteText(tsText, tsPath); err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
-func loadGeoSite(dir string) error {
-	datPath := path.Join(dir, "geosite.dat")
-	txtPath := path.Join(dir, "geosite.txt")
+func loadGeoSite(datDir string) error {
+	datPath := path.Join(datDir, "geosite.dat")
+	txtPath := path.Join(datDir, "geosite.txt")
 	geositeBytes, err := filesystem.ReadFile(datPath)
 	if err != nil {
 		return err
@@ -63,9 +63,9 @@ func loadGeoSite(dir string) error {
 	return nil
 }
 
-func loadGeoIP(dir string) error {
-	datPath := path.Join(dir, "geoip.dat")
-	txtPath := path.Join(dir, "geoip.txt")
+func loadGeoIP(datDir string) error {
+	datPath := path.Join(datDir, "geoip.dat")
+	txtPath := path.Join(datDir, "geoip.txt")
 	geoipBytes, err := filesystem.ReadFile(datPath)
 	if err != nil {
 		return err
