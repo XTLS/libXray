@@ -1,10 +1,11 @@
 package libXray
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
+	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/xtls/libxray/nodep"
@@ -12,6 +13,14 @@ import (
 	"github.com/xtls/xray-core/common/platform/filesystem"
 	"google.golang.org/protobuf/proto"
 )
+
+type geoList struct {
+	Codes []*geoCountryCode `json:"codes,omitempty"`
+}
+type geoCountryCode struct {
+	Code  string `json:"code,omitempty"`
+	Count int    `json:"count,omitempty"`
+}
 
 // Read geo data and write all codes to text file.
 // datDir means the dir which geosite.dat and geoip.dat are in.
@@ -33,7 +42,7 @@ func LoadGeoData(datDir string) string {
 
 func loadGeoSite(datDir string) error {
 	datPath := path.Join(datDir, "geosite.dat")
-	txtPath := path.Join(datDir, "geosite.txt")
+	jsonPath := path.Join(datDir, "geosite.json")
 	geositeBytes, err := filesystem.ReadFile(datPath)
 	if err != nil {
 		return err
@@ -43,20 +52,36 @@ func loadGeoSite(datDir string) error {
 		return err
 	}
 
-	var countries []string
+	var codes []*geoCountryCode
 	for _, site := range geositeList.Entry {
-		countries = append(countries, site.CountryCode)
+		var siteCode geoCountryCode
+		siteCode.Code = site.CountryCode
+		siteCode.Count = len(site.Domain)
+		codes = append(codes, &siteCode)
 		for _, domain := range site.Domain {
 			for _, attribute := range domain.Attribute {
 				attr := fmt.Sprintf("%s@%s", site.CountryCode, attribute.Key)
-				if !containsString(countries, attr) {
-					countries = append(countries, attr)
+				attrCode := findAttrCode(codes, attr)
+				if attrCode == nil {
+					var newCode geoCountryCode
+					newCode.Code = attr
+					newCode.Count = 1
+					codes = append(codes, &newCode)
+				} else {
+					attrCode.Count += 1
 				}
 			}
 		}
 	}
-	text := strings.Join(countries, "\n")
-	if err := nodep.WriteText(text, txtPath); err != nil {
+
+	sortCodes(codes)
+	var list geoList
+	list.Codes = codes
+	jsonBytes, err := json.Marshal(&list)
+	if err != nil {
+		return err
+	}
+	if err := nodep.WriteBytes(jsonBytes, jsonPath); err != nil {
 		return err
 	}
 
@@ -65,7 +90,7 @@ func loadGeoSite(datDir string) error {
 
 func loadGeoIP(datDir string) error {
 	datPath := path.Join(datDir, "geoip.dat")
-	txtPath := path.Join(datDir, "geoip.txt")
+	jsonPath := path.Join(datDir, "geoip.json")
 	geoipBytes, err := filesystem.ReadFile(datPath)
 	if err != nil {
 		return err
@@ -75,24 +100,39 @@ func loadGeoIP(datDir string) error {
 		return err
 	}
 
-	var countries []string
+	var codes []*geoCountryCode
 	for _, geoip := range geoipList.Entry {
-		countries = append(countries, geoip.CountryCode)
+		var code geoCountryCode
+		code.Code = geoip.CountryCode
+		code.Count = len(geoip.Cidr)
+		codes = append(codes, &code)
 	}
 
-	text := strings.Join(countries, "\n")
-	if err := nodep.WriteText(text, txtPath); err != nil {
+	sortCodes(codes)
+	var list geoList
+	list.Codes = codes
+	jsonBytes, err := json.Marshal(&list)
+	if err != nil {
+		return err
+	}
+	if err := nodep.WriteBytes(jsonBytes, jsonPath); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func containsString(slice []string, element string) bool {
-	for _, e := range slice {
-		if e == element {
-			return true
+func findAttrCode(codes []*geoCountryCode, attrCode string) *geoCountryCode {
+	for _, code := range codes {
+		if code.Code == attrCode {
+			return code
 		}
 	}
-	return false
+	return nil
+}
+
+func sortCodes(codes []*geoCountryCode) {
+	sort.Slice(codes, func(i, j int) bool {
+		return codes[i].Code < codes[j].Code
+	})
 }

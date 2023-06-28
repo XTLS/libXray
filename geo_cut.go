@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type geoCode struct {
+type geoCutCode struct {
 	Domain []string `json:"domain,omitempty"`
 	Ip     []string `json:"ip,omitempty"`
 }
@@ -29,7 +29,7 @@ func CutGeoData(datDir string, dstDir string) string {
 		return err.Error()
 	}
 
-	var code geoCode
+	var code geoCutCode
 
 	if err := json.Unmarshal(codeBytes, &code); err != nil {
 		return err.Error()
