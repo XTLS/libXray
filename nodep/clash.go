@@ -373,10 +373,11 @@ func (proxy ClashProxy) parseSecurity(streamSettings *XrayStreamSettings, outbou
 
 	if proxy.Tls {
 		streamSettings.Security = "tls"
-		if proxy.SkipCertVerify {
-			tlsSettings.AllowInsecure = true
-		}
 	}
+	if proxy.SkipCertVerify {
+		tlsSettings.AllowInsecure = true
+	}
+
 	if proxy.RealityOpts != nil {
 		streamSettings.Security = "reality"
 		realitySettings.PublicKey = proxy.RealityOpts.PublicKey

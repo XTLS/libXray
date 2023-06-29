@@ -179,7 +179,7 @@ func (proxy xrayShareLink) outbound() (*XrayOutbound, error) {
 		}
 		return outbound, nil
 	}
-	return nil, fmt.Errorf("unsupport link type: %s", proxy.link.Scheme)
+	return nil, fmt.Errorf("unsupport link: %s", proxy.rawText)
 }
 
 func (proxy xrayShareLink) shadowsocksOutbound() (*XrayOutbound, error) {
@@ -502,16 +502,18 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *XrayStre
 		streamSettings.Security = security
 	}
 
+	// some link omits too many params, here is some fixing
+	if proxy.link.Scheme == "trojan" && streamSettings.Security == "none" {
+		streamSettings.Security = "tls"
+	}
+	if streamSettings.Network == "ws" && len(tlsSettings.ServerName) == 0 {
+		tlsSettings.ServerName = streamSettings.WsSettings.Headers.Host
+	}
+
 	switch streamSettings.Security {
 	case "tls":
 		streamSettings.TlsSettings = &tlsSettings
 	case "reality":
 		streamSettings.RealitySettings = &realitySettings
-	}
-
-	// some link omits too many params, here is some fixing
-	if proxy.link.Scheme == "trojan" && streamSettings.Security == "none" {
-		streamSettings.Security = "tls"
-		streamSettings.TlsSettings = &tlsSettings
 	}
 }
