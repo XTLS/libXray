@@ -10,6 +10,7 @@ import (
 	"github.com/xtls/libxray/nodep"
 	statsService "github.com/xtls/xray-core/app/stats/command"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -40,7 +41,7 @@ func writeResult(m proto.Message, path string) error {
 // dir means the dir which result json will be wrote to.
 func QueryStats(server string, dir string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(3)*time.Second)
-	conn, err := grpc.DialContext(ctx, server, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, server, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	close := func() {
 		cancel()
 		conn.Close()
