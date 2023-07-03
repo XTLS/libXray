@@ -507,7 +507,9 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *XrayStre
 		streamSettings.Security = "tls"
 	}
 	if streamSettings.Network == "ws" && len(tlsSettings.ServerName) == 0 {
-		tlsSettings.ServerName = streamSettings.WsSettings.Headers.Host
+		if streamSettings.WsSettings != nil && streamSettings.WsSettings.Headers != nil {
+			tlsSettings.ServerName = streamSettings.WsSettings.Headers.Host
+		}
 	}
 
 	switch streamSettings.Security {

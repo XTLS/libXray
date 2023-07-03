@@ -177,7 +177,9 @@ func (proxy vmessQrCode) parseSecurity(streamSettings *XrayStreamSettings) {
 
 	// some link omits too many params, here is some fixing
 	if streamSettings.Network == "ws" && len(tlsSettings.ServerName) == 0 {
-		tlsSettings.ServerName = streamSettings.WsSettings.Headers.Host
+		if streamSettings.WsSettings != nil && streamSettings.WsSettings.Headers != nil {
+			tlsSettings.ServerName = streamSettings.WsSettings.Headers.Host
+		}
 	}
 
 	switch streamSettings.Security {
