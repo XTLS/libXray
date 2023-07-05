@@ -8,6 +8,7 @@ type XrayJson struct {
 	Outbounds []XrayOutbound `json:"outbounds,omitempty"`
 }
 
+// Keep same with Xray Config, but add name for sharing.
 type XrayOutbound struct {
 	Name           string              `json:"name,omitempty"`
 	Protocol       string              `json:"protocol,omitempty"`
