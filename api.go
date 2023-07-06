@@ -37,7 +37,7 @@ func writeResult(m proto.Message, path string) error {
 }
 
 // query system stats and outbound stats.
-// server means The API server address.
+// server means The API server address, like "127.0.0.1:8080".
 // dir means the dir which result json will be wrote to.
 func QueryStats(server string, dir string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(3)*time.Second)

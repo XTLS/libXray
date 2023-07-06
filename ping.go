@@ -29,3 +29,11 @@ func Ping(datDir string, configPath string, timeout int, url string, times int, 
 
 	return nodep.MeasureDelay(timeout, url, times, proxy)
 }
+
+// Find the delay of some outbound.
+// timeout means how long the tcp connection will be cancelled if no response, in units of seconds.
+// server means the destination we use to test speed, like "8.8.8.8:853".
+// times means how many times we should test the server.
+func TcpPing(timeout int, server string, times int) string {
+	return nodep.TcpPing(timeout, server, times)
+}

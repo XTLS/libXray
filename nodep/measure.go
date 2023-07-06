@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -98,4 +99,43 @@ func geolocationHTTPRequest(c *http.Client) (string, error) {
 		return "", err
 	}
 	return location.Cc, nil
+}
+
+// Find the delay of some outbound.
+// timeout means how long the tcp connection will be cancelled if no response, in units of seconds.
+// server means the destination we use to test speed, like "8.8.8.8:853".
+// times means how many times we should test the server.
+func TcpPing(timeout int, server string, times int) string {
+	tcpTimeout := time.Second * time.Duration(timeout)
+	delaySum := int64(0)
+	count := int64(0)
+	isValid := false
+	lastErr := ""
+	for i := 0; i < times; i++ {
+		delay, err := tcpPing(tcpTimeout, server)
+		if delay != PingDelayTimeout {
+			delaySum += delay
+			count += 1
+			isValid = true
+		} else {
+			lastErr = err.Error()
+		}
+	}
+	if !isValid {
+		return fmt.Sprintf("%d::%s", PingDelayTimeout, lastErr)
+	}
+
+	return fmt.Sprintf("%d::%s", delaySum/count, lastErr)
+}
+
+func tcpPing(timeout time.Duration, server string) (int64, error) {
+	start := time.Now()
+	conn, err := net.DialTimeout("tcp", server, timeout)
+	if err != nil {
+		return PingDelayTimeout, err
+	}
+	defer conn.Close()
+
+	rtt := time.Since(start).Milliseconds()
+	return rtt, nil
 }
