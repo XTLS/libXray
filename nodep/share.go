@@ -200,7 +200,7 @@ func (proxy xrayShareLink) shadowsocksOutbound() (*XrayOutbound, error) {
 	if err != nil {
 		return nil, err
 	}
-	pwConfig := strings.Split(passwordText, ":")
+	pwConfig := strings.SplitN(passwordText, ":", 2)
 	if len(pwConfig) != 2 {
 		return nil, fmt.Errorf("unsupport link shadowsocks password: %s", passwordText)
 	}
@@ -312,7 +312,7 @@ func (proxy xrayShareLink) socksOutbound() (*XrayOutbound, error) {
 	if err != nil {
 		return nil, err
 	}
-	pwConfig := strings.Split(passwordText, ":")
+	pwConfig := strings.SplitN(passwordText, ":", 2)
 	if len(pwConfig) != 2 {
 		return nil, fmt.Errorf("unsupport link socks user password: %s", passwordText)
 	}
