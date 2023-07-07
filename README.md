@@ -22,6 +22,8 @@ This repository has very limited maintainers. If you're not reporting a bug, or 
 
 基于 http proxy 进行延迟测试和 geolocation。
 
+TCPPing。
+
 ### memory.go
 
 强制 GC。
@@ -90,14 +92,6 @@ Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进�
 ### xray.go
 
 启动和停止 Xray 。
-
-# Used By
-
-[FoXray](https://apps.apple.com/app/foxray/id6448898396)
-
-# Contributing
-
-[yiguo](https://yiguo.dev) wrote the original source code. Now it belongs to the Xray Community.
 
 ## Credits
 
