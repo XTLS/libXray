@@ -2,8 +2,13 @@ package libXray
 
 import (
 	"fmt"
+	"net"
+	"path"
 
 	"github.com/xtls/libxray/nodep"
+	"github.com/xtls/xray-core/app/router"
+	"github.com/xtls/xray-core/common/platform/filesystem"
+	"google.golang.org/protobuf/proto"
 )
 
 // Ping Xray config and find the delay and country code of its outbound.
@@ -27,7 +32,19 @@ func Ping(datDir string, configPath string, timeout int, url string, times int, 
 	}
 	defer server.Close()
 
-	return nodep.MeasureDelay(timeout, url, times, proxy)
+	delay, ip, err := nodep.MeasureDelay(timeout, url, times, proxy)
+	if err != nil {
+		return fmt.Sprintf("%d::%s", delay, err)
+	}
+	country := ""
+	if len(ip) != 0 {
+		code, err := findCountryCodeOfIp(datDir, ip)
+		if err == nil {
+			country = code
+		}
+	}
+
+	return fmt.Sprintf("%d:%s:", delay, country)
 }
 
 // Find the delay of some outbound.
@@ -36,4 +53,31 @@ func Ping(datDir string, configPath string, timeout int, url string, times int, 
 // times means how many times we should test the server.
 func TcpPing(timeout int, server string, times int) string {
 	return nodep.TcpPing(timeout, server, times)
+}
+
+func findCountryCodeOfIp(datDir string, ipAddress string) (string, error) {
+	datPath := path.Join(datDir, "geoip.dat")
+	geoipBytes, err := filesystem.ReadFile(datPath)
+	if err != nil {
+		return "", err
+	}
+	var geoipList router.GeoIPList
+	if err := proto.Unmarshal(geoipBytes, &geoipList); err != nil {
+		return "", err
+	}
+
+	for _, geoip := range geoipList.Entry {
+		m := &router.GeoIPMatcher{}
+		m.SetReverseMatch(geoip.ReverseMatch)
+		if err := m.Init(geoip.Cidr); err != nil {
+			return "", err
+		}
+		ip := net.ParseIP(ipAddress)
+		if ip != nil {
+			if m.Match(ip) {
+				return geoip.CountryCode, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("can not find ip: %s location", ipAddress)
 }

@@ -1,7 +1,6 @@
 package nodep
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -15,27 +14,22 @@ const (
 	PingDelayError   int64 = 10000
 )
 
-type geoLocation struct {
-	Ip string `json:"ip,omitempty"`
-	Cc string `json:"cc,omitempty"`
-}
-
-// Find the delay and country code of some outbound.
+// Find the delay and ip of some outbound.
 // timeout means how long the http request will be cancelled if no response, in units of seconds.
 // url means the website we use to test speed. "https://www.google.com/gen_204" is a good choice for most cases.
 // times means how many times we should test the url.
 // proxy means the local http/socks5 proxy, like "http://127.0.0.1:1080".
 
-func MeasureDelay(timeout int, url string, times int, proxy string) string {
+func MeasureDelay(timeout int, url string, times int, proxy string) (int64, string, error) {
 	httpTimeout := time.Second * time.Duration(timeout)
 	c, err := coreHTTPClient(httpTimeout, proxy)
 	if err != nil {
-		return fmt.Sprintf("%d::%s", PingDelayError, err)
+		return PingDelayError, "", err
 	}
 	delaySum := int64(0)
 	count := int64(0)
 	isValid := false
-	lastErr := ""
+	var lastErr error
 	for i := 0; i < times; i++ {
 		delay, err := pingHTTPRequest(c, url)
 		if delay != PingDelayTimeout {
@@ -43,18 +37,18 @@ func MeasureDelay(timeout int, url string, times int, proxy string) string {
 			count += 1
 			isValid = true
 		} else {
-			lastErr = err.Error()
+			lastErr = err
 		}
 	}
 	if !isValid {
-		return fmt.Sprintf("%d::%s", PingDelayTimeout, lastErr)
+		return PingDelayTimeout, "", lastErr
 	}
-	country, err := geolocationHTTPRequest(c)
+	ip, err := ipHTTPRequest(c)
 	if err != nil {
-		fmt.Println("geolocation error: ", err)
+		fmt.Println("get ip error: ", err)
 	}
 
-	return fmt.Sprintf("%d:%s:%s", delaySum/count, country, lastErr)
+	return delaySum / count, ip, lastErr
 }
 
 func coreHTTPClient(timeout time.Duration, proxy string) (*http.Client, error) {
@@ -83,8 +77,8 @@ func pingHTTPRequest(c *http.Client, url string) (int64, error) {
 	return time.Since(start).Milliseconds(), nil
 }
 
-func geolocationHTTPRequest(c *http.Client) (string, error) {
-	req, _ := http.NewRequest("GET", "https://ident.me/json", nil)
+func ipHTTPRequest(c *http.Client) (string, error) {
+	req, _ := http.NewRequest("GET", "https://api.seeip.org/", nil)
 	resp, err := c.Do(req)
 	if err != nil {
 		return "", err
@@ -94,11 +88,8 @@ func geolocationHTTPRequest(c *http.Client) (string, error) {
 		return "", err
 	}
 
-	var location geoLocation
-	if err = json.Unmarshal(body, &location); err != nil {
-		return "", err
-	}
-	return location.Cc, nil
+	ip := string(body)
+	return ip, nil
 }
 
 // Find the delay of some outbound.
