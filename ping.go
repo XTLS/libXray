@@ -15,9 +15,9 @@ import (
 // datDir means the dir which geosite.dat and geoip.dat are in.
 // configPath means the config.json file path.
 // timeout means how long the http request will be cancelled if no response, in units of seconds.
-// url means the website we use to test speed. "https://www.google.com/gen_204" is a good choice for most cases.
+// url means the website we use to test speed. "https://www.google.com" is a good choice for most cases.
 // times means how many times we should test the url.
-// proxy means the local http/socks5 proxy, like "http://127.0.0.1:1080".
+// proxy means the local http/socks5 proxy, like "socks5://[::1]:1080".
 //
 // note: you must use http protocol as inbound.
 func Ping(datDir string, configPath string, timeout int, url string, times int, proxy string) string {
