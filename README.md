@@ -4,7 +4,11 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 # Note
 
-This repository has very limited maintainers. If you're not reporting a bug, or making a PR, your question will most likely be ignored.
+1. This repository has very limited maintainers. If you're not reporting a bug, or making a PR, your question will most likely be ignored.
+
+2. This lib does not guarantee the stability of the api, you need to adapt it by yourself.
+
+3. If your issue is about some Platform development, like iOS or Android, it will be just closed.
 
 # Features
 
@@ -20,7 +24,9 @@ This repository has very limited maintainers. If you're not reporting a bug, or 
 
 ### measure.go
 
-基于 http proxy 进行延迟测试和 geolocation。
+基于 http/socks5 proxy 进行延迟测试。
+
+基于 geoip.dat 进行 geolocation。
 
 TCPPing。
 
@@ -68,9 +74,9 @@ Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进�
 
 ### geo.go
 
-读取 geosite.data，生成类别名称文件，包含 Attribute。
+读取 geosite.dat，生成类别名称文件并统计规则数量，包含 Attribute。
 
-读取 geoip.data，生成类别名称文件。
+读取 geoip.dat，生成类别名称文件并统计规则数量。
 
 ### nodep_wrapper.go
 
