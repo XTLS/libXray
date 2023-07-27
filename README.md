@@ -60,10 +60,6 @@ Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进�
 
 ## lib package
 
-### api.go
-
-统计。
-
 ### build.sh
 
 编译脚本。一键生成 xcframework 和 aar。
@@ -74,9 +70,9 @@ Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进�
 
 ### geo.go
 
-读取 geosite.dat，生成类别名称文件并统计规则数量，包含 Attribute。
+读取 geo site dat，生成类别名称文件并统计规则数量，包含 Attribute。
 
-读取 geoip.dat，生成类别名称文件并统计规则数量。
+读取 geo ip dat，生成类别名称文件并统计规则数量。
 
 ### nodep_wrapper.go
 
@@ -93,6 +89,10 @@ Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进�
 ### uuid.go
 
 转换自定义文本为 uuid。
+
+### validation.go
+
+测试 Xray 配置文件。
 
 ### xray.go
 

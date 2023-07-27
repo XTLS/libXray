@@ -2,29 +2,37 @@ package libXray
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"path"
 	"strings"
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/app/router"
-	"github.com/xtls/xray-core/common/platform/filesystem"
 	"google.golang.org/protobuf/proto"
 )
 
 type geoCutCode struct {
-	Domain []string `json:"domain,omitempty"`
-	Ip     []string `json:"ip,omitempty"`
+	Dat []geoCutCodeDat `json:"dat,omitempty"`
+}
+
+// Type must be the value of geoType
+type geoCutCodeDat struct {
+	Name   string   `json:"name,omitempty"`
+	Type   string   `json:"type,omitempty"`
+	UrlMd5 string   `json:"urlMd5,omitempty"`
+	Codes  []string `json:"codes,omitempty"`
 }
 
 // Read geo data and cut the codes we need.
-// datDir means the dir which geosite.dat and geoip.dat are in.
-// dstDir means the dir which new geosite.dat and new geoip.dat are in.
+// datDir means the dir which geo dat are in.
+// dstDir means the dir which new geo dat are in.
+// cutCodePath means geoCutCode json file path
 //
 // This function is used to reduce memory when init instance.
 // You can cut the country codes which rules and nameservers contain.
-func CutGeoData(datDir string, dstDir string) string {
-	geoCodePath := path.Join(dstDir, "geoCode.json")
-	codeBytes, err := filesystem.ReadFile(geoCodePath)
+func CutGeoData(datDir string, dstDir string, cutCodePath string) string {
+	codeBytes, err := os.ReadFile(cutCodePath)
 	if err != nil {
 		return err.Error()
 	}
@@ -35,18 +43,31 @@ func CutGeoData(datDir string, dstDir string) string {
 		return err.Error()
 	}
 
-	if err := cutGeoSite(datDir, code.Domain, dstDir); err != nil {
-		return err.Error()
+	for _, dat := range code.Dat {
+		switch dat.Type {
+		case geoTypeDomain:
+			if err := cutGeoSite(datDir, dstDir, dat); err != nil {
+				return err.Error()
+			}
+
+		case geoTypeIP:
+			if err := cutGeoIP(datDir, dstDir, dat); err != nil {
+				return err.Error()
+			}
+		default:
+			return fmt.Errorf("wrong geoType: %s", dat.Type).Error()
+		}
 	}
-	if err := cutGeoIP(datDir, code.Ip, dstDir); err != nil {
-		return err.Error()
-	}
+
 	return ""
 }
 
-func cutGeoSite(datDir string, codes []string, dstDir string) error {
-	datPath := path.Join(datDir, "geosite.dat")
-	geositeBytes, err := filesystem.ReadFile(datPath)
+func cutGeoSite(datDir string, dstDir string, dat geoCutCodeDat) error {
+	srcName := dat.UrlMd5 + ".dat"
+	dstName := dat.Name + ".dat"
+	srcPath := path.Join(datDir, srcName)
+	dstPath := path.Join(dstDir, dstName)
+	geositeBytes, err := os.ReadFile(srcPath)
 	if err != nil {
 		return err
 	}
@@ -57,7 +78,7 @@ func cutGeoSite(datDir string, codes []string, dstDir string) error {
 
 	var newEntry []*router.GeoSite
 	for _, site := range geositeList.Entry {
-		if containsCountryCode(codes, site.CountryCode) {
+		if containsCountryCode(dat.Codes, site.CountryCode) {
 			newEntry = append(newEntry, site)
 		}
 	}
@@ -67,7 +88,6 @@ func cutGeoSite(datDir string, codes []string, dstDir string) error {
 	if err != nil {
 		return err
 	}
-	dstPath := path.Join(dstDir, "geosite.dat")
 	if err := nodep.WriteBytes(newDatBytes, dstPath); err != nil {
 		return err
 	}
@@ -75,9 +95,12 @@ func cutGeoSite(datDir string, codes []string, dstDir string) error {
 	return nil
 }
 
-func cutGeoIP(datDir string, codes []string, dstDir string) error {
-	datPath := path.Join(datDir, "geoip.dat")
-	geoipBytes, err := filesystem.ReadFile(datPath)
+func cutGeoIP(datDir string, dstDir string, dat geoCutCodeDat) error {
+	srcName := dat.UrlMd5 + ".dat"
+	dstName := dat.Name + ".dat"
+	srcPath := path.Join(datDir, srcName)
+	dstPath := path.Join(dstDir, dstName)
+	geoipBytes, err := os.ReadFile(srcPath)
 	if err != nil {
 		return err
 	}
@@ -88,7 +111,7 @@ func cutGeoIP(datDir string, codes []string, dstDir string) error {
 
 	var newEntry []*router.GeoIP
 	for _, ip := range geoipList.Entry {
-		if containsCountryCode(codes, ip.CountryCode) {
+		if containsCountryCode(dat.Codes, ip.CountryCode) {
 			newEntry = append(newEntry, ip)
 		}
 	}
@@ -98,7 +121,6 @@ func cutGeoIP(datDir string, codes []string, dstDir string) error {
 	if err != nil {
 		return err
 	}
-	dstPath := path.Join(dstDir, "geoip.dat")
 	if err := nodep.WriteBytes(newDatBytes, dstPath); err != nil {
 		return err
 	}

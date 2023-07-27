@@ -3,11 +3,11 @@ package libXray
 import (
 	"fmt"
 	"net"
+	"os"
 	"path"
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/app/router"
-	"github.com/xtls/xray-core/common/platform/filesystem"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -18,8 +18,6 @@ import (
 // url means the website we use to test speed. "https://www.google.com" is a good choice for most cases.
 // times means how many times we should test the url.
 // proxy means the local http/socks5 proxy, like "socks5://[::1]:1080".
-//
-// note: you must use http protocol as inbound.
 func Ping(datDir string, configPath string, timeout int, url string, times int, proxy string) string {
 	initEnv(datDir)
 	server, err := startXray(configPath)
@@ -57,7 +55,7 @@ func TcpPing(timeout int, server string, times int) string {
 
 func findCountryCodeOfIp(datDir string, ipAddress string) (string, error) {
 	datPath := path.Join(datDir, "geoip.dat")
-	geoipBytes, err := filesystem.ReadFile(datPath)
+	geoipBytes, err := os.ReadFile(datPath)
 	if err != nil {
 		return "", err
 	}
