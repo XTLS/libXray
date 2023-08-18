@@ -64,6 +64,11 @@ Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进�
 
 编译脚本。一键生成 xcframework 和 aar。
 
+
+### controller.go
+
+实验性的 Android 支持 。
+
 ### geo_cut.go
 
 剪切 geosite.data 和 geoip.data 。
