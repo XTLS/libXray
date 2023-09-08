@@ -16,9 +16,15 @@ build_android() {
     gomobile bind -target android -androidapi 28
 }
 
+download_geo() {
+    go run main/main.go
+}
+
 echo "will build libxray for $1"
+download_geo
 if [ "$1" != "apple" ]; then
 build_android
 else
 build_apple
 fi
+echo "build libxray done"

@@ -19,4 +19,5 @@
 *.aar
 go.sum
 
-main/
+dat/
+sub/
