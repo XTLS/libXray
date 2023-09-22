@@ -7,7 +7,7 @@ go get -d golang.org/x/mobile/cmd/gomobile
 
 build_apple() {
     rm -fr *.xcframework
-    gomobile bind -target ios,iossimulator,macos
+    gomobile bind -target ios,iossimulator,macos -iosversion 15.0
 }
 
 build_android() {
