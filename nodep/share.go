@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// https://github.com/XTLS/Xray-core/discussions/716
 // Convert share text to XrayJson
 // support XrayJson, v2rayN plain text, v2rayN base64 text, Clash yaml, Clash.Meta yaml
 func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
@@ -486,6 +487,17 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *XrayStre
 	alpn := query.Get("alpn")
 	if len(alpn) > 0 {
 		tlsSettings.Alpn = strings.Split(alpn, ",")
+	}
+
+	// https://github.com/XTLS/Xray-core/discussions/716
+	// 4.4.3 allowInsecure
+	// 没有这个字段。不安全的节点，不适合分享。
+	// I don't like this field, but too many people ask for it.
+	allowInsecure := query.Get("allowInsecure")
+	if len(allowInsecure) > 0 {
+		if allowInsecure == "true" || allowInsecure == "1" {
+			tlsSettings.AllowInsecure = true
+		}
 	}
 
 	pbk := query.Get("pbk")
