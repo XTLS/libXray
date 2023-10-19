@@ -280,6 +280,13 @@ func (proxy xrayShareLink) vlessOutbound() (*XrayOutbound, error) {
 		user.Flow = flow
 	}
 
+	encryption := query.Get("encryption")
+	if len(flow) > 0 {
+		user.Encryption = encryption
+	} else {
+		user.Encryption = "none"
+	}
+
 	var vnext XrayVLESSVnext
 	vnext.Address = proxy.link.Hostname()
 	port, err := strconv.Atoi(proxy.link.Port())
