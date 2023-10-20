@@ -281,7 +281,7 @@ func (proxy xrayShareLink) vlessOutbound() (*XrayOutbound, error) {
 	}
 
 	encryption := query.Get("encryption")
-	if len(flow) > 0 {
+	if len(encryption) > 0 {
 		user.Encryption = encryption
 	} else {
 		user.Encryption = "none"
