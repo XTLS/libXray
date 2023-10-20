@@ -63,8 +63,9 @@ type XrayVLESSVnext struct {
 }
 
 type XrayVLESSVnextUser struct {
-	Id   string `json:"id,omitempty"`
-	Flow string `json:"flow,omitempty"`
+	Id         string `json:"id,omitempty"`
+	Flow       string `json:"flow,omitempty"`
+	Encryption string `json:"encryption,omitempty"`
 }
 
 type XrayVMess struct {
