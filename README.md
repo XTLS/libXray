@@ -16,95 +16,89 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 ### clash.go
 
-转换 Clash yaml，Clash.Meta yaml 为 Xray Json。
+convert Clash yaml，Clash.Meta yaml to Xray Json.
 
 ### file.go
 
-文件写入。
-
-### measure.go
-
-基于 http/socks5 proxy 进行延迟测试。
-
-基于 geoip.dat 进行 geolocation。
-
-TCPPing。
+write data to file.
 
 ### memory.go
 
-强制 GC。
+try to control the max memory.
 
 ### port.go
 
-获取空闲端口。
+get free port.
 
 ### share.go
 
-转换 v2rayN 订阅为 Xray Json。
+convert v2rayN subscriptions to Xray Json.
 
-转换 VMessAEAD/VLESS 分享为 Xray Json。
+convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
 ### subscription.go
 
-转换 Xray Json 为订阅文本。
+convert Xray Json to subscription links.
 
 ### vmess.go
 
-转换 VMessQRCode 为 Xray Json。
+convert VMessQRCode to Xray Json.
 
 ### xray_json.go
 
-Xray 配置的子集，为出口节点添加了 Name 字段，便于 App 内进行解析。
+subset of Xray config, add name field to outbound.
 
-支持 flatten outbounds 。
+support flattening outbounds.
+
+## xray
+
+### geo_cut.go
+
+cut geosite.data 和 geoip.data.
+
+### geo.go
+
+read geosite.dat and geoip.dat, generate json file and count rules, including Attribute.
+
+### ping.go
+
+test the delay.
+
+### stats.go
+
+read the 
+
+### uuid.go
+
+convert custom text to uuid.
+
+### validation.go
+
+test Xray config.
+
+### xray.go
+
+start and stop Xray instance.
 
 ## lib package
 
 ### build.sh
 
-编译脚本。一键生成 xcframework 和 aar。
+generate xcframework and aar.
+
+It will always use the latest Xray-core.
 
 ### controller.go
 
-实验性的 Android 支持 。
-
-### geo_cut.go
-
-剪切 geosite.data 和 geoip.data 。
-
-### geo.go
-
-读取 geo site dat，生成类别名称文件并统计规则数量，包含 Attribute。
-
-读取 geo ip dat，生成类别名称文件并统计规则数量。
+experimental Android support.
 
 ### nodep_wrapper.go
 
-获取空闲端口。
+export nodep.
 
-转换分享文本为 Xray Json。
+### xray_wrapper.go
 
-转换 Xray Json 为分享文本。
-
-### ping.go
-
-测速。
-
-### stats.go
-
-统计。
-
-### uuid.go
-
-转换自定义文本为 uuid。
-
-### validation.go
-
-测试 Xray 配置文件。
-
-### xray.go
-
-启动和停止 Xray 。
+export xray.
 
 ## Credits
 

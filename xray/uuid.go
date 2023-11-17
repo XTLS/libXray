@@ -1,4 +1,4 @@
-package libXray
+package xray
 
 import (
 	"github.com/xtls/xray-core/common/uuid"

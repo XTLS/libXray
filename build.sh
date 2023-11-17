@@ -1,9 +1,15 @@
 #!/bin/bash
 
-go mod tidy
-go install golang.org/x/mobile/cmd/gomobile@latest
-gomobile init
-go get -d golang.org/x/mobile/cmd/gomobile
+prepare_go() {
+    rm -f go.mod
+    go mod init github.com/xtls/libxray
+
+    go mod tidy
+    go install golang.org/x/mobile/cmd/gomobile@latest
+    gomobile init
+    go get -d golang.org/x/mobile/cmd/gomobile
+}
+
 
 build_apple() {
     rm -fr *.xcframework
@@ -21,6 +27,7 @@ download_geo() {
 }
 
 echo "will build libxray for $1"
+prepare_go
 download_geo
 if [ "$1" != "apple" ]; then
 build_android

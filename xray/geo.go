@@ -1,4 +1,4 @@
-package libXray
+package xray
 
 import (
 	"encoding/json"

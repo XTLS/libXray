@@ -1,4 +1,4 @@
-package libXray
+package xray
 
 // Test Xray Config.
 // datDir means the dir which geosite.dat and geoip.dat are in.
