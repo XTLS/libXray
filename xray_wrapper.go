@@ -35,6 +35,10 @@ func Ping(datDir string, configPath string, timeout int, url string, times int, 
 	return xray.Ping(datDir, configPath, timeout, url, times, proxy)
 }
 
+func FindCountryCodeOfIp(datDir string, ipAddress string) (string, error) {
+	return xray.FindCountryCodeOfIp(datDir, ipAddress)
+}
+
 // query system stats and outbound stats.
 // server means The API server address, like "127.0.0.1:8080".
 // dir means the dir which result json will be wrote to.
