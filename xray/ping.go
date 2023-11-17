@@ -1,4 +1,4 @@
-package libXray
+package xray
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ func Ping(datDir string, configPath string, timeout int, url string, times int, 
 	}
 	country := ""
 	if len(ip) != 0 {
-		code, err := findCountryCodeOfIp(datDir, ip)
+		code, err := FindCountryCodeOfIp(datDir, ip)
 		if err == nil {
 			country = code
 		}
@@ -53,7 +53,7 @@ func TcpPing(timeout int, server string, times int) string {
 	return nodep.TcpPing(timeout, server, times)
 }
 
-func findCountryCodeOfIp(datDir string, ipAddress string) (string, error) {
+func FindCountryCodeOfIp(datDir string, ipAddress string) (string, error) {
 	datPath := path.Join(datDir, "geoip.dat")
 	geoipBytes, err := os.ReadFile(datPath)
 	if err != nil {
