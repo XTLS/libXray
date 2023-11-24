@@ -3,7 +3,7 @@ module github.com/xtls/libxray
 go 1.21.4
 
 require (
-	github.com/xtls/xray-core v1.8.5
+	github.com/xtls/xray-core v1.8.6
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -35,7 +35,7 @@ require (
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb // indirect
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e // indirect
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20230316163032-ced5aaba43e3 // indirect
-	github.com/vishvananda/netns v0.0.4 // indirect
+	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae // indirect
 	github.com/xtls/reality v0.0.0-20231112171332-de1173cf2b19 // indirect
 	go.uber.org/mock v0.3.0 // indirect
 	go4.org/netipx v0.0.0-20230824141953-6213f710f925 // indirect
