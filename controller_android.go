@@ -6,10 +6,6 @@ import (
 	xinternet "github.com/xtls/xray-core/transport/internet"
 )
 
-type DialerController interface {
-	ProtectFd(int) bool
-}
-
 // Give a callback before connection beginning. Useful for Android development.
 // It depends on xray:api:beta
 func RegisterDialerController(controller DialerController) {
