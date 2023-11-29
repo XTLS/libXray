@@ -16,9 +16,8 @@ import (
 // configPath means the config.json file path.
 // timeout means how long the http request will be cancelled if no response, in units of seconds.
 // url means the website we use to test speed. "https://www.google.com" is a good choice for most cases.
-// times means how many times we should test the url.
 // proxy means the local http/socks5 proxy, like "socks5://[::1]:1080".
-func Ping(datDir string, configPath string, timeout int, url string, times int, proxy string) string {
+func Ping(datDir string, configPath string, timeout int, url string, proxy string) string {
 	initEnv(datDir)
 	server, err := startXray(configPath)
 	if err != nil {
@@ -30,7 +29,7 @@ func Ping(datDir string, configPath string, timeout int, url string, times int, 
 	}
 	defer server.Close()
 
-	delay, ip, err := nodep.MeasureDelay(timeout, url, times, proxy)
+	delay, ip, err := nodep.MeasureDelay(timeout, url, proxy)
 	if err != nil {
 		return fmt.Sprintf("%d::%s", delay, err)
 	}
@@ -43,14 +42,6 @@ func Ping(datDir string, configPath string, timeout int, url string, times int, 
 	}
 
 	return fmt.Sprintf("%d:%s:", delay, country)
-}
-
-// Find the delay of some outbound.
-// timeout means how long the tcp connection will be cancelled if no response, in units of seconds.
-// server means the destination we use to test speed, like "8.8.8.8:853".
-// times means how many times we should test the server.
-func TcpPing(timeout int, server string, times int) string {
-	return nodep.TcpPing(timeout, server, times)
 }
 
 func FindCountryCodeOfIp(datDir string, ipAddress string) (string, error) {

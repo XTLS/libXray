@@ -12,7 +12,7 @@ import (
 
 // https://github.com/XTLS/Xray-core/discussions/716
 // Convert share text to XrayJson
-// support XrayJson, v2rayN plain text, v2rayN base64 text, Clash yaml, Clash.Meta yaml
+// support v2rayN plain text, v2rayN base64 text
 func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
 	textBytes, err := os.ReadFile(textPath)
 	if err != nil {
@@ -21,28 +21,7 @@ func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
 	text := string(textBytes)
 	text = strings.TrimSpace(text)
 
-	if strings.HasPrefix(text, "{") {
-		var xray XrayJson
-
-		err = json.Unmarshal(textBytes, &xray)
-		if err != nil {
-			return err.Error()
-		}
-
-		outbounds := xray.FlattenOutbounds()
-		if len(outbounds) == 0 {
-			return "no valid outbounds"
-		}
-		xray.Outbounds = outbounds
-
-		err = writeXrayJson(&xray, xrayPath)
-		if err != nil {
-			return err.Error()
-		}
-		return ""
-	}
-
-	text = checkWindowsReturn(text)
+	text = FixWindowsReturn(text)
 	if strings.HasPrefix(text, "vless://") || strings.HasPrefix(text, "vmess://") || strings.HasPrefix(text, "socks://") || strings.HasPrefix(text, "ss://") || strings.HasPrefix(text, "trojan://") {
 		xray, err := parsePlainShareText(text)
 		if err != nil {
@@ -66,7 +45,7 @@ func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
 	return ""
 }
 
-func checkWindowsReturn(text string) string {
+func FixWindowsReturn(text string) string {
 	if strings.Contains(text, "\r\n") {
 		text = strings.ReplaceAll(text, "\r\n", "\n")
 	}
@@ -101,10 +80,10 @@ func parsePlainShareText(text string) (*XrayJson, error) {
 func tryParse(text string) (*XrayJson, error) {
 	base64Text, err := decodeBase64Text(text)
 	if err == nil {
-		cleanText := checkWindowsReturn(base64Text)
+		cleanText := FixWindowsReturn(base64Text)
 		return parsePlainShareText(cleanText)
 	}
-	return tryConvertClashYaml(text)
+	return nil, fmt.Errorf("wrong format")
 }
 
 func decodeBase64Text(text string) (string, error) {
