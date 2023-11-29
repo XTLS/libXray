@@ -21,6 +21,27 @@ func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
 	text := string(textBytes)
 	text = strings.TrimSpace(text)
 
+	if strings.HasPrefix(text, "{") {
+		var xray XrayJson
+
+		err = json.Unmarshal(textBytes, &xray)
+		if err != nil {
+			return err.Error()
+		}
+
+		outbounds := xray.FlattenOutbounds()
+		if len(outbounds) == 0 {
+			return "no valid outbounds"
+		}
+		xray.Outbounds = outbounds
+
+		err = writeXrayJson(&xray, xrayPath)
+		if err != nil {
+			return err.Error()
+		}
+		return ""
+	}
+
 	text = FixWindowsReturn(text)
 	if strings.HasPrefix(text, "vless://") || strings.HasPrefix(text, "vmess://") || strings.HasPrefix(text, "socks://") || strings.HasPrefix(text, "ss://") || strings.HasPrefix(text, "trojan://") {
 		xray, err := parsePlainShareText(text)
