@@ -14,10 +14,6 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 ## nodep
 
-### clash.go
-
-convert Clash yaml，Clash.Meta yaml to Xray Json.
-
 ### file.go
 
 write data to file.
@@ -107,5 +103,3 @@ export xray.
 [VMessPing](https://github.com/v2fly/vmessping)
 
 [FreePort](https://github.com/phayes/freeport)
-
-[SeeIP](https://seeip.org/)
