@@ -14,7 +14,7 @@ var (
 	coreServer *core.Instance
 )
 
-func startXray(configPath string) (*core.Instance, error) {
+func StartXray(configPath string) (*core.Instance, error) {
 	file := cmdarg.Arg{configPath}
 	config, err := core.LoadConfig("json", file)
 	if err != nil {
@@ -46,7 +46,7 @@ func RunXray(datDir string, configPath string, maxMemory int64) string {
 	if maxMemory > 0 {
 		setMaxMemory(maxMemory)
 	}
-	coreServer, err := startXray(configPath)
+	coreServer, err := StartXray(configPath)
 	if err != nil {
 		return err.Error()
 	}

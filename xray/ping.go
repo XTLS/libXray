@@ -14,7 +14,7 @@ import (
 // proxy means the local http/socks5 proxy, like "socks5://[::1]:1080".
 func Ping(datDir string, configPath string, timeout int, url string, proxy string) string {
 	initEnv(datDir)
-	server, err := startXray(configPath)
+	server, err := StartXray(configPath)
 	if err != nil {
 		return fmt.Sprintf("%d:%s", nodep.PingDelayError, err)
 	}
