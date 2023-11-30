@@ -18,11 +18,11 @@ const (
 
 func MeasureDelay(timeout int, url string, proxy string) (int64, error) {
 	httpTimeout := time.Second * time.Duration(timeout)
-	c, err := coreHTTPClient(httpTimeout, proxy)
+	c, err := CoreHTTPClient(httpTimeout, proxy)
 	if err != nil {
 		return PingDelayError, err
 	}
-	delay, err := pingHTTPRequest(c, url)
+	delay, err := PingHTTPRequest(c, url)
 	if err != nil {
 		return delay, err
 	}
@@ -30,7 +30,7 @@ func MeasureDelay(timeout int, url string, proxy string) (int64, error) {
 	return delay, nil
 }
 
-func coreHTTPClient(timeout time.Duration, proxy string) (*http.Client, error) {
+func CoreHTTPClient(timeout time.Duration, proxy string) (*http.Client, error) {
 	tr := &http.Transport{
 		DisableKeepAlives: true,
 		Proxy: func(r *http.Request) (*url.URL, error) {
@@ -46,7 +46,7 @@ func coreHTTPClient(timeout time.Duration, proxy string) (*http.Client, error) {
 	return c, nil
 }
 
-func pingHTTPRequest(c *http.Client, url string) (int64, error) {
+func PingHTTPRequest(c *http.Client, url string) (int64, error) {
 	start := time.Now()
 	req, _ := http.NewRequest("HEAD", url, nil)
 	_, err := c.Do(req)
