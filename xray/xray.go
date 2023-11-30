@@ -29,7 +29,7 @@ func StartXray(configPath string) (*core.Instance, error) {
 	return server, nil
 }
 
-func initEnv(datDir string) {
+func InitEnv(datDir string) {
 	os.Setenv("xray.location.asset", datDir)
 }
 
@@ -42,7 +42,7 @@ func setMaxMemory(maxMemory int64) {
 // configPath means the config.json file path.
 // maxMemory means the soft memory limit of golang, see SetMemoryLimit to find more information.
 func RunXray(datDir string, configPath string, maxMemory int64) string {
-	initEnv(datDir)
+	InitEnv(datDir)
 	if maxMemory > 0 {
 		setMaxMemory(maxMemory)
 	}
