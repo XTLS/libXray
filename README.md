@@ -103,5 +103,3 @@ export xray.
 [VMessPing](https://github.com/v2fly/vmessping)
 
 [FreePort](https://github.com/phayes/freeport)
-
-[SeeIP](https://seeip.org/)
