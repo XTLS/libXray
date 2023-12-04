@@ -13,10 +13,10 @@ import (
 // https://github.com/XTLS/Xray-core/discussions/716
 // Convert share text to XrayJson
 // support v2rayN plain text, v2rayN base64 text
-func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
+func ConvertShareTextToXrayJson(textPath string, xrayPath string) error {
 	textBytes, err := os.ReadFile(textPath)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 	text := string(textBytes)
 	text = strings.TrimSpace(text)
@@ -26,44 +26,44 @@ func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
 
 		err = json.Unmarshal(textBytes, &xray)
 		if err != nil {
-			return err.Error()
+			return err
 		}
 
 		outbounds := xray.FlattenOutbounds()
 		if len(outbounds) == 0 {
-			return "no valid outbounds"
+			return fmt.Errorf("no valid outbounds")
 		}
 		xray.Outbounds = outbounds
 
 		err = writeXrayJson(&xray, xrayPath)
 		if err != nil {
-			return err.Error()
+			return err
 		}
-		return ""
+		return nil
 	}
 
 	text = FixWindowsReturn(text)
 	if strings.HasPrefix(text, "vless://") || strings.HasPrefix(text, "vmess://") || strings.HasPrefix(text, "socks://") || strings.HasPrefix(text, "ss://") || strings.HasPrefix(text, "trojan://") {
 		xray, err := parsePlainShareText(text)
 		if err != nil {
-			return err.Error()
+			return err
 		}
 		err = writeXrayJson(xray, xrayPath)
 		if err != nil {
-			return err.Error()
+			return err
 		}
 	} else {
 		xray, err := tryParse(text)
 		if err != nil {
-			return err.Error()
+			return err
 		}
 		err = writeXrayJson(xray, xrayPath)
 		if err != nil {
-			return err.Error()
+			return err
 		}
 	}
 
-	return ""
+	return nil
 }
 
 func FixWindowsReturn(text string) string {

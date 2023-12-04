@@ -41,34 +41,34 @@ func setMaxMemory(maxMemory int64) {
 // datDir means the dir which geosite.dat and geoip.dat are in.
 // configPath means the config.json file path.
 // maxMemory means the soft memory limit of golang, see SetMemoryLimit to find more information.
-func RunXray(datDir string, configPath string, maxMemory int64) string {
+func RunXray(datDir string, configPath string, maxMemory int64) error {
 	InitEnv(datDir)
 	if maxMemory > 0 {
 		setMaxMemory(maxMemory)
 	}
 	coreServer, err := StartXray(configPath)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 
 	if err := coreServer.Start(); err != nil {
-		return err.Error()
+		return err
 	}
 
 	debug.FreeOSMemory()
-	return ""
+	return nil
 }
 
 // Stop Xray instance.
-func StopXray() string {
+func StopXray() error {
 	if coreServer != nil {
 		err := coreServer.Close()
 		coreServer = nil
 		if err != nil {
-			return err.Error()
+			return err
 		}
 	}
-	return ""
+	return nil
 }
 
 // Xray's version
