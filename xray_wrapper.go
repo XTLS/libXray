@@ -2,6 +2,7 @@
 package libXray
 
 import (
+	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/libxray/xray"
 )
 
@@ -13,7 +14,8 @@ import (
 // This function is used to reduce memory when init instance.
 // You can cut the country codes which rules and nameservers contain.
 func CutGeoData(datDir string, dstDir string, cutCodePath string) string {
-	return xray.CutGeoData(datDir, dstDir, cutCodePath)
+	err := xray.CutGeoData(datDir, dstDir, cutCodePath)
+	return nodep.WrapError(err)
 }
 
 // Read geo data and write all codes to text file.
@@ -21,7 +23,8 @@ func CutGeoData(datDir string, dstDir string, cutCodePath string) string {
 // name means the geo dat file name, like "geosite", "geoip"
 // geoType must be the value of geoType
 func LoadGeoData(datDir string, name string, geoType string) string {
-	return xray.LoadGeoData(datDir, name, geoType)
+	err := xray.LoadGeoData(datDir, name, geoType)
+	return nodep.WrapError(err)
 }
 
 // Ping Xray config and find the delay and country code of its outbound.
@@ -38,7 +41,8 @@ func Ping(datDir string, configPath string, timeout int, url string, proxy strin
 // server means The API server address, like "127.0.0.1:8080".
 // dir means the dir which result json will be wrote to.
 func QueryStats(server string, dir string) string {
-	return xray.QueryStats(server, dir)
+	err := xray.QueryStats(server, dir)
+	return nodep.WrapError(err)
 }
 
 // convert text to uuid
@@ -50,7 +54,8 @@ func CustomUUID(text string) string {
 // datDir means the dir which geosite.dat and geoip.dat are in.
 // configPath means the config.json file path.
 func TestXray(datDir string, configPath string) string {
-	return xray.TestXray(datDir, configPath)
+	err := xray.TestXray(datDir, configPath)
+	return nodep.WrapError(err)
 }
 
 // Run Xray instance.
@@ -58,12 +63,14 @@ func TestXray(datDir string, configPath string) string {
 // configPath means the config.json file path.
 // maxMemory means the soft memory limit of golang, see SetMemoryLimit to find more information.
 func RunXray(datDir string, configPath string, maxMemory int64) string {
-	return xray.RunXray(datDir, configPath, maxMemory)
+	err := xray.RunXray(datDir, configPath, maxMemory)
+	return nodep.WrapError(err)
 }
 
 // Stop Xray instance.
 func StopXray() string {
-	return xray.StopXray()
+	err := xray.StopXray()
+	return nodep.WrapError(err)
 }
 
 // Xray's version

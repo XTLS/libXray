@@ -31,20 +31,20 @@ const (
 // datDir means the dir which geo dat are in.
 // name means the geo dat file name, like "geosite", "geoip"
 // geoType must be the value of geoType
-func LoadGeoData(datDir string, name string, geoType string) string {
+func LoadGeoData(datDir string, name string, geoType string) error {
 	switch geoType {
 	case geoTypeDomain:
 		if err := loadGeoSite(datDir, name); err != nil {
-			return err.Error()
+			return err
 		}
 	case geoTypeIP:
 		if err := loadGeoIP(datDir, name); err != nil {
-			return err.Error()
+			return err
 		}
 	default:
-		return fmt.Errorf("wrong geoType: %s", geoType).Error()
+		return fmt.Errorf("wrong geoType: %s", geoType)
 	}
-	return ""
+	return nil
 }
 
 func loadGeoSite(datDir string, name string) error {

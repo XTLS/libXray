@@ -8,7 +8,7 @@ import (
 func CustomUUID(text string) string {
 	id, err := uuid.ParseString(text)
 	if err != nil {
-		return err.Error()
+		return text
 	}
 	return id.String()
 }

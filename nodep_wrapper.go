@@ -14,11 +14,13 @@ func GetFreePorts(count int) string {
 // Convert share text to XrayJson
 // support XrayJson, v2rayN plain text, v2rayN base64 text, Clash yaml, Clash.Meta yaml
 func ConvertShareTextToXrayJson(textPath string, xrayPath string) string {
-	return nodep.ConvertShareTextToXrayJson(textPath, xrayPath)
+	err := nodep.ConvertShareTextToXrayJson(textPath, xrayPath)
+	return nodep.WrapError(err)
 }
 
 // Convert XrayJson to share links.
 // VMess will generate VMessAEAD link.
 func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
-	return nodep.ConvertXrayJsonToShareText(xrayPath, textPath)
+	err := nodep.ConvertXrayJsonToShareText(xrayPath, textPath)
+	return nodep.WrapError(err)
 }

@@ -38,10 +38,10 @@ func writeResult(m proto.Message, path string) error {
 // query system stats and outbound stats.
 // server means The API server address, like "127.0.0.1:8080".
 // dir means the dir which result json will be wrote to.
-func QueryStats(server string, dir string) string {
+func QueryStats(server string, dir string) error {
 	conn, err := grpc.Dial(server, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
-		return err.Error()
+		return err
 	}
 	defer conn.Close()
 
@@ -50,12 +50,12 @@ func QueryStats(server string, dir string) string {
 	sysStatsReq := &statsService.SysStatsRequest{}
 	sysStatsRes, err := client.GetSysStats(context.Background(), sysStatsReq)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 	sysStatsPath := path.Join(dir, "sysStats.json")
 	err = writeResult(sysStatsRes, sysStatsPath)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 
 	statsReq := &statsService.QueryStatsRequest{
@@ -64,12 +64,12 @@ func QueryStats(server string, dir string) string {
 	}
 	statsRes, err := client.QueryStats(context.Background(), statsReq)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 	statsPath := path.Join(dir, "stats.json")
 	err = writeResult(statsRes, statsPath)
 	if err != nil {
-		return err.Error()
+		return err
 	}
-	return ""
+	return nil
 }

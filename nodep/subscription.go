@@ -11,22 +11,22 @@ import (
 
 // Convert XrayJson to share links.
 // VMess will generate VMessAEAD link.
-func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
+func ConvertXrayJsonToShareText(xrayPath string, textPath string) error {
 	xrayBytes, err := os.ReadFile(xrayPath)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 
 	var xray XrayJson
 
 	err = json.Unmarshal(xrayBytes, &xray)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 
 	outbounds := xray.FlattenOutbounds()
 	if len(outbounds) == 0 {
-		return "no valid outbounds"
+		return fmt.Errorf("no valid outbounds")
 	}
 
 	var links []string
@@ -37,15 +37,15 @@ func ConvertXrayJsonToShareText(xrayPath string, textPath string) string {
 		}
 	}
 	if len(links) == 0 {
-		return "no valid outbounds"
+		return fmt.Errorf("no valid outbounds")
 	}
 	text := strings.Join(links, "\n")
 	err = WriteText(text, textPath)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 
-	return ""
+	return nil
 }
 
 func (proxy XrayOutbound) ShareLink() (*url.URL, error) {

@@ -31,35 +31,35 @@ type geoCutCodeDat struct {
 //
 // This function is used to reduce memory when init instance.
 // You can cut the country codes which rules and nameservers contain.
-func CutGeoData(datDir string, dstDir string, cutCodePath string) string {
+func CutGeoData(datDir string, dstDir string, cutCodePath string) error {
 	codeBytes, err := os.ReadFile(cutCodePath)
 	if err != nil {
-		return err.Error()
+		return err
 	}
 
 	var code geoCutCode
 
 	if err := json.Unmarshal(codeBytes, &code); err != nil {
-		return err.Error()
+		return err
 	}
 
 	for _, dat := range code.Dat {
 		switch dat.Type {
 		case geoTypeDomain:
 			if err := cutGeoSite(datDir, dstDir, dat); err != nil {
-				return err.Error()
+				return err
 			}
 
 		case geoTypeIP:
 			if err := cutGeoIP(datDir, dstDir, dat); err != nil {
-				return err.Error()
+				return err
 			}
 		default:
-			return fmt.Errorf("wrong geoType: %s", dat.Type).Error()
+			return fmt.Errorf("wrong geoType: %s", dat.Type)
 		}
 	}
 
-	return ""
+	return nil
 }
 
 func cutGeoSite(datDir string, dstDir string, dat geoCutCodeDat) error {
