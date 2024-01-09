@@ -104,7 +104,7 @@ func tryParse(text string) (*XrayJson, error) {
 		cleanText := FixWindowsReturn(base64Text)
 		return parsePlainShareText(cleanText)
 	}
-	return nil, fmt.Errorf("wrong format")
+	return tryConvertClashYaml(text)
 }
 
 func decodeBase64Text(text string) (string, error) {
