@@ -17,7 +17,6 @@
 *.xcframework/
 *.jar
 *.aar
-go.sum
 
 dat/
 sub/
