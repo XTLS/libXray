@@ -46,7 +46,8 @@ func RunXray(datDir string, configPath string, maxMemory int64) error {
 	if maxMemory > 0 {
 		setMaxMemory(maxMemory)
 	}
-	coreServer, err := StartXray(configPath)
+	var err error
+	coreServer, err = StartXray(configPath)
 	if err != nil {
 		return err
 	}
