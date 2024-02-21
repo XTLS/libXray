@@ -2,23 +2,27 @@
 
 prepare_go() {
     rm -f go.mod
+    rm -f go.sum
     go mod init github.com/xtls/libxray
-
     go mod tidy
+}
+
+prepare_gomobile() {
     go install golang.org/x/mobile/cmd/gomobile@latest
     gomobile init
     go get -d golang.org/x/mobile/cmd/gomobile
 }
 
-
 build_apple() {
     rm -fr *.xcframework
+    prepare_gomobile
     gomobile bind -target ios,iossimulator,macos -iosversion 15.0
 }
 
 build_android() {
     rm -fr *.jar
     rm -fr *.aar
+    prepare_gomobile
     gomobile bind -target android -androidapi 28
 }
 
