@@ -84,16 +84,17 @@ type XrayVMessVnextUser struct {
 }
 
 type XrayStreamSettings struct {
-	Network         string               `json:"network,omitempty"`
-	Security        string               `json:"security,omitempty"`
-	TlsSettings     *XrayTlsSettings     `json:"tlsSettings,omitempty"`
-	RealitySettings *XrayRealitySettings `json:"realitySettings,omitempty"`
-	TcpSettings     *XrayTcpSettings     `json:"tcpSettings,omitempty"`
-	KcpSettings     *XrayKcpSettings     `json:"kcpSettings,omitempty"`
-	WsSettings      *XrayWsSettings      `json:"wsSettings,omitempty"`
-	HttpSettings    *XrayHttpSettings    `json:"httpSettings,omitempty"`
-	QuicSettings    *XrayQuicSettings    `json:"quicSettings,omitempty"`
-	GrpcSettings    *XrayGrpcSettings    `json:"grpcSettings,omitempty"`
+	Network             string                   `json:"network,omitempty"`
+	Security            string                   `json:"security,omitempty"`
+	TlsSettings         *XrayTlsSettings         `json:"tlsSettings,omitempty"`
+	RealitySettings     *XrayRealitySettings     `json:"realitySettings,omitempty"`
+	TcpSettings         *XrayTcpSettings         `json:"tcpSettings,omitempty"`
+	KcpSettings         *XrayKcpSettings         `json:"kcpSettings,omitempty"`
+	WsSettings          *XrayWsSettings          `json:"wsSettings,omitempty"`
+	HttpSettings        *XrayHttpSettings        `json:"httpSettings,omitempty"`
+	QuicSettings        *XrayQuicSettings        `json:"quicSettings,omitempty"`
+	GrpcSettings        *XrayGrpcSettings        `json:"grpcSettings,omitempty"`
+	HttpupgradeSettings *XrayHttpupgradeSettings `json:"httpupgradeSettings,omitempty"`
 }
 
 type XrayTlsSettings struct {
@@ -159,8 +160,14 @@ type XrayQuicSettings struct {
 }
 
 type XrayGrpcSettings struct {
+	Authority   string `json:"authority,omitempty"`
 	ServiceName string `json:"serviceName,omitempty"`
 	MultiMode   bool   `json:"multiMode,omitempty"`
+}
+
+type XrayHttpupgradeSettings struct {
+	Path string `json:"path,omitempty"`
+	Host string `json:"host,omitempty"`
 }
 
 func (xray XrayJson) FlattenOutbounds() []XrayOutbound {

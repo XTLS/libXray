@@ -416,7 +416,7 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 
 			streamSettings.TcpSettings = &tcpSettings
 		}
-	case "kcp":
+	case "kcp", "mkcp":
 		var kcpSettings XrayKcpSettings
 		headerType := query.Get("headerType")
 		if len(headerType) > 0 {
@@ -428,7 +428,7 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 		kcpSettings.Seed = seed
 
 		streamSettings.KcpSettings = &kcpSettings
-	case "ws":
+	case "ws", "websocket":
 		var wsSettings XrayWsSettings
 		path := query.Get("path")
 		wsSettings.Path = path
@@ -440,8 +440,10 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 		}
 
 		streamSettings.WsSettings = &wsSettings
-	case "grpc":
+	case "grpc", "gun":
 		var grcpSettings XrayGrpcSettings
+		authority := query.Get("authority")
+		grcpSettings.Authority = authority
 		serviceName := query.Get("serviceName")
 		grcpSettings.ServiceName = serviceName
 		mode := query.Get("mode")
@@ -462,7 +464,7 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 		quicSettings.Key = key
 
 		streamSettings.QuicSettings = &quicSettings
-	case "http":
+	case "h2", "http":
 		var httpSettings XrayHttpSettings
 		host := query.Get("host")
 		httpSettings.Host = strings.Split(host, ",")
@@ -470,6 +472,14 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 		httpSettings.Path = path
 
 		streamSettings.HttpSettings = &httpSettings
+	case "httpupgrade":
+		var httpupgradeSettings XrayHttpupgradeSettings
+		host := query.Get("host")
+		httpupgradeSettings.Host = host
+		path := query.Get("path")
+		httpupgradeSettings.Path = path
+
+		streamSettings.HttpupgradeSettings = &httpupgradeSettings
 	}
 
 	proxy.parseSecurity(link, &streamSettings)

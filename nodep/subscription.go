@@ -272,6 +272,10 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 		if len(serviceName) > 0 {
 			query = addQuery(query, "serviceName", serviceName)
 		}
+		authority := streamSettings.GrpcSettings.Authority
+		if len(authority) > 0 {
+			query = addQuery(query, "authority", authority)
+		}
 	case "quic":
 		if streamSettings.QuicSettings == nil {
 			break
@@ -291,7 +295,6 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 		if len(headerType) > 0 {
 			query = addQuery(query, "headerType", headerType)
 		}
-
 	case "http":
 		if streamSettings.HttpSettings == nil {
 			break
@@ -301,6 +304,18 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 			query = addQuery(query, "host", strings.Join(host, ","))
 		}
 		path := streamSettings.HttpSettings.Path
+		if len(path) > 0 {
+			query = addQuery(query, "path", path)
+		}
+	case "httpupgrade":
+		if streamSettings.HttpupgradeSettings == nil {
+			break
+		}
+		host := streamSettings.HttpupgradeSettings.Host
+		if len(host) > 0 {
+			query = addQuery(query, "host", host)
+		}
+		path := streamSettings.HttpupgradeSettings.Path
 		if len(path) > 0 {
 			query = addQuery(query, "path", path)
 		}
