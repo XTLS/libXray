@@ -88,6 +88,10 @@ It will always use the latest Xray-core.
 
 experimental Android support.
 
+### dns.go
+
+experimental Android support.
+
 ### nodep_wrapper.go
 
 export nodep.
