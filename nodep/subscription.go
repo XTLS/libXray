@@ -95,7 +95,7 @@ func (proxy XrayOutbound) shadowsocksLink(link *url.URL) error {
 
 	for _, server := range settings.Servers {
 		link.Host = fmt.Sprintf("%s:%d", server.Address, server.Port)
-		password := fmt.Sprintf("%s:%s", server.Password, server.Method)
+		password := fmt.Sprintf("%s:%s", server.Method, server.Password)
 		username := base64.StdEncoding.EncodeToString([]byte(password))
 		link.User = url.User(username)
 	}
