@@ -319,6 +319,18 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 		if len(path) > 0 {
 			query = addQuery(query, "path", path)
 		}
+	case "splithttp":
+		if streamSettings.SplithttpSettings == nil {
+			break
+		}
+		host := streamSettings.SplithttpSettings.Host
+		if len(host) > 0 {
+			query = addQuery(query, "host", host)
+		}
+		path := streamSettings.SplithttpSettings.Path
+		if len(path) > 0 {
+			query = addQuery(query, "path", path)
+		}
 	}
 
 	switch streamSettings.Security {

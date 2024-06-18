@@ -480,6 +480,14 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 		httpupgradeSettings.Path = path
 
 		streamSettings.HttpupgradeSettings = &httpupgradeSettings
+	case "splithttp":
+		var splithttpSettings XraySplithttpSettings
+		host := query.Get("host")
+		splithttpSettings.Host = host
+		path := query.Get("path")
+		splithttpSettings.Path = path
+
+		streamSettings.SplithttpSettings = &splithttpSettings
 	}
 
 	proxy.parseSecurity(link, &streamSettings)

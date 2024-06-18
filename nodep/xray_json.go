@@ -95,6 +95,7 @@ type XrayStreamSettings struct {
 	QuicSettings        *XrayQuicSettings        `json:"quicSettings,omitempty"`
 	GrpcSettings        *XrayGrpcSettings        `json:"grpcSettings,omitempty"`
 	HttpupgradeSettings *XrayHttpupgradeSettings `json:"httpupgradeSettings,omitempty"`
+	SplithttpSettings   *XraySplithttpSettings   `json:"splithttpSettings,omitempty"`
 }
 
 type XrayTlsSettings struct {
@@ -166,6 +167,11 @@ type XrayGrpcSettings struct {
 }
 
 type XrayHttpupgradeSettings struct {
+	Path string `json:"path,omitempty"`
+	Host string `json:"host,omitempty"`
+}
+
+type XraySplithttpSettings struct {
 	Path string `json:"path,omitempty"`
 	Host string `json:"host,omitempty"`
 }
