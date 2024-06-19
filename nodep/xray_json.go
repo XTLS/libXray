@@ -141,12 +141,8 @@ type XrayKcpSettings struct {
 }
 
 type XrayWsSettings struct {
-	Path    string                 `json:"path,omitempty"`
-	Headers *XrayWsSettingsHeaders `json:"headers,omitempty"`
-}
-
-type XrayWsSettingsHeaders struct {
-	Host string `json:"Host,omitempty"`
+	Path string `json:"path,omitempty"`
+	Host string `json:"host,omitempty"`
 }
 
 type XrayHttpSettings struct {

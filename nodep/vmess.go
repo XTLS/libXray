@@ -117,12 +117,7 @@ func (proxy vmessQrCode) streamSettings() *XrayStreamSettings {
 	case "ws":
 		var wsSettings XrayWsSettings
 		wsSettings.Path = proxy.Path
-		host := proxy.Host
-		if len(host) > 0 {
-			var headers XrayWsSettingsHeaders
-			headers.Host = host
-			wsSettings.Headers = &headers
-		}
+		wsSettings.Host = proxy.Host
 
 		streamSettings.WsSettings = &wsSettings
 	case "grpc":
@@ -178,8 +173,8 @@ func (proxy vmessQrCode) parseSecurity(streamSettings *XrayStreamSettings) {
 
 	// some link omits too many params, here is some fixing
 	if streamSettings.Network == "ws" && len(tlsSettings.ServerName) == 0 {
-		if streamSettings.WsSettings != nil && streamSettings.WsSettings.Headers != nil {
-			tlsSettings.ServerName = streamSettings.WsSettings.Headers.Host
+		if streamSettings.WsSettings != nil && len(streamSettings.WsSettings.Host) > 0 {
+			tlsSettings.ServerName = streamSettings.WsSettings.Host
 		}
 	}
 

@@ -180,9 +180,7 @@ func (proxy ClashProxy) shadowsocksOutbound() (*XrayOutbound, error) {
 			wsSettings.Path = proxy.PluginOpts.Path
 		}
 		if len(proxy.PluginOpts.Host) > 0 {
-			var headers XrayWsSettingsHeaders
-			headers.Host = proxy.PluginOpts.Host
-			wsSettings.Headers = &headers
+			wsSettings.Host = proxy.PluginOpts.Host
 		}
 		streamSetting.WsSettings = &wsSettings
 
@@ -335,9 +333,7 @@ func (proxy ClashProxy) streamSettings(outbound XrayOutbound) (*XrayStreamSettin
 		if proxy.WsOpts != nil {
 			var wsSettings XrayWsSettings
 			if proxy.WsOpts.Headers != nil {
-				var headers XrayWsSettingsHeaders
-				headers.Host = proxy.WsOpts.Headers.Host
-				wsSettings.Headers = &headers
+				wsSettings.Host = proxy.WsOpts.Headers.Host
 			}
 
 			wsSettings.Path = proxy.WsOpts.Path

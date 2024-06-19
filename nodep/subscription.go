@@ -251,10 +251,7 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 		if len(path) > 0 {
 			query = addQuery(query, "path", path)
 		}
-		if streamSettings.WsSettings.Headers == nil {
-			break
-		}
-		host := streamSettings.WsSettings.Headers.Host
+		host := streamSettings.WsSettings.Host
 		if len(host) > 0 {
 			query = addQuery(query, "host", host)
 		}
