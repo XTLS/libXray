@@ -13,6 +13,10 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+__pycache__/
+.idea/
+.vscode/
+apple_xcframework/
 
 *.xcframework/
 *.jar
