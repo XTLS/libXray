@@ -43,28 +43,22 @@ class Builder(object):
         shutil.copy(src_file, self.lib_dir)
 
     def fix_package_name(self):
-        files = [
-            "controller.go",
-            "controller_android.go",
-            "dns.go",
-            "dns_android.go",
-            "nodep_wrapper.go",
-            "xray_wrapper.go",
-        ]
+        files = os.listdir(self.lib_dir)
         for file in files:
-            self.replace_package_name(file)
+            if file.endswith(".go"):
+                self.replace_package_name(file)
 
     def replace_package_name(self, file_name: str):
         file_path = os.path.join(self.lib_dir, file_name)
-        with open(file_path, "r+") as f:
+        new_lines = []
+        with open(file_path, "r") as f:
             lines = f.readlines()
-            new_lines = []
             for line in lines:
                 new_line = line
-                if re.match(r"package\s+libXray", line):
+                if re.match(r"^package\s+libXray", line):
                     new_line = 'package main\n\nimport "C"\n'
                 new_lines.append(new_line)
-            f.seek(0)
+        with open(file_path, "w") as f:
             f.writelines(new_lines)
 
     def before_build(self):
@@ -72,4 +66,29 @@ class Builder(object):
         self.download_geo()
 
     def build(self):
-        self.before_build()
+        pass
+
+    def after_build(self):
+        pass
+
+    def reset_files(self):
+        self.clean_lib_files(["main.go"])
+        files = os.listdir(self.lib_dir)
+        for file in files:
+            if file.endswith(".go"):
+                self.reset_package_name(file)
+
+    def reset_package_name(self, file_name: str):
+        file_path = os.path.join(self.lib_dir, file_name)
+        new_lines = []
+        with open(file_path, "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                new_line = line
+                if re.match(r"^package\s+main", line):
+                    new_line = "package libXray\n"
+                if re.match(r'^import\s+"C"', line):
+                    new_line = ""
+                new_lines.append(new_line)
+        with open(file_path, "w") as f:
+            f.writelines(new_lines)

@@ -3,7 +3,7 @@ module github.com/xtls/libxray
 go 1.22.4
 
 require (
-	github.com/xtls/xray-core v1.8.15
+	github.com/xtls/xray-core v1.8.16
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1

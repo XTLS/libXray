@@ -75,9 +75,11 @@ class AppleBuilder(Builder):
         self.prepare_static_lib()
 
     def build(self):
-        super().build()
+        self.before_build()
         self.build_ios(self.ios_targets)
         self.build_macos(self.macos_targets)
+        self.after_build()
+
         self.create_include_dir()
         self.create_framework()
 
@@ -96,7 +98,6 @@ class AppleBuilder(Builder):
         )
 
     def build_macos(self, targets: list[AppleTarget]):
-
         for target in targets:
             self.run_build_cmd(
                 target.platform,
@@ -133,12 +134,13 @@ class AppleBuilder(Builder):
         cmd = [
             "go",
             "build",
-            "-x",
             "-ldflags=-w",
             f"-o={output_file}",
             "-buildmode=c-archive",
         ]
         os.chdir(self.lib_dir)
+        print(run_env)
+        print(cmd)
         ret = subprocess.run(cmd, env=run_env)
         if ret.returncode != 0:
             raise Exception(f"run_build_cmd for {platform} {apple_arch} {sdk} failed")
@@ -150,10 +152,11 @@ class AppleBuilder(Builder):
             sdk,
             "--show-sdk-path",
         ]
+        print(cmd)
         ret = subprocess.run(cmd, capture_output=True)
         if ret.returncode != 0:
             raise Exception(f"get_sdk_dir_path for {sdk} failed")
-        return ret.stdout.decode()
+        return ret.stdout.decode().replace("\n", "")
 
     def merge_static_lib(self, sdk: str, arches: list[str]):
         cmd = [
@@ -169,6 +172,7 @@ class AppleBuilder(Builder):
         create_dir_if_not_exists(output_dir)
         output_file = os.path.join(output_dir, self.lib_file)
         cmd.extend(["-output", output_file])
+        print(cmd)
         ret = subprocess.run(cmd)
         if ret.returncode != 0:
             raise Exception(f"merge_static_lib for {sdk} failed")
@@ -200,9 +204,14 @@ class AppleBuilder(Builder):
             lib_path = os.path.join(self.framework_dir, lib, self.lib_file)
             cmd.extend(["-library", lib_path, "-headers", include_dir])
 
-        output_file = os.path.join(self.framework_dir, "..", "LibXray.xcframework")
+        output_file = os.path.join(self.lib_dir, "LibXray.xcframework")
         cmd.extend(["-output", output_file])
 
+        print(cmd)
         ret = subprocess.run(cmd)
         if ret.returncode != 0:
             raise Exception(f"create_framework failed")
+
+    def after_build(self):
+        super().after_build()
+        self.reset_files()

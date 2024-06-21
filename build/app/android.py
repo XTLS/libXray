@@ -23,9 +23,9 @@ class AndroidBuilder(Builder):
         self.prepare_gomobile()
 
     def build(self):
-        super().build()
+        self.before_build()
 
-        clean_files = ["libXray.jar", "libXray.aar"]
+        clean_files = ["libXray-sources.jar", "libXray.aar"]
         self.clean_lib_files(clean_files)
         os.chdir(self.lib_dir)
         ret = subprocess.run(
