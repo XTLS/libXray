@@ -5,19 +5,6 @@ from app.build import Builder
 
 
 class AppleGoMobileBuilder(Builder):
-    def prepare_gomobile(self):
-        ret = subprocess.run(
-            ["go", "install", "golang.org/x/mobile/cmd/gomobile@latest"]
-        )
-        if ret.returncode != 0:
-            raise Exception("go install gomobile failed")
-        ret = subprocess.run(["gomobile", "init"])
-        if ret.returncode != 0:
-            raise Exception("gomobile init failed")
-        ret = subprocess.run(["go", "get", "-d", "golang.org/x/mobile/cmd/gomobile"])
-        if ret.returncode != 0:
-            raise Exception("gomobile init failed")
-
     def before_build(self):
         super().before_build()
         self.clean_lib_dirs(["LibXray.xcframework"])

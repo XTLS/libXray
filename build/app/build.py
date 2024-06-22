@@ -39,6 +39,19 @@ class Builder(object):
         if ret.returncode != 0:
             raise Exception("download_geo failed")
 
+    def prepare_gomobile(self):
+        ret = subprocess.run(
+            ["go", "install", "golang.org/x/mobile/cmd/gomobile@latest"]
+        )
+        if ret.returncode != 0:
+            raise Exception("go install gomobile failed")
+        ret = subprocess.run(["gomobile", "init"])
+        if ret.returncode != 0:
+            raise Exception("gomobile init failed")
+        ret = subprocess.run(["go", "get", "-d", "golang.org/x/mobile/cmd/gomobile"])
+        if ret.returncode != 0:
+            raise Exception("gomobile init failed")
+
     def prepare_static_lib(self):
         self.copy_go_main_file()
         self.fix_package_name()
