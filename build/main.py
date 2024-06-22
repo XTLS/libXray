@@ -2,7 +2,8 @@ import os
 import sys
 
 from app.android import AndroidBuilder
-from app.apple import AppleBuilder
+from app.apple_go import AppleGoBuilder
+from app.apple_gomobile import AppleGoMobileBuilder
 
 
 def build_dir_path():
@@ -15,8 +16,15 @@ if __name__ == "__main__":
     print(sys.argv)
     platform = sys.argv[1]
     if platform == "apple":
-        builder = AppleBuilder(build_dir_path())
-        builder.build()
+        tool = sys.argv[2]
+        if tool == "go":
+            builder = AppleGoBuilder(build_dir_path())
+            builder.build()
+        elif tool == "gomobile":
+            builder = AppleGoMobileBuilder(build_dir_path())
+            builder.build()
+        else:
+            raise Exception(f"platform {platform} tool {tool} not supported")
     elif platform == "android":
         builder = AndroidBuilder(build_dir_path())
         builder.build()

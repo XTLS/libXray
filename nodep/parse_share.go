@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -13,57 +12,38 @@ import (
 // https://github.com/XTLS/Xray-core/discussions/716
 // Convert share text to XrayJson
 // support v2rayN plain text, v2rayN base64 text
-func ConvertShareTextToXrayJson(textPath string, xrayPath string) error {
-	textBytes, err := os.ReadFile(textPath)
-	if err != nil {
-		return err
-	}
-	text := string(textBytes)
-	text = strings.TrimSpace(text)
-
+func ConvertShareLinksToXrayJson(links string) (string, error) {
+	text := strings.TrimSpace(links)
 	if strings.HasPrefix(text, "{") {
 		var xray XrayJson
-
-		err = json.Unmarshal(textBytes, &xray)
+		err := json.Unmarshal([]byte(text), &xray)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		outbounds := xray.FlattenOutbounds()
 		if len(outbounds) == 0 {
-			return fmt.Errorf("no valid outbounds")
+			return "", fmt.Errorf("no valid outbounds")
 		}
 		xray.Outbounds = outbounds
 
-		err = writeXrayJson(&xray, xrayPath)
-		if err != nil {
-			return err
-		}
-		return nil
+		return writeXrayJson(&xray)
 	}
 
 	text = FixWindowsReturn(text)
 	if strings.HasPrefix(text, "vless://") || strings.HasPrefix(text, "vmess://") || strings.HasPrefix(text, "socks://") || strings.HasPrefix(text, "ss://") || strings.HasPrefix(text, "trojan://") {
 		xray, err := parsePlainShareText(text)
 		if err != nil {
-			return err
+			return "", err
 		}
-		err = writeXrayJson(xray, xrayPath)
-		if err != nil {
-			return err
-		}
+		return writeXrayJson(xray)
 	} else {
 		xray, err := tryParse(text)
 		if err != nil {
-			return err
+			return "", err
 		}
-		err = writeXrayJson(xray, xrayPath)
-		if err != nil {
-			return err
-		}
+		return writeXrayJson(xray)
 	}
-
-	return nil
 }
 
 func FixWindowsReturn(text string) string {
@@ -130,13 +110,12 @@ func decodeBase64Text(text string) (string, error) {
 	return string(content), nil
 }
 
-func writeXrayJson(xray *XrayJson, xrayPath string) error {
+func writeXrayJson(xray *XrayJson) (string, error) {
 	xrayBytes, err := json.Marshal(xray)
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	return WriteBytes(xrayBytes, xrayPath)
+	return string(xrayBytes), nil
 }
 
 type xrayShareLink struct {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,6 +50,12 @@ func saveTimestamp(datDir string) error {
 	return nodep.WriteText(tsText, tsPath)
 }
 
+func parseCallResponse(text string) (nodep.CallResponse, error) {
+	var response nodep.CallResponse
+	err := json.Unmarshal([]byte(text), &response)
+	return response, err
+}
+
 func main() {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -65,9 +72,10 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	result := libXray.LoadGeoData(datDir, "geosite", "domain")
-	if len(result) != 0 {
-		fmt.Println("LoadGeoData ", result)
+	res := libXray.LoadGeoData(datDir, "geosite", "domain")
+	resp, err := parseCallResponse(res)
+	if err != nil || !resp.Success {
+		fmt.Println("load geosite ", res)
 		os.Exit(1)
 	}
 
@@ -79,9 +87,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	result = libXray.LoadGeoData(datDir, "geoip", "ip")
-	if len(result) != 0 {
-		fmt.Println("load geoip ", result)
+	res = libXray.LoadGeoData(datDir, "geoip", "ip")
+	resp, err = parseCallResponse(res)
+	if err != nil || !resp.Success {
+		fmt.Println("load geoip ", res)
 		os.Exit(1)
 	}
 

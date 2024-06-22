@@ -7,11 +7,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type ClashYaml struct {
-	Proxies []ClashProxy `yaml:"proxies,omitempty"`
+type clashYaml struct {
+	Proxies []clashProxy `yaml:"proxies,omitempty"`
 }
 
-type ClashProxy struct {
+type clashProxy struct {
 	Name     string `yaml:"name,omitempty"`
 	Type     string `yaml:"type,omitempty"`
 	Server   string `yaml:"server,omitempty"`
@@ -30,17 +30,17 @@ type ClashProxy struct {
 	Fingerprint       string                 `yaml:"fingerprint,omitempty"`
 	ClientFingerprint string                 `yaml:"client-fingerprint,omitempty"`
 	Flow              string                 `yaml:"flow,omitempty"`
-	RealityOpts       *ClashProxyRealityOpts `yaml:"reality-opts,omitempty"`
+	RealityOpts       *clashProxyRealityOpts `yaml:"reality-opts,omitempty"`
 
 	Network    string                `yaml:"network,omitempty"`
 	Plugin     string                `yaml:"plugin,omitempty"`
-	PluginOpts *ClashProxyPluginOpts `yaml:"plugin-opts,omitempty"`
-	WsOpts     *ClashProxyWsOpts     `yaml:"ws-opts,omitempty"`
-	H2Opts     *ClashProxyH2Opts     `yaml:"h2-opts,omitempty"`
-	GrpcOpts   *ClashProxyGrpcOpts   `yaml:"grpc-opts,omitempty"`
+	PluginOpts *clashProxyPluginOpts `yaml:"plugin-opts,omitempty"`
+	WsOpts     *clashProxyWsOpts     `yaml:"ws-opts,omitempty"`
+	H2Opts     *clashProxyH2Opts     `yaml:"h2-opts,omitempty"`
+	GrpcOpts   *clashProxyGrpcOpts   `yaml:"grpc-opts,omitempty"`
 }
 
-type ClashProxyPluginOpts struct {
+type clashProxyPluginOpts struct {
 	Mode           string `yaml:"mode,omitempty"`
 	Tls            bool   `yaml:"tls,omitempty"`
 	Fingerprint    string `yaml:"fingerprint,omitempty"`
@@ -49,49 +49,49 @@ type ClashProxyPluginOpts struct {
 	Path           string `yaml:"path,omitempty"`
 }
 
-type ClashProxyWsOpts struct {
+type clashProxyWsOpts struct {
 	Path                string                   `yaml:"path,omitempty"`
-	Headers             *ClashProxyWsOptsHeaders `yaml:"headers,omitempty"`
+	Headers             *clashProxyWsOptsHeaders `yaml:"headers,omitempty"`
 	MaxEarlyData        int                      `yaml:"max-early-data,omitempty"`
 	EarlyDataHeaderName string                   `yaml:"early-data-header-name,omitempty"`
 }
 
-type ClashProxyWsOptsHeaders struct {
+type clashProxyWsOptsHeaders struct {
 	Host string `yaml:"Host,omitempty"`
 }
 
-type ClashProxyH2Opts struct {
+type clashProxyH2Opts struct {
 	Host []string `yaml:"host,omitempty"`
 	Path string   `yaml:"path,omitempty"`
 }
 
-type ClashProxyGrpcOpts struct {
+type clashProxyGrpcOpts struct {
 	GrpcServiceName string `yaml:"grpc-service-name,omitempty"`
 }
 
-type ClashProxyRealityOpts struct {
+type clashProxyRealityOpts struct {
 	PublicKey string `yaml:"public-key,omitempty"`
 	ShortId   string `yaml:"short-id,omitempty"`
 }
 
 func tryConvertClashYaml(text string) (*XrayJson, error) {
-	ClashBytes := []byte(text)
-	Clash := ClashYaml{}
+	clashBytes := []byte(text)
+	clash := clashYaml{}
 
-	err := yaml.Unmarshal(ClashBytes, &Clash)
+	err := yaml.Unmarshal(clashBytes, &clash)
 	if err != nil {
 		return nil, err
 	}
 
-	xray := Clash.xrayConfig()
+	xray := clash.xrayConfig()
 	return &xray, nil
 }
 
-func (Clash ClashYaml) xrayConfig() XrayJson {
+func (clash clashYaml) xrayConfig() XrayJson {
 	var xray XrayJson
 
 	var outbounds []XrayOutbound
-	for _, proxy := range Clash.Proxies {
+	for _, proxy := range clash.Proxies {
 		if outbound, err := proxy.outbound(); err == nil {
 			outbounds = append(outbounds, *outbound)
 		} else {
@@ -103,7 +103,7 @@ func (Clash ClashYaml) xrayConfig() XrayJson {
 	return xray
 }
 
-func (proxy ClashProxy) outbound() (*XrayOutbound, error) {
+func (proxy clashProxy) outbound() (*XrayOutbound, error) {
 	switch proxy.Type {
 	case "ss":
 		outbound, err := proxy.shadowsocksOutbound()
@@ -142,7 +142,7 @@ func (proxy ClashProxy) outbound() (*XrayOutbound, error) {
 	return nil, fmt.Errorf("unsupport proxy type: %s", proxy.Type)
 }
 
-func (proxy ClashProxy) shadowsocksOutbound() (*XrayOutbound, error) {
+func (proxy clashProxy) shadowsocksOutbound() (*XrayOutbound, error) {
 	var outbound XrayOutbound
 	outbound.Protocol = "shadowsocks"
 	outbound.Name = proxy.Name
@@ -196,7 +196,7 @@ func (proxy ClashProxy) shadowsocksOutbound() (*XrayOutbound, error) {
 	return &outbound, nil
 }
 
-func (proxy ClashProxy) vmessOutbound() (*XrayOutbound, error) {
+func (proxy clashProxy) vmessOutbound() (*XrayOutbound, error) {
 	var outbound XrayOutbound
 	outbound.Protocol = "vmess"
 	outbound.Name = proxy.Name
@@ -228,7 +228,7 @@ func (proxy ClashProxy) vmessOutbound() (*XrayOutbound, error) {
 	return &outbound, nil
 }
 
-func (proxy ClashProxy) vlessOutbound() (*XrayOutbound, error) {
+func (proxy clashProxy) vlessOutbound() (*XrayOutbound, error) {
 	var outbound XrayOutbound
 	outbound.Protocol = "vless"
 	outbound.Name = proxy.Name
@@ -260,7 +260,7 @@ func (proxy ClashProxy) vlessOutbound() (*XrayOutbound, error) {
 	return &outbound, nil
 }
 
-func (proxy ClashProxy) socksOutbound() (*XrayOutbound, error) {
+func (proxy clashProxy) socksOutbound() (*XrayOutbound, error) {
 	var outbound XrayOutbound
 	outbound.Protocol = "socks"
 	outbound.Name = proxy.Name
@@ -292,7 +292,7 @@ func (proxy ClashProxy) socksOutbound() (*XrayOutbound, error) {
 	return &outbound, nil
 }
 
-func (proxy ClashProxy) trojanOutbound() (*XrayOutbound, error) {
+func (proxy clashProxy) trojanOutbound() (*XrayOutbound, error) {
 	var outbound XrayOutbound
 	outbound.Protocol = "trojan"
 	outbound.Name = proxy.Name
@@ -320,7 +320,7 @@ func (proxy ClashProxy) trojanOutbound() (*XrayOutbound, error) {
 	return &outbound, nil
 }
 
-func (proxy ClashProxy) streamSettings(outbound XrayOutbound) (*XrayStreamSettings, error) {
+func (proxy clashProxy) streamSettings(outbound XrayOutbound) (*XrayStreamSettings, error) {
 	var streamSettings XrayStreamSettings
 	if len(proxy.Network) == 0 {
 		streamSettings.Network = "tcp"
@@ -363,7 +363,7 @@ func (proxy ClashProxy) streamSettings(outbound XrayOutbound) (*XrayStreamSettin
 	return &streamSettings, nil
 }
 
-func (proxy ClashProxy) parseSecurity(streamSettings *XrayStreamSettings, outbound XrayOutbound) {
+func (proxy clashProxy) parseSecurity(streamSettings *XrayStreamSettings, outbound XrayOutbound) {
 	var tlsSettings XrayTlsSettings
 	var realitySettings XrayRealitySettings
 

@@ -3,7 +3,7 @@ import re
 import shutil
 import subprocess
 
-from app.cmd import delete_file_if_exists
+from app.cmd import delete_file_if_exists, delete_dir_if_exists
 
 
 class Builder(object):
@@ -15,6 +15,11 @@ class Builder(object):
         for file in files:
             file_path = os.path.join(self.lib_dir, file)
             delete_file_if_exists(file_path)
+
+    def clean_lib_dirs(self, dirs: list[str]):
+        for dir_name in dirs:
+            dir_path = os.path.join(self.lib_dir, dir_name)
+            delete_dir_if_exists(dir_path)
 
     def prepare_go(self):
         clean_files = ["go.mod", "go.sum"]
@@ -32,7 +37,7 @@ class Builder(object):
         main_path = os.path.join("main", "main.go")
         ret = subprocess.run(["go", "run", main_path])
         if ret.returncode != 0:
-            raise Exception("go mod init failed")
+            raise Exception("download_geo failed")
 
     def prepare_static_lib(self):
         self.copy_go_main_file()
@@ -56,7 +61,7 @@ class Builder(object):
             for line in lines:
                 new_line = line
                 if re.match(r"^package\s+libXray", line):
-                    new_line = 'package main\n\nimport "C"\n'
+                    new_line = "package main\n"
                 new_lines.append(new_line)
         with open(file_path, "w") as f:
             f.writelines(new_lines)
@@ -87,8 +92,6 @@ class Builder(object):
                 new_line = line
                 if re.match(r"^package\s+main", line):
                     new_line = "package libXray\n"
-                if re.match(r'^import\s+"C"', line):
-                    new_line = ""
                 new_lines.append(new_line)
         with open(file_path, "w") as f:
             f.writelines(new_lines)

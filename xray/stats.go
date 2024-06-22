@@ -3,10 +3,8 @@ package xray
 import (
 	"context"
 	"fmt"
-	"path"
 	"reflect"
 
-	"github.com/xtls/libxray/nodep"
 	statsService "github.com/xtls/xray-core/app/stats/command"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,26 +20,25 @@ func isNil(i interface{}) bool {
 	return i == nil
 }
 
-func writeResult(m proto.Message, path string) error {
+func writeResult(m proto.Message) (string, error) {
 	if isNil(m) {
-		return fmt.Errorf("m is nil")
+		return "", fmt.Errorf("m is nil")
 	}
 	ops := protojson.MarshalOptions{}
 	b, err := ops.Marshal(m)
 	if err != nil {
-		return err
+		return "", err
 	}
-	err = nodep.WriteBytes(b, path)
-	return err
+	return string(b), nil
 }
 
 // query system stats and outbound stats.
 // server means The API server address, like "127.0.0.1:8080".
 // dir means the dir which result json will be wrote to.
-func QueryStats(server string, dir string) error {
-	conn, err := grpc.Dial(server, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+func QueryStats(server string) (string, string, error) {
+	conn, err := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	defer conn.Close()
 
@@ -50,12 +47,11 @@ func QueryStats(server string, dir string) error {
 	sysStatsReq := &statsService.SysStatsRequest{}
 	sysStatsRes, err := client.GetSysStats(context.Background(), sysStatsReq)
 	if err != nil {
-		return err
+		return "", "", err
 	}
-	sysStatsPath := path.Join(dir, "sysStats.json")
-	err = writeResult(sysStatsRes, sysStatsPath)
+	sysStatsJson, err := writeResult(sysStatsRes)
 	if err != nil {
-		return err
+		return "", "", err
 	}
 
 	statsReq := &statsService.QueryStatsRequest{
@@ -64,12 +60,11 @@ func QueryStats(server string, dir string) error {
 	}
 	statsRes, err := client.QueryStats(context.Background(), statsReq)
 	if err != nil {
-		return err
+		return "", "", err
 	}
-	statsPath := path.Join(dir, "stats.json")
-	err = writeResult(statsRes, statsPath)
+	statsJson, err := writeResult(statsRes)
 	if err != nil {
-		return err
+		return "", "", err
 	}
-	return nil
+	return sysStatsJson, statsJson, nil
 }

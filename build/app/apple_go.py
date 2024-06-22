@@ -20,7 +20,7 @@ class AppleTarget(object):
         self.min_version = min_version
 
 
-class AppleBuilder(Builder):
+class AppleGoBuilder(Builder):
     def __init__(self, build_dir: str):
         super().__init__(build_dir)
         self.framework_dir = os.path.join(self.lib_dir, "apple_xcframework")
@@ -72,6 +72,7 @@ class AppleBuilder(Builder):
 
     def before_build(self):
         super().before_build()
+        self.clean_lib_dirs(["LibXray.xcframework"])
         self.prepare_static_lib()
 
     def build(self):
@@ -180,9 +181,6 @@ class AppleBuilder(Builder):
     def create_include_dir(self):
         include_dir = os.path.join(self.framework_dir, "include")
         create_dir_if_not_exists(include_dir)
-
-        module_file = os.path.join(self.build_dir, "template", "module.modulemap")
-        shutil.copy(module_file, include_dir)
 
         target = self.ios_targets[0]
         header_file = os.path.join(

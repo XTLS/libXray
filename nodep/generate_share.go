@@ -5,50 +5,40 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 )
 
 // Convert XrayJson to share links.
 // VMess will generate VMessAEAD link.
-func ConvertXrayJsonToShareText(xrayPath string, textPath string) error {
-	xrayBytes, err := os.ReadFile(xrayPath)
-	if err != nil {
-		return err
-	}
+func ConvertXrayJsonToShareLinks(xrayText string) (string, error) {
+	xrayBytes := []byte(xrayText)
 
 	var xray XrayJson
 
-	err = json.Unmarshal(xrayBytes, &xray)
+	err := json.Unmarshal(xrayBytes, &xray)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	outbounds := xray.FlattenOutbounds()
 	if len(outbounds) == 0 {
-		return fmt.Errorf("no valid outbounds")
+		return "", fmt.Errorf("no valid outbounds")
 	}
 
 	var links []string
 	for _, outbound := range outbounds {
-		link, err := outbound.ShareLink()
+		link, err := outbound.shareLink()
 		if err == nil {
 			links = append(links, link.String())
 		}
 	}
 	if len(links) == 0 {
-		return fmt.Errorf("no valid outbounds")
+		return "", fmt.Errorf("no valid outbounds")
 	}
-	text := strings.Join(links, "\n")
-	err = WriteText(text, textPath)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return strings.Join(links, "\n"), nil
 }
 
-func (proxy XrayOutbound) ShareLink() (*url.URL, error) {
+func (proxy XrayOutbound) shareLink() (*url.URL, error) {
 	var shareUrl url.URL
 
 	switch proxy.Protocol {
