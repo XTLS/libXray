@@ -6,12 +6,25 @@ import (
 	"github.com/xtls/libxray/nodep"
 )
 
+type getFreePortsResponse struct {
+	Ports []int `json:"ports,omitempty"`
+}
+
 // Wrapper of nodep.GetFreePorts
 // count means how many ports you need.
 // return ports divided by ":", like "1080:1081"
 func GetFreePorts(count int) string {
-	res := nodep.GetFreePorts(count)
-	return makeCallResponse(res, nil)
+	ports, err := nodep.GetFreePorts(count)
+	if err != nil {
+		return makeCallResponse("", err)
+	}
+	var res getFreePortsResponse
+	res.Ports = ports
+	b, err := json.Marshal(res)
+	if err != nil {
+		return makeCallResponse("", err)
+	}
+	return makeCallResponse(string(b), nil)
 }
 
 // Convert share text to XrayJson
