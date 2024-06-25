@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,10 +51,33 @@ func saveTimestamp(datDir string) error {
 	return nodep.WriteText(tsText, tsPath)
 }
 
-func parseCallResponse(text string) (nodep.CallResponse, error) {
-	var response nodep.CallResponse
-	err := json.Unmarshal([]byte(text), &response)
+func parseCallResponse(text string) (nodep.CallResponse[string], error) {
+	var response nodep.CallResponse[string]
+	decoded, err := base64.StdEncoding.DecodeString(text)
+	if err != nil {
+		return response, err
+	}
+	err = json.Unmarshal(decoded, &response)
 	return response, err
+}
+
+type loadGeoDataRequest struct {
+	DatDir  string `json:"datDir,omitempty"`
+	Name    string `json:"name,omitempty"`
+	GeoType string `json:"geoType,omitempty"`
+}
+
+func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string, error) {
+	var request loadGeoDataRequest
+	request.DatDir = datDir
+	request.Name = name
+	request.GeoType = geoType
+
+	data, err := json.Marshal(&request)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(data), nil
 }
 
 func main() {
@@ -72,7 +96,13 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	res := libXray.LoadGeoData(datDir, "geosite", "domain")
+	geoSiteReq, err := makeLoadGeoDataRequest(datDir, "geosite", "domain")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	res := libXray.LoadGeoData(geoSiteReq)
 	resp, err := parseCallResponse(res)
 	if err != nil || !resp.Success {
 		fmt.Println("load geosite ", res)
@@ -87,7 +117,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	res = libXray.LoadGeoData(datDir, "geoip", "ip")
+	geoIpReq, err := makeLoadGeoDataRequest(datDir, "geosite", "domain")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	res = libXray.LoadGeoData(geoIpReq)
 	resp, err = parseCallResponse(res)
 	if err != nil || !resp.Success {
 		fmt.Println("load geoip ", res)

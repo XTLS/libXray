@@ -2,6 +2,7 @@ package xray
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 
@@ -29,7 +30,8 @@ func writeResult(m proto.Message) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // query system stats and outbound stats.
