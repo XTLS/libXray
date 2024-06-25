@@ -117,7 +117,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	geoIpReq, err := makeLoadGeoDataRequest(datDir, "geosite", "domain")
+	geoIpReq, err := makeLoadGeoDataRequest(datDir, "geoip", "ip")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
