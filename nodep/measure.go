@@ -11,7 +11,7 @@ const (
 	PingDelayError   int64 = 10000
 )
 
-// Find the delay and ip of some outbound.
+// get the delay of some outbound.
 // timeout means how long the http request will be cancelled if no response, in units of seconds.
 // url means the website we use to test speed. "https://www.google.com" is a good choice for most cases.
 // proxy means the local http/socks5 proxy, like "socks5://[::1]:1080".

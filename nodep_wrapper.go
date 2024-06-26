@@ -12,7 +12,6 @@ type getFreePortsResponse struct {
 
 // Wrapper of nodep.GetFreePorts
 // count means how many ports you need.
-// return ports divided by ":", like "1080:1081"
 func GetFreePorts(count int) string {
 	var response nodep.CallResponse[*getFreePortsResponse]
 	ports, err := nodep.GetFreePorts(count)

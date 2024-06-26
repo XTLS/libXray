@@ -16,9 +16,6 @@ type loadGeoDataRequest struct {
 }
 
 // Read geo data and write all codes to text file.
-// datDir means the dir which geo dat are in.
-// name means the geo dat file name, like "geosite", "geoip"
-// geoType must be the value of geoType
 func LoadGeoData(base64Text string) string {
 	var response nodep.CallResponse[string]
 	req, err := base64.StdEncoding.DecodeString(base64Text)
@@ -42,12 +39,7 @@ type pingRequest struct {
 	Proxy      string `json:"proxy,omitempty"`
 }
 
-// Ping Xray config and find the delay and country code of its outbound.
-// datDir means the dir which geosite.dat and geoip.dat are in.
-// configPath means the config.json file path.
-// timeout means how long the http request will be cancelled if no response, in units of seconds.
-// url means the website we use to test speed. "https://www.google.com" is a good choice for most cases.
-// proxy means the local http/socks5 proxy, like "socks5://[::1]:1080".
+// Ping Xray config and get the delay of its outbound.
 func Ping(base64Text string) string {
 	var response nodep.CallResponse[int64]
 	req, err := base64.StdEncoding.DecodeString(base64Text)
@@ -69,8 +61,6 @@ type queryStatsResponse struct {
 }
 
 // query system stats and outbound stats.
-// server means The API server address, like "127.0.0.1:8080".
-// dir means the dir which result json will be wrote to.
 func QueryStats(base64Text string) string {
 	var response nodep.CallResponse[*queryStatsResponse]
 	server, err := base64.StdEncoding.DecodeString(base64Text)
@@ -105,8 +95,6 @@ type testXrayRequest struct {
 }
 
 // Test Xray Config.
-// datDir means the dir which geosite.dat and geoip.dat are in.
-// configPath means the config.json file path.
 func TestXray(base64Text string) string {
 	var response nodep.CallResponse[string]
 	req, err := base64.StdEncoding.DecodeString(base64Text)
@@ -129,9 +117,6 @@ type runXrayRequest struct {
 }
 
 // Run Xray instance.
-// datDir means the dir which geosite.dat and geoip.dat are in.
-// configPath means the config.json file path.
-// maxMemory means the soft memory limit of golang, see SetMemoryLimit to find more information.
 func RunXray(base64Text string) string {
 	var response nodep.CallResponse[string]
 	req, err := base64.StdEncoding.DecodeString(base64Text)

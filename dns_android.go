@@ -14,7 +14,6 @@ var (
 )
 
 // Give a callback when parsing server domain. Useful for Android development.
-// this function is under development, and there is no guarantee for its availability.
 // It depends on xray:api:beta
 func InitDns(controller DialerController, dns string) {
 	if dnsDialer != nil {
