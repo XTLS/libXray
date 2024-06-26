@@ -40,3 +40,11 @@ func InitDns(controller DialerController, dns string) {
 		},
 	}
 }
+
+func ResetDns() {
+	if dnsDialer != nil {
+		dnsDialer = nil
+	}
+
+	net.DefaultResolver = &net.Resolver{}
+}

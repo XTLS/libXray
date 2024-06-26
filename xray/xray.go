@@ -8,6 +8,7 @@ import (
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/core"
 	_ "github.com/xtls/xray-core/main/distro/all"
+	xinternet "github.com/xtls/xray-core/transport/internet"
 )
 
 var (
@@ -68,6 +69,8 @@ func StopXray() error {
 			return err
 		}
 	}
+	// reset effectiveSystemDialer when stopped
+	xinternet.UseAlternativeSystemDialer(nil)
 	return nil
 }
 
