@@ -98,7 +98,7 @@ build libXray, currently support android and apple.
 
 It will always use the latest Xray-core.
 
-### controller.go && dns.go
+### controller.go
 
 experimental Android support.
 
