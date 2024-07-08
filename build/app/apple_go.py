@@ -53,20 +53,21 @@ class AppleGoBuilder(Builder):
             ),
         ]
 
+        # keep minimum macOS version same with Flutter
         self.macos_targets = [
             AppleTarget(
                 "darwin",
                 "amd64",
                 "x86_64",
                 "macosx",
-                "-mmacosx-version-min=12.0",
+                "-mmacosx-version-min=10.14",
             ),
             AppleTarget(
                 "darwin",
                 "arm64",
                 "arm64",
                 "macosx",
-                "-mmacosx-version-min=12.0",
+                "-mmacosx-version-min=10.14",
             ),
         ]
 

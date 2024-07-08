@@ -208,7 +208,11 @@ func (proxy xrayShareLink) vmessOutbound() (*XrayOutbound, error) {
 	query := proxy.link.Query()
 
 	var user XrayVMessVnextUser
-	user.Id = proxy.link.User.String()
+	id, err := url.QueryUnescape(proxy.link.User.String())
+	if err != nil {
+		return nil, err
+	}
+	user.Id = id
 	security := query.Get("encryption")
 	if len(security) > 0 {
 		user.Security = security
@@ -245,7 +249,11 @@ func (proxy xrayShareLink) vlessOutbound() (*XrayOutbound, error) {
 	query := proxy.link.Query()
 
 	var user XrayVLESSVnextUser
-	user.Id = proxy.link.User.String()
+	id, err := url.QueryUnescape(proxy.link.User.String())
+	if err != nil {
+		return nil, err
+	}
+	user.Id = id
 	flow := query.Get("flow")
 	if len(flow) > 0 {
 		user.Flow = flow
@@ -334,7 +342,11 @@ func (proxy xrayShareLink) trojanOutbound() (*XrayOutbound, error) {
 		return nil, err
 	}
 	server.Port = port
-	server.Password = proxy.link.User.String()
+	password, err := url.QueryUnescape(proxy.link.User.String())
+	if err != nil {
+		return nil, err
+	}
+	server.Password = password
 
 	var settings XrayTrojan
 	settings.Servers = []XrayTrojanServer{server}
