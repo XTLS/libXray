@@ -14,7 +14,7 @@ static os_log_t logger = NULL;
 
 void OSLog(uint8_t type, const char *message) {
     if (logger == NULL) {
-        logger = os_log_create("cc.cross.Mango", "xray");
+        logger = os_log_create("io.github.xtls", "xray");
     }
     os_log_with_type(logger, type, "%{public}s", message);
 }
@@ -27,8 +27,6 @@ import (
 	"github.com/xtls/xray-core/common/log"
 	"unsafe"
 )
-
-var logger = C.os_log_create(C.CString("io.github.xtls"), C.CString("xray"))
 
 type iOSLogger struct {
 }
