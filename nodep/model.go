@@ -6,7 +6,7 @@ import (
 )
 
 type CallResponse[T any] struct {
-	Success bool   `json:"success,omitempty"`
+	Success bool   `json:"success"`
 	Data    T      `json:"data,omitempty"`
 	Err     string `json:"error,omitempty"`
 }
