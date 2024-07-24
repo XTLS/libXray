@@ -1,6 +1,6 @@
-//go:build android
+//go:build linux && !android
 
-package libXray
+package dns
 
 import (
 	"context"
@@ -9,13 +9,7 @@ import (
 	"time"
 )
 
-var (
-	dnsDialer *net.Dialer
-)
-
-// Give a callback when parsing server domain. Useful for Android development.
-// It depends on xray:api:beta
-func InitDns(controller DialerController, dns string) {
+func InitDns(dns string, deviceName string) {
 	if dnsDialer != nil {
 		dnsDialer = nil
 	}
@@ -24,12 +18,15 @@ func InitDns(controller DialerController, dns string) {
 		Timeout: time.Second * 16,
 	}
 
-	if controller != nil {
-		dnsDialer.Control = func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				controller.ProtectFd(int(fd))
-			})
+	dnsDialer.Control = func(network, address string, c syscall.RawConn) error {
+		var errBind error
+		err := c.Control(func(fd uintptr) {
+			errBind = syscall.BindToDevice(int(fd), deviceName)
+		})
+		if err != nil {
+			return err
 		}
+		return errBind
 	}
 
 	net.DefaultResolver = &net.Resolver{

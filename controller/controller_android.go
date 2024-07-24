@@ -1,6 +1,6 @@
 //go:build android
 
-package libXray
+package controller
 
 import (
 	"syscall"
