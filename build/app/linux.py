@@ -5,9 +5,6 @@ from app.build import Builder
 from app.cmd import create_dir_if_not_exists, delete_dir_if_exists
 
 
-# https://ziglang.org/learn/overview/#zig-ships-with-libc
-
-
 class LinuxBuilder(Builder):
     def __init__(self, build_dir: str):
         super().__init__(build_dir)

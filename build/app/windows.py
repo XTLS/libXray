@@ -5,6 +5,9 @@ from app.build import Builder
 from app.cmd import create_dir_if_not_exists, delete_dir_if_exists
 
 
+# https://ziglang.org/learn/overview/#zig-ships-with-libc
+
+
 class WindowsTarget(object):
     def __init__(self, platform: str, go_arch: str, zig_target: str):
         self.platform = platform

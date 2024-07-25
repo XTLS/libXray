@@ -19,6 +19,7 @@ func InitDns(dns string, deviceName string) {
 	}
 
 	dnsDialer.Control = func(network, address string, c syscall.RawConn) error {
+		//copy from https://github.com/apernet/hysteria/blob/master/extras/outbounds/ob_direct_linux.go
 		var errBind error
 		err := c.Control(func(fd uintptr) {
 			errBind = syscall.BindToDevice(int(fd), deviceName)

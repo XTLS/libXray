@@ -7,13 +7,11 @@ import (
 	"net"
 	"syscall"
 	"time"
-
-	"github.com/xtls/libxray/controller"
 )
 
 // Give a callback when parsing server domain. Useful for Android development.
 // It depends on xray:api:beta
-func InitDns(controller controller.DialerController, dns string) {
+func InitDns(server string, controller func(fd uintptr)) {
 	if dnsDialer != nil {
 		dnsDialer = nil
 	}
@@ -24,16 +22,14 @@ func InitDns(controller controller.DialerController, dns string) {
 
 	if controller != nil {
 		dnsDialer.Control = func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				controller.ProtectFd(int(fd))
-			})
+			return c.Control(controller)
 		}
 	}
 
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			return dnsDialer.DialContext(ctx, network, dns)
+			return dnsDialer.DialContext(ctx, network, server)
 		},
 	}
 }
