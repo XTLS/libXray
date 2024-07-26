@@ -53,12 +53,14 @@ class Builder(object):
             raise Exception("gomobile init failed")
 
     def prepare_static_lib(self):
-        self.copy_go_main_file()
+        self.copy_template_file()
         self.fix_package_name()
 
-    def copy_go_main_file(self):
-        src_file = os.path.join(self.build_dir, "template", "main.go")
-        shutil.copy(src_file, self.lib_dir)
+    def copy_template_file(self):
+        files = ['main.go', 'linux.go']
+        for file in files:
+            src_file = os.path.join(self.build_dir, "template", file)
+            shutil.copy(src_file, self.lib_dir)
 
     def fix_package_name(self):
         files = os.listdir(self.lib_dir)
@@ -90,7 +92,7 @@ class Builder(object):
         pass
 
     def reset_files(self):
-        self.clean_lib_files(["main.go"])
+        self.clean_lib_files(["main.go", "linux.go"])
         files = os.listdir(self.lib_dir)
         for file in files:
             if file.endswith(".go"):

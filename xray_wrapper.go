@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	_ "github.com/xtls/libxray/log"
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/libxray/xray"
 )

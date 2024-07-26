@@ -4,6 +4,8 @@ import sys
 from app.android import AndroidBuilder
 from app.apple_go import AppleGoBuilder
 from app.apple_gomobile import AppleGoMobileBuilder
+from app.linux import LinuxBuilder
+from app.windows import WindowsBuilder
 
 
 def build_dir_path():
@@ -27,6 +29,12 @@ if __name__ == "__main__":
             raise Exception(f"platform {platform} tool {tool} not supported")
     elif platform == "android":
         builder = AndroidBuilder(build_dir_path())
+        builder.build()
+    elif platform == "linux":
+        builder = LinuxBuilder(build_dir_path())
+        builder.build()
+    elif platform == "windows":
+        builder = WindowsBuilder(build_dir_path())
         builder.build()
     else:
         raise Exception(f"platform {platform} not supported")

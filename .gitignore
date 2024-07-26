@@ -21,6 +21,8 @@ apple_xcframework/
 *.xcframework/
 *.jar
 *.aar
+linux_so/
+windows_dll/
 
 dat/
 sub/
