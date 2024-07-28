@@ -57,7 +57,7 @@ class Builder(object):
         self.fix_package_name()
 
     def copy_template_file(self):
-        files = ['main.go', 'linux.go']
+        files = ['main.go']
         for file in files:
             src_file = os.path.join(self.build_dir, "template", file)
             shutil.copy(src_file, self.lib_dir)
@@ -92,7 +92,7 @@ class Builder(object):
         pass
 
     def reset_files(self):
-        self.clean_lib_files(["main.go", "linux.go"])
+        self.clean_lib_files(["main.go"])
         files = os.listdir(self.lib_dir)
         for file in files:
             if file.endswith(".go"):
