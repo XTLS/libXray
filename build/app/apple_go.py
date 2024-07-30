@@ -53,7 +53,6 @@ class AppleGoBuilder(Builder):
             ),
         ]
 
-        # keep minimum macOS version same with Flutter
         self.macos_targets = [
             AppleTarget(
                 "darwin",
@@ -71,6 +70,30 @@ class AppleGoBuilder(Builder):
             ),
         ]
 
+        self.tvos_targets = [
+            AppleTarget(
+                "darwin",
+                "arm64",
+                "arm64",
+                "appletvos",
+                "-mappletvos-version-min=17.0",
+            ),
+            AppleTarget(
+                "darwin",
+                "amd64",
+                "x86_64",
+                "appletvsimulator",
+                "-mappletvsimulator-version-min=17.0",
+            ),
+            AppleTarget(
+                "darwin",
+                "arm64",
+                "arm64",
+                "appletvsimulator",
+                "-mappletvsimulator-version-min=17.0",
+            ),
+        ]
+
     def before_build(self):
         super().before_build()
         self.clean_lib_dirs(["LibXray.xcframework"])
@@ -78,14 +101,31 @@ class AppleGoBuilder(Builder):
 
     def build(self):
         self.before_build()
-        self.build_ios(self.ios_targets)
-        self.build_macos(self.macos_targets)
+        # build ios
+        self.build_targets(self.ios_targets)
+        self.merge_static_lib(
+            self.ios_targets[1].sdk,
+            [self.ios_targets[1].apple_arch, self.ios_targets[2].apple_arch],
+        )
+        # build macos
+        self.build_targets(self.macos_targets)
+        self.merge_static_lib(
+            self.macos_targets[0].sdk,
+            [self.macos_targets[0].apple_arch, self.macos_targets[1].apple_arch],
+        )
+        # build tvos
+        self.build_targets(self.tvos_targets)
+        self.merge_static_lib(
+            self.tvos_targets[1].sdk,
+            [self.tvos_targets[1].apple_arch, self.tvos_targets[2].apple_arch],
+        )
+
         self.after_build()
 
         self.create_include_dir()
         self.create_framework()
 
-    def build_ios(self, targets: list[AppleTarget]):
+    def build_targets(self, targets: list[AppleTarget]):
         for target in targets:
             self.run_build_cmd(
                 target.platform,
@@ -94,24 +134,6 @@ class AppleGoBuilder(Builder):
                 target.sdk,
                 target.min_version,
             )
-        self.merge_static_lib(
-            targets[1].sdk,
-            [targets[1].apple_arch, targets[2].apple_arch],
-        )
-
-    def build_macos(self, targets: list[AppleTarget]):
-        for target in targets:
-            self.run_build_cmd(
-                target.platform,
-                target.go_arch,
-                target.apple_arch,
-                target.sdk,
-                target.min_version,
-            )
-        self.merge_static_lib(
-            targets[0].sdk,
-            [targets[0].apple_arch, targets[1].apple_arch],
-        )
 
     def run_build_cmd(
         self, platform: str, go_arch: str, apple_arch: str, sdk: str, min_version: str
@@ -129,7 +151,7 @@ class AppleGoBuilder(Builder):
         run_env["CXX"] = f"xcrun --sdk {sdk} --toolchain {sdk} clang++"
         run_env["CGO_CFLAGS"] = flags
         run_env["CGO_CXXFLAGS"] = flags
-        run_env["CGO_LDFLAGS"] = flags
+        run_env["CGO_LDFLAGS"] = f"${flags} -Wl,-Bsymbolic-functions"
         run_env["CGO_ENABLED"] = "1"
         run_env["DARWIN_SDK"] = sdk
 
@@ -196,6 +218,8 @@ class AppleGoBuilder(Builder):
             f"{self.ios_targets[0].sdk}-{self.ios_targets[0].apple_arch}",
             f"{self.ios_targets[1].sdk}-{self.ios_targets[1].apple_arch}-{self.ios_targets[2].apple_arch}",
             f"{self.macos_targets[0].sdk}-{self.macos_targets[0].apple_arch}-{self.macos_targets[1].apple_arch}",
+            f"{self.tvos_targets[0].sdk}-{self.tvos_targets[0].apple_arch}",
+            f"{self.tvos_targets[1].sdk}-{self.tvos_targets[1].apple_arch}-{self.tvos_targets[2].apple_arch}",
         ]
         include_dir = os.path.join(self.framework_dir, "include")
         cmd = ["xcodebuild", "-create-xcframework"]
