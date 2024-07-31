@@ -35,21 +35,21 @@ class AppleGoBuilder(Builder):
                 "arm64",
                 "arm64",
                 "iphoneos",
-                "-mios-version-min=15.0",
+                "15.0",
             ),
             AppleTarget(
                 "ios",
                 "amd64",
                 "x86_64",
                 "iphonesimulator",
-                "-miphonesimulator-version-min=15.0",
+                "15.0",
             ),
             AppleTarget(
                 "ios",
                 "arm64",
                 "arm64",
                 "iphonesimulator",
-                "-miphonesimulator-version-min=15.0",
+                "15.0",
             ),
         ]
 
@@ -59,14 +59,14 @@ class AppleGoBuilder(Builder):
                 "amd64",
                 "x86_64",
                 "macosx",
-                "-mmacosx-version-min=10.14",
+                "10.15",
             ),
             AppleTarget(
                 "darwin",
                 "arm64",
                 "arm64",
                 "macosx",
-                "-mmacosx-version-min=10.14",
+                "10.15",
             ),
         ]
 
@@ -76,21 +76,21 @@ class AppleGoBuilder(Builder):
                 "arm64",
                 "arm64",
                 "appletvos",
-                "-mappletvos-version-min=17.0",
+                "17.0",
             ),
             AppleTarget(
                 "darwin",
                 "amd64",
                 "x86_64",
                 "appletvsimulator",
-                "-mappletvsimulator-version-min=17.0",
+                "17.0",
             ),
             AppleTarget(
                 "darwin",
                 "arm64",
                 "arm64",
                 "appletvsimulator",
-                "-mappletvsimulator-version-min=17.0",
+                "17.0",
             ),
         ]
 
@@ -142,7 +142,8 @@ class AppleGoBuilder(Builder):
         create_dir_if_not_exists(output_dir)
         output_file = os.path.join(output_dir, self.lib_file)
         sdk_path = self.get_sdk_dir_path(sdk)
-        flags = f"-isysroot {sdk_path} {min_version} -arch {apple_arch}"
+        min_version_flag = f"-m{sdk}-version-min={min_version}"
+        flags = f"-isysroot {sdk_path} {min_version_flag} -arch {apple_arch}"
         run_env = os.environ.copy()
         run_env["GOOS"] = platform
         run_env["GOARCH"] = go_arch
