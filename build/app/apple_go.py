@@ -153,7 +153,7 @@ class AppleGoBuilder(Builder):
         run_env["CXX"] = f"xcrun --sdk {sdk} --toolchain {sdk} clang++"
         run_env["CGO_CFLAGS"] = flags
         run_env["CGO_CXXFLAGS"] = flags
-        run_env["CGO_LDFLAGS"] = f"${flags} -Wl,-Bsymbolic-functions"
+        run_env["CGO_LDFLAGS"] = f"{flags} -Wl,-Bsymbolic-functions"
         run_env["CGO_ENABLED"] = "1"
         run_env["DARWIN_SDK"] = sdk
 
