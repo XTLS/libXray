@@ -422,18 +422,6 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 		grcpSettings.MultiMode = query.Get("mode") == "multi"
 
 		streamSettings.GrpcSettings = &grcpSettings
-	case "quic":
-		var quicSettings XrayQuicSettings
-		headerType := query.Get("headerType")
-		if len(headerType) > 0 {
-			var header XrayFakeHeader
-			header.Type = headerType
-			quicSettings.Header = &header
-		}
-		quicSettings.Security = query.Get("quicSecurity")
-		quicSettings.Key = query.Get("key")
-
-		streamSettings.QuicSettings = &quicSettings
 	case "h2", "http":
 		var httpSettings XrayHttpSettings
 		host := query.Get("host")

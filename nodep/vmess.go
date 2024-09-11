@@ -127,18 +127,6 @@ func (proxy vmessQrCode) streamSettings() *XrayStreamSettings {
 		grcpSettings.MultiMode = mode == "multi"
 
 		streamSettings.GrpcSettings = &grcpSettings
-	case "quic":
-		var quicSettings XrayQuicSettings
-		headerType := proxy.Type
-		if len(headerType) > 0 {
-			var header XrayFakeHeader
-			header.Type = headerType
-			quicSettings.Header = &header
-		}
-		quicSettings.Security = proxy.Host
-		quicSettings.Key = proxy.Path
-
-		streamSettings.QuicSettings = &quicSettings
 	case "http":
 		var httpSettings XrayHttpSettings
 		host := proxy.Host

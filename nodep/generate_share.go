@@ -262,25 +262,6 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 		if len(authority) > 0 {
 			query = addQuery(query, "authority", authority)
 		}
-	case "quic":
-		if streamSettings.QuicSettings == nil {
-			break
-		}
-		quicSecurity := streamSettings.QuicSettings.Security
-		if len(quicSecurity) > 0 {
-			query = addQuery(query, "quicSecurity", quicSecurity)
-		}
-		key := streamSettings.QuicSettings.Key
-		if len(key) > 0 {
-			query = addQuery(query, "key", key)
-		}
-		if streamSettings.KcpSettings.Header == nil {
-			break
-		}
-		headerType := streamSettings.KcpSettings.Header.Type
-		if len(headerType) > 0 {
-			query = addQuery(query, "headerType", headerType)
-		}
 	case "http":
 		if streamSettings.HttpSettings == nil {
 			break
