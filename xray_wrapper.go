@@ -55,27 +55,19 @@ func Ping(base64Text string) string {
 	return response.EncodeToBase64(delay, err)
 }
 
-type queryStatsResponse struct {
-	SysStats string `json:"sysStats,omitempty"`
-	Stats    string `json:"stats,omitempty"`
-}
-
-// query system stats and outbound stats.
+// query inbound and outbound stats.
 func QueryStats(base64Text string) string {
-	var response nodep.CallResponse[*queryStatsResponse]
+	var response nodep.CallResponse[string]
 	server, err := base64.StdEncoding.DecodeString(base64Text)
 	if err != nil {
-		return response.EncodeToBase64(nil, err)
+		return response.EncodeToBase64("", err)
 	}
 
-	sysStats, stats, err := xray.QueryStats(string(server))
+	stats, err := xray.QueryStats(string(server))
 	if err != nil {
-		return response.EncodeToBase64(nil, err)
+		return response.EncodeToBase64("", err)
 	}
-	var queryStats queryStatsResponse
-	queryStats.SysStats = sysStats
-	queryStats.Stats = stats
-	return response.EncodeToBase64(&queryStats, nil)
+	return response.EncodeToBase64(stats, nil)
 }
 
 // convert text to uuid

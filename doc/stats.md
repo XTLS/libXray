@@ -4,39 +4,20 @@ Here is a config sample.
 
 ```json
 {
-  "api" : {
-    "services" : [
-      "StatsService"
-    ],
-    "tag" : "api"
-  },
   "inbounds" : [
     {
       "listen" : "[::1]",
-      "port" : 63822,
-      "protocol" : "socks",
-      "settings" : {
-        "auth" : "noauth",
-        "udp" : true
-      },
-      "tag" : "socks"
-    },
-    {
-      "listen" : "[::1]",
-      "port" : 63823,
+      "port" : 49227,
       "protocol" : "dokodemo-door",
       "settings" : {
         "address" : "[::1]"
       },
-      "tag" : "api"
+      "tag" : "metricsIn"
     }
   ],
-  "outbounds" : [
-    {
-      "protocol" : "freedom",
-      "tag" : "direct"
-    }
-  ],
+  "metrics" : {
+    "tag" : "metricsOut"
+  },
   "policy" : {
     "system" : {
       "statsInboundDownlink" : true,
@@ -50,23 +31,9 @@ Here is a config sample.
     "rules" : [
       {
         "inboundTag" : [
-          "api"
+          "metricsIn"
         ],
-        "outboundTag" : "api",
-        "type" : "field"
-      },
-      {
-        "domain" : [
-          "geosite:PRIVATE"
-        ],
-        "outboundTag" : "direct",
-        "type" : "field"
-      },
-      {
-        "ip" : [
-          "geoip:PRIVATE",
-        ],
-        "outboundTag" : "direct",
+        "outboundTag" : "metricsOut",
         "type" : "field"
       }
     ]
@@ -75,9 +42,6 @@ Here is a config sample.
 }
 ```
 
-Then call `func QueryStats(server string, dir string) string` in your app.
+Then call `func QueryStats(base64Text string) string` in your app.
 
-The server should be "[::1]:63823".
-
-Your will get result json files in the "dir".
-
+The server should be "[::1]:49227".
