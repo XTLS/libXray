@@ -76,7 +76,7 @@ test the delay.
 
 ### stats.go
 
-read the 
+query inbound and outbound stats.
 
 ### uuid.go
 
