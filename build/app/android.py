@@ -7,7 +7,6 @@ from app.build import Builder
 class AndroidBuilder(Builder):
     def before_build(self):
         super().before_build()
-        self.clean_lib_files(["libXray-source.jar", "libXray.aar"])
         self.prepare_gomobile()
 
     def build(self):

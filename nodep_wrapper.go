@@ -20,9 +20,6 @@ func GetFreePorts(count int) string {
 	}
 	var res getFreePortsResponse
 	res.Ports = ports
-	if err != nil {
-		return response.EncodeToBase64(nil, err)
-	}
 	return response.EncodeToBase64(&res, nil)
 }
 
