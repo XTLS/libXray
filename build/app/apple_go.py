@@ -73,21 +73,21 @@ class AppleGoBuilder(Builder):
 
         self.tvos_targets = [
             AppleTarget(
-                "darwin",
+                "ios",
                 "arm64",
                 "arm64",
                 "appletvos",
                 "17.0",
             ),
             AppleTarget(
-                "darwin",
+                "ios",
                 "amd64",
                 "x86_64",
                 "appletvsimulator",
                 "17.0",
             ),
             AppleTarget(
-                "darwin",
+                "ios",
                 "arm64",
                 "arm64",
                 "appletvsimulator",
