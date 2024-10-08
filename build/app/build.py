@@ -21,6 +21,14 @@ class Builder(object):
             dir_path = os.path.join(self.lib_dir, dir_name)
             delete_dir_if_exists(dir_path)
 
+    def append_lib_file_with_lines(self, file_name: str, lines: list[str]):
+        file_path = os.path.join(self.lib_dir, file_name)
+        with open(file_path, "r") as f:
+            new_lines = f.readlines()
+        new_lines.extend(lines)
+        with open(file_path, "w") as f:
+            f.writelines(new_lines)
+
     def prepare_go(self):
         clean_files = ["go.mod", "go.sum"]
         self.clean_lib_files(clean_files)
@@ -28,9 +36,25 @@ class Builder(object):
         ret = subprocess.run(["go", "mod", "init", "github.com/xtls/libxray"])
         if ret.returncode != 0:
             raise Exception("go mod init failed")
+        self.append_lib_file_with_lines(
+            "go.mod",
+            [
+                "\nreplace github.com/xtls/xray-core => ../Xray-core\n",
+            ],
+        )
         ret = subprocess.run(["go", "mod", "tidy"])
         if ret.returncode != 0:
             raise Exception("go mod tidy failed")
+
+    def fix_go_module_version(self):
+        # go module major version can NOT support v24, wtf?
+        file_path = "./go.mod"
+        with open(file_path, mode="r") as f:
+            lines = f.readlines()
+            lines.append("replace github.com/xtls/xray-core => ../Xray-core\n")
+
+        with open(file_path, mode="w") as f:
+            f.writelines(lines)
 
     def download_geo(self):
         os.chdir(self.lib_dir)

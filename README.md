@@ -10,16 +10,6 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 3. If your issue is about some Platform development, like iOS or Android, it will be just closed.
 
-# Break changes
-
-From 3.0.0, all apis have changed to base64-encoded-string-based, including paramters and return value.
-
-The reasons are as bellow.
-
-1. We must be careful when using cgo. Always remember to free c-strings we pass to cgo and get from cgo. If there are many string paramters in the function, it will be a nightmare. So we just keep one string parameter and one string return value for every function.
-
-2. The string paramter and string return value may be transfered between languages, like go -> swift/kotlin/cpp -> dart, using their ffi. Some characters may be wrong when they are encoded and decoded many times. So encoding string to ascii characters will be a better choice, and we just choose base64.
-
 # Features
 
 ## nodep
@@ -94,9 +84,9 @@ start and stop Xray instance.
 
 ### build
 
-build libXray, currently support android and apple.
+build libXray, currently support apple, android, linux and windows.
 
-It will always use the latest Xray-core.
+You need clone Xray-core to the parent directory of libXray.
 
 ### controller.go
 
@@ -122,7 +112,23 @@ export nodep.
 
 export xray.
 
-## Credits
+# Breaking changes
+
+# 24.9.30
+
+From 24.9.30, you need clone Xray-core to the parent directory of libXray.
+
+# 3.0.0
+
+From 3.0.0, all apis have changed to base64-encoded-string-based, including paramters and return value.
+
+The reasons are as bellow.
+
+1. We must be careful when using cgo. Always remember to free c-strings we pass to cgo and get from cgo. If there are many string paramters in the function, it will be a nightmare. So we just keep one string parameter and one string return value for every function.
+
+2. The string paramter and string return value may be transfered between languages, like go -> swift/kotlin/cpp -> dart, using their ffi. Some characters may be wrong when they are encoded and decoded many times. So encoding string to ascii characters will be a better choice, and we just choose base64.
+
+# Credits
 
 [Project X](https://github.com/XTLS/Xray-core)
 
