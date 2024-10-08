@@ -88,7 +88,7 @@ type XrayStreamSettings struct {
 	Security            string                   `json:"security,omitempty"`
 	TlsSettings         *XrayTlsSettings         `json:"tlsSettings,omitempty"`
 	RealitySettings     *XrayRealitySettings     `json:"realitySettings,omitempty"`
-	TcpSettings         *XrayTcpSettings         `json:"tcpSettings,omitempty"`
+	RawSettings         *XrayRawSettings         `json:"rawSettings,omitempty"`
 	KcpSettings         *XrayKcpSettings         `json:"kcpSettings,omitempty"`
 	WsSettings          *XrayWsSettings          `json:"wsSettings,omitempty"`
 	HttpSettings        *XrayHttpSettings        `json:"httpSettings,omitempty"`
@@ -112,21 +112,21 @@ type XrayRealitySettings struct {
 	SpiderX     string `json:"spiderX,omitempty"`
 }
 
-type XrayTcpSettings struct {
-	Header *XrayTcpSettingsHeader `json:"header,omitempty"`
+type XrayRawSettings struct {
+	Header *XrayRawSettingsHeader `json:"header,omitempty"`
 }
 
-type XrayTcpSettingsHeader struct {
+type XrayRawSettingsHeader struct {
 	Type    string                        `json:"type,omitempty"`
-	Request *XrayTcpSettingsHeaderRequest `json:"request,omitempty"`
+	Request *XrayRawSettingsHeaderRequest `json:"request,omitempty"`
 }
 
-type XrayTcpSettingsHeaderRequest struct {
+type XrayRawSettingsHeaderRequest struct {
 	Path    []string                             `json:"path,omitempty"`
-	Headers *XrayTcpSettingsHeaderRequestHeaders `json:"headers,omitempty"`
+	Headers *XrayRawSettingsHeaderRequestHeaders `json:"headers,omitempty"`
 }
 
-type XrayTcpSettingsHeaderRequestHeaders struct {
+type XrayRawSettingsHeaderRequestHeaders struct {
 	Host []string `json:"Host,omitempty"`
 }
 

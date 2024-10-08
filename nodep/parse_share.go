@@ -370,34 +370,34 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 	}
 	network := query.Get("type")
 	if len(network) == 0 {
-		streamSettings.Network = "tcp"
+		streamSettings.Network = "raw"
 	} else {
 		streamSettings.Network = network
 	}
 
 	switch streamSettings.Network {
-	case "tcp":
+	case "raw", "tcp":
 		headerType := query.Get("headerType")
 		if headerType == "http" {
-			var request XrayTcpSettingsHeaderRequest
+			var request XrayRawSettingsHeaderRequest
 			path := query.Get("path")
 			if len(path) > 0 {
 				request.Path = strings.Split(path, ",")
 			}
 			host := query.Get("host")
 			if len(host) > 0 {
-				var headers XrayTcpSettingsHeaderRequestHeaders
+				var headers XrayRawSettingsHeaderRequestHeaders
 				headers.Host = strings.Split(host, ",")
 				request.Headers = &headers
 			}
-			var header XrayTcpSettingsHeader
+			var header XrayRawSettingsHeader
 			header.Type = headerType
 			header.Request = &request
 
-			var tcpSettings XrayTcpSettings
-			tcpSettings.Header = &header
+			var rawSettings XrayRawSettings
+			rawSettings.Header = &header
 
-			streamSettings.TcpSettings = &tcpSettings
+			streamSettings.RawSettings = &rawSettings
 		}
 	case "kcp", "mkcp":
 		var kcpSettings XrayKcpSettings

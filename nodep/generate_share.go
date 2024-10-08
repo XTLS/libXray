@@ -194,11 +194,11 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 	query = addQuery(query, "security", streamSettings.Security)
 
 	switch streamSettings.Network {
-	case "tcp":
-		if streamSettings.TcpSettings == nil || streamSettings.TcpSettings.Header == nil {
+	case "raw":
+		if streamSettings.RawSettings == nil || streamSettings.RawSettings.Header == nil {
 			break
 		}
-		header := streamSettings.TcpSettings.Header
+		header := streamSettings.RawSettings.Header
 		headerType := header.Type
 		if len(headerType) > 0 {
 			query = addQuery(query, "headerType", headerType)
@@ -212,7 +212,7 @@ func (proxy XrayOutbound) streamSettingsQuery(link *url.URL) {
 			if header.Request.Headers == nil {
 				break
 			}
-			host := streamSettings.TcpSettings.Header.Request.Headers.Host
+			host := streamSettings.RawSettings.Header.Request.Headers.Host
 			if len(host) > 0 {
 				query = addQuery(query, "host", strings.Join(host, ","))
 			}
