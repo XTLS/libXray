@@ -74,7 +74,10 @@ class Builder(object):
             raise Exception("gomobile init failed")
         ret = subprocess.run(["go", "get", "-d", "golang.org/x/mobile/cmd/gomobile"])
         if ret.returncode != 0:
-            raise Exception("gomobile init failed")
+            raise Exception("gomobile update failed")
+        ret = subprocess.run(["go", "get", "-d", "google.golang.org/genproto"])
+        if ret.returncode != 0:
+            raise Exception("gomobile install genproto failed")
 
     def prepare_static_lib(self):
         self.copy_template_file()
