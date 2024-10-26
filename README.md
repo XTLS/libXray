@@ -120,11 +120,11 @@ From 24.9.30, you need clone Xray-core to the parent directory of libXray.
 
 # 3.0.0
 
-From 3.0.0, all apis have changed to base64-encoded-string-based, including paramters and return value.
+From 3.0.0, all apis have changed to base64-encoded-string-based, including parameters and return values.
 
 The reasons are as bellow.
 
-1. We must be careful when using cgo. Always remember to free c-strings we pass to cgo and get from cgo. If there are many string paramters in the function, it will be a nightmare. So we just keep one string parameter and one string return value for every function.
+1. We must be careful when using cgo. Always remember to free c-strings we pass to cgo and get from cgo. If there are many string parameters in the function, it will be a nightmare. So we just keep one string parameter and one string return value for every function.
 
 2. The string paramter and string return value may be transfered between languages, like go -> swift/kotlin/cpp -> dart, using their ffi. Some characters may be wrong when they are encoded and decoded many times. So encoding string to ascii characters will be a better choice, and we just choose base64.
 

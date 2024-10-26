@@ -45,3 +45,9 @@ Here is a config sample.
 Then call `func QueryStats(base64Text string) string` in your app.
 
 The server should be "[::1]:49227".
+
+Attention: 
+
+1. never enable metrics when ping and testing.
+
+2. always running Xray-core instance using standalone process, if you enable metrics.
