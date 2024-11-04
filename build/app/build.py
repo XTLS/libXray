@@ -72,10 +72,10 @@ class Builder(object):
         ret = subprocess.run(["gomobile", "init"])
         if ret.returncode != 0:
             raise Exception("gomobile init failed")
-        ret = subprocess.run(["go", "get", "-d", "golang.org/x/mobile/cmd/gomobile"])
+        ret = subprocess.run(["go", "get", "golang.org/x/mobile/cmd/gomobile"])
         if ret.returncode != 0:
             raise Exception("gomobile update failed")
-        ret = subprocess.run(["go", "get", "-d", "google.golang.org/genproto"])
+        ret = subprocess.run(["go", "get", "google.golang.org/genproto"])
         if ret.returncode != 0:
             raise Exception("gomobile install genproto failed")
 
