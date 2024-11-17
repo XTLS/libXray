@@ -26,12 +26,12 @@ type XrayFakeHeader struct {
 }
 
 func setOutboundName(outbound *conf.OutboundDetourConfig, name string) {
-	outbound.Name = &name
+	outbound.SendThrough = &name
 }
 
 func getOutboundName(outbound conf.OutboundDetourConfig) string {
-	if outbound.Name != nil {
-		return *outbound.Name
+	if outbound.SendThrough != nil {
+		return *outbound.SendThrough
 	}
 	return ""
 }
