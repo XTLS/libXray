@@ -1,4 +1,4 @@
-package nodep
+package share
 
 import (
 	"encoding/base64"
@@ -7,25 +7,27 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/xtls/xray-core/infra/conf"
+	"github.com/xtls/xray-core/proxy/vless"
 )
 
 // https://github.com/XTLS/Xray-core/discussions/716
 // Convert share text to XrayJson
 // support v2rayN plain text, v2rayN base64 text
-func ConvertShareLinksToXrayJson(links string) (*XrayJson, error) {
+func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
 	text := strings.TrimSpace(links)
 	if strings.HasPrefix(text, "{") {
-		var xray XrayJson
+		var xray conf.Config
 		err := json.Unmarshal([]byte(text), &xray)
 		if err != nil {
 			return nil, err
 		}
 
-		outbounds := xray.FlattenOutbounds()
+		outbounds := xray.OutboundConfigs
 		if len(outbounds) == 0 {
 			return nil, fmt.Errorf("no valid outbounds")
 		}
-		xray.Outbounds = outbounds
 
 		return &xray, nil
 	}
@@ -53,11 +55,11 @@ func FixWindowsReturn(text string) string {
 	return text
 }
 
-func parsePlainShareText(text string) (*XrayJson, error) {
+func parsePlainShareText(text string) (*conf.Config, error) {
 	proxies := strings.Split(text, "\n")
 
-	var xray XrayJson
-	var outbounds []XrayOutbound
+	xray := &conf.Config{}
+	var outbounds []conf.OutboundDetourConfig
 	for _, proxy := range proxies {
 		link, err := url.Parse(proxy)
 		if err == nil {
@@ -74,17 +76,17 @@ func parsePlainShareText(text string) (*XrayJson, error) {
 	if len(outbounds) == 0 {
 		return nil, fmt.Errorf("no valid outbound found")
 	}
-	xray.Outbounds = outbounds
-	return &xray, nil
+	xray.OutboundConfigs = outbounds
+	return xray, nil
 }
 
-func tryParse(text string) (*XrayJson, error) {
+func tryParse(text string) (*conf.Config, error) {
 	base64Text, err := decodeBase64Text(text)
 	if err == nil {
 		cleanText := FixWindowsReturn(base64Text)
 		return parsePlainShareText(cleanText)
 	}
-	return tryConvertClashYaml(text)
+	return tryToParseClashYaml(text)
 }
 
 func decodeBase64Text(text string) (string, error) {
@@ -115,7 +117,7 @@ type xrayShareLink struct {
 	rawText string
 }
 
-func (proxy xrayShareLink) outbound() (*XrayOutbound, error) {
+func (proxy xrayShareLink) outbound() (*conf.OutboundDetourConfig, error) {
 	switch proxy.link.Scheme {
 	case "ss":
 		outbound, err := proxy.shadowsocksOutbound()
@@ -154,18 +156,18 @@ func (proxy xrayShareLink) outbound() (*XrayOutbound, error) {
 	return nil, fmt.Errorf("unsupport link: %s", proxy.rawText)
 }
 
-func (proxy xrayShareLink) shadowsocksOutbound() (*XrayOutbound, error) {
-	var outbound XrayOutbound
+func (proxy xrayShareLink) shadowsocksOutbound() (*conf.OutboundDetourConfig, error) {
+	outbound := &conf.OutboundDetourConfig{}
 	outbound.Protocol = "shadowsocks"
-	outbound.Name = proxy.link.Fragment
+	setOutboundName(outbound, proxy.link.Fragment)
 
-	var server XrayShadowsocksServer
-	server.Address = proxy.link.Hostname()
+	server := &conf.ShadowsocksServerTarget{}
+	server.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	server.Port = port
+	server.Port = uint16(port)
 
 	user := proxy.link.User.String()
 	passwordText, err := decodeBase64Text(user)
@@ -176,24 +178,28 @@ func (proxy xrayShareLink) shadowsocksOutbound() (*XrayOutbound, error) {
 	if len(pwConfig) != 2 {
 		return nil, fmt.Errorf("unsupport link shadowsocks password: %s", passwordText)
 	}
-	server.Method = pwConfig[0]
+	server.Cipher = pwConfig[0]
 	server.Password = pwConfig[1]
 
-	var settings XrayShadowsocks
-	settings.Servers = []XrayShadowsocksServer{server}
+	var settings conf.ShadowsocksClientConfig
+	settings.Servers = []*conf.ShadowsocksServerTarget{server}
 
-	setttingsBytes, err := json.Marshal(settings)
+	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
 		return nil, err
 	}
-	outbound.Settings = (*json.RawMessage)(&setttingsBytes)
+	outbound.Settings = &settingsRawMessage
 
-	outbound.StreamSettings = proxy.streamSettings(proxy.link)
+	streamSettings, err := proxy.streamSettings(proxy.link)
+	if err != nil {
+		return nil, err
+	}
+	outbound.StreamSetting = streamSettings
 
-	return &outbound, nil
+	return outbound, nil
 }
 
-func (proxy xrayShareLink) vmessOutbound() (*XrayOutbound, error) {
+func (proxy xrayShareLink) vmessOutbound() (*conf.OutboundDetourConfig, error) {
 	// try vmessQrCode
 	text := strings.ReplaceAll(proxy.rawText, "vmess://", "")
 	base64Text, err := decodeBase64Text(text)
@@ -201,54 +207,63 @@ func (proxy xrayShareLink) vmessOutbound() (*XrayOutbound, error) {
 		return parseVMessQrCode(base64Text)
 	}
 
-	var outbound XrayOutbound
+	outbound := &conf.OutboundDetourConfig{}
 	outbound.Protocol = "vmess"
-	outbound.Name = proxy.link.Fragment
+	setOutboundName(outbound, proxy.link.Fragment)
 
 	query := proxy.link.Query()
 
-	var user XrayVMessVnextUser
+	user := &conf.VMessAccount{}
 	id, err := url.QueryUnescape(proxy.link.User.String())
 	if err != nil {
 		return nil, err
 	}
-	user.Id = id
+	user.ID = id
 	security := query.Get("encryption")
 	if len(security) > 0 {
 		user.Security = security
 	}
 
-	var vnext XrayVMessVnext
-	vnext.Address = proxy.link.Hostname()
+	vnext := &conf.VMessOutboundTarget{}
+	vnext.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	vnext.Port = port
-	vnext.Users = []XrayVMessVnextUser{user}
+	vnext.Port = uint16(port)
 
-	var settings XrayVMess
-	settings.Vnext = []XrayVMessVnext{vnext}
-
-	setttingsBytes, err := json.Marshal(settings)
+	userRawMessage, err := convertJsonToRawMessage(user)
 	if err != nil {
 		return nil, err
 	}
-	outbound.Settings = (*json.RawMessage)(&setttingsBytes)
+	vnext.Users = []json.RawMessage{userRawMessage}
 
-	outbound.StreamSettings = proxy.streamSettings(proxy.link)
+	settings := conf.VMessOutboundConfig{}
+	settings.Receivers = []*conf.VMessOutboundTarget{vnext}
 
-	return &outbound, nil
+	settingsRawMessage, err := convertJsonToRawMessage(settings)
+	if err != nil {
+		return nil, err
+	}
+	outbound.Settings = &settingsRawMessage
+
+	streamSettings, err := proxy.streamSettings(proxy.link)
+	if err != nil {
+		return nil, err
+	}
+	outbound.StreamSetting = streamSettings
+
+	return outbound, nil
 }
 
-func (proxy xrayShareLink) vlessOutbound() (*XrayOutbound, error) {
-	var outbound XrayOutbound
+func (proxy xrayShareLink) vlessOutbound() (*conf.OutboundDetourConfig, error) {
+	outbound := &conf.OutboundDetourConfig{}
 	outbound.Protocol = "vless"
-	outbound.Name = proxy.link.Fragment
+	setOutboundName(outbound, proxy.link.Fragment)
 
 	query := proxy.link.Query()
 
-	var user XrayVLESSVnextUser
+	user := &vless.Account{}
 	id, err := url.QueryUnescape(proxy.link.User.String())
 	if err != nil {
 		return nil, err
@@ -266,33 +281,42 @@ func (proxy xrayShareLink) vlessOutbound() (*XrayOutbound, error) {
 		user.Encryption = "none"
 	}
 
-	var vnext XrayVLESSVnext
-	vnext.Address = proxy.link.Hostname()
+	vnext := &conf.VLessOutboundVnext{}
+	vnext.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	vnext.Port = port
-	vnext.Users = []XrayVLESSVnextUser{user}
+	vnext.Port = uint16(port)
 
-	var settings XrayVLESS
-	settings.Vnext = []XrayVLESSVnext{vnext}
-
-	setttingsBytes, err := json.Marshal(settings)
+	userRawMessage, err := convertJsonToRawMessage(user)
 	if err != nil {
 		return nil, err
 	}
-	outbound.Settings = (*json.RawMessage)(&setttingsBytes)
+	vnext.Users = []json.RawMessage{userRawMessage}
 
-	outbound.StreamSettings = proxy.streamSettings(proxy.link)
+	settings := &conf.VLessOutboundConfig{}
+	settings.Vnext = []*conf.VLessOutboundVnext{vnext}
 
-	return &outbound, nil
+	settingsRawMessage, err := convertJsonToRawMessage(settings)
+	if err != nil {
+		return nil, err
+	}
+	outbound.Settings = &settingsRawMessage
+
+	streamSettings, err := proxy.streamSettings(proxy.link)
+	if err != nil {
+		return nil, err
+	}
+	outbound.StreamSetting = streamSettings
+
+	return outbound, nil
 }
 
-func (proxy xrayShareLink) socksOutbound() (*XrayOutbound, error) {
-	var outbound XrayOutbound
+func (proxy xrayShareLink) socksOutbound() (*conf.OutboundDetourConfig, error) {
+	outbound := &conf.OutboundDetourConfig{}
 	outbound.Protocol = "socks"
-	outbound.Name = proxy.link.Fragment
+	setOutboundName(outbound, proxy.link.Fragment)
 
 	userPassword := proxy.link.User.String()
 	passwordText, err := decodeBase64Text(userPassword)
@@ -303,79 +327,95 @@ func (proxy xrayShareLink) socksOutbound() (*XrayOutbound, error) {
 	if len(pwConfig) != 2 {
 		return nil, fmt.Errorf("unsupport link socks user password: %s", passwordText)
 	}
-	var user XraySocksServerUser
-	user.User = pwConfig[0]
-	user.Pass = pwConfig[1]
 
-	var server XraySocksServer
-	server.Address = proxy.link.Hostname()
+	user := &conf.SocksAccount{}
+	user.Username = pwConfig[0]
+	user.Password = pwConfig[1]
+
+	server := &conf.SocksRemoteConfig{}
+	server.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	server.Port = port
-	server.Users = []XraySocksServerUser{user}
+	server.Port = uint16(port)
 
-	var settings XraySocks
-	settings.Servers = []XraySocksServer{server}
-
-	setttingsBytes, err := json.Marshal(settings)
+	userRawMessage, err := convertJsonToRawMessage(user)
 	if err != nil {
 		return nil, err
 	}
-	outbound.Settings = (*json.RawMessage)(&setttingsBytes)
+	server.Users = []json.RawMessage{userRawMessage}
 
-	outbound.StreamSettings = proxy.streamSettings(proxy.link)
+	settings := &conf.SocksClientConfig{}
+	settings.Servers = []*conf.SocksRemoteConfig{server}
 
-	return &outbound, nil
+	settingsRawMessage, err := convertJsonToRawMessage(settings)
+	if err != nil {
+		return nil, err
+	}
+	outbound.Settings = &settingsRawMessage
+
+	streamSettings, err := proxy.streamSettings(proxy.link)
+	if err != nil {
+		return nil, err
+	}
+	outbound.StreamSetting = streamSettings
+
+	return outbound, nil
 }
 
-func (proxy xrayShareLink) trojanOutbound() (*XrayOutbound, error) {
-	var outbound XrayOutbound
+func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) {
+	outbound := &conf.OutboundDetourConfig{}
 	outbound.Protocol = "trojan"
-	outbound.Name = proxy.link.Fragment
+	setOutboundName(outbound, proxy.link.Fragment)
 
-	var server XrayTrojanServer
-	server.Address = proxy.link.Hostname()
+	server := &conf.TrojanServerTarget{}
+	server.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	server.Port = port
+	server.Port = uint16(port)
+
 	password, err := url.QueryUnescape(proxy.link.User.String())
 	if err != nil {
 		return nil, err
 	}
 	server.Password = password
 
-	var settings XrayTrojan
-	settings.Servers = []XrayTrojanServer{server}
+	settings := &conf.TrojanClientConfig{}
+	settings.Servers = []*conf.TrojanServerTarget{server}
 
-	setttingsBytes, err := json.Marshal(settings)
+	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
 		return nil, err
 	}
-	outbound.Settings = (*json.RawMessage)(&setttingsBytes)
+	outbound.Settings = &settingsRawMessage
 
-	outbound.StreamSettings = proxy.streamSettings(proxy.link)
+	streamSettings, err := proxy.streamSettings(proxy.link)
+	if err != nil {
+		return nil, err
+	}
+	outbound.StreamSetting = streamSettings
 
-	return &outbound, nil
+	return outbound, nil
 }
 
-func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
+func (proxy xrayShareLink) streamSettings(link *url.URL) (*conf.StreamConfig, error) {
 	query := link.Query()
-	var streamSettings XrayStreamSettings
 	if len(query) == 0 {
-		return &streamSettings
-	}
-	network := query.Get("type")
-	if len(network) == 0 {
-		streamSettings.Network = "raw"
-	} else {
-		streamSettings.Network = network
+		return nil, nil
 	}
 
-	switch streamSettings.Network {
+	streamSettings := &conf.StreamConfig{}
+	network := query.Get("type")
+	if len(network) == 0 {
+		network = "raw"
+	}
+	transportProtocol := conf.TransportProtocol(network)
+	streamSettings.Network = &transportProtocol
+
+	switch network {
 	case "raw", "tcp":
 		headerType := query.Get("headerType")
 		if headerType == "http" {
@@ -394,65 +434,95 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) *XrayStreamSettings {
 			header.Type = headerType
 			header.Request = &request
 
-			var rawSettings XrayRawSettings
-			rawSettings.Header = &header
+			rawSettings := &conf.TCPConfig{}
 
-			streamSettings.RawSettings = &rawSettings
+			headerRawMessage, err := convertJsonToRawMessage(header)
+			if err != nil {
+				return nil, err
+			}
+			rawSettings.HeaderConfig = headerRawMessage
+
+			streamSettings.RAWSettings = rawSettings
 		}
 	case "kcp", "mkcp":
-		var kcpSettings XrayKcpSettings
+		kcpSettings := &conf.KCPConfig{}
 		headerType := query.Get("headerType")
 		if len(headerType) > 0 {
 			var header XrayFakeHeader
 			header.Type = headerType
-			kcpSettings.Header = &header
-		}
-		kcpSettings.Seed = query.Get("seed")
 
-		streamSettings.KcpSettings = &kcpSettings
+			headerRawMessage, err := convertJsonToRawMessage(header)
+			if err != nil {
+				return nil, err
+			}
+			kcpSettings.HeaderConfig = headerRawMessage
+		}
+		seed := query.Get("seed")
+		kcpSettings.Seed = &seed
+
+		streamSettings.KCPSettings = kcpSettings
 	case "ws", "websocket":
-		var wsSettings XrayWsSettings
+		wsSettings := &conf.WebSocketConfig{}
 		wsSettings.Path = query.Get("path")
 		wsSettings.Host = query.Get("host")
-		streamSettings.WsSettings = &wsSettings
+		streamSettings.WSSettings = wsSettings
 	case "grpc", "gun":
-		var grcpSettings XrayGrpcSettings
+		grcpSettings := &conf.GRPCConfig{}
 		grcpSettings.Authority = query.Get("authority")
 		grcpSettings.ServiceName = query.Get("serviceName")
 		grcpSettings.MultiMode = query.Get("mode") == "multi"
 
-		streamSettings.GrpcSettings = &grcpSettings
+		streamSettings.GRPCConfig = grcpSettings
 	case "h2", "http":
-		var httpSettings XrayHttpSettings
-		host := query.Get("host")
-		httpSettings.Host = strings.Split(host, ",")
+		httpSettings := &conf.HTTPConfig{}
+		hosts := strings.Split(query.Get("host"), ",")
+		host := conf.StringList(hosts)
+		httpSettings.Host = &host
 		httpSettings.Path = query.Get("path")
 
-		streamSettings.HttpSettings = &httpSettings
+		streamSettings.HTTPSettings = httpSettings
 	case "httpupgrade":
-		var httpupgradeSettings XrayHttpupgradeSettings
+		httpupgradeSettings := &conf.HttpUpgradeConfig{}
 		httpupgradeSettings.Host = query.Get("host")
 		httpupgradeSettings.Path = query.Get("path")
 
-		streamSettings.HttpupgradeSettings = &httpupgradeSettings
+		streamSettings.HTTPUPGRADESettings = httpupgradeSettings
 	case "xhttp", "splithttp":
-		var xhttpSettings XrayXhttpSettings
+		xhttpSettings := &conf.SplitHTTPConfig{}
 		xhttpSettings.Host = query.Get("host")
 		xhttpSettings.Path = query.Get("path")
+		xhttpSettings.Mode = query.Get("mode")
 
-		streamSettings.XhttpSettings = &xhttpSettings
+		extra := query.Get("extra")
+		if len(extra) > 0 {
+			var extraConfig conf.SplitHTTPConfig
+			err := json.Unmarshal([]byte(extra), &extraConfig)
+			if err != nil {
+				return nil, err
+			}
+			extraRawMessage, err := convertJsonToRawMessage(extraConfig)
+			if err != nil {
+				return nil, err
+			}
+			xhttpSettings.Extra = extraRawMessage
+		}
+
+		streamSettings.XHTTPSettings = xhttpSettings
 	}
 
-	proxy.parseSecurity(link, &streamSettings)
+	err := proxy.parseSecurity(link, streamSettings)
+	if err != nil {
+		return nil, err
+	}
 
-	return &streamSettings
+	return streamSettings, nil
 }
 
-func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *XrayStreamSettings) {
+func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *conf.StreamConfig) error {
 	query := link.Query()
 
-	var tlsSettings XrayTlsSettings
-	var realitySettings XrayRealitySettings
+	tlsSettings := &conf.TLSConfig{}
+	realitySettings := &conf.REALITYConfig{}
 
 	fp := query.Get("fp")
 	tlsSettings.Fingerprint = fp
@@ -464,7 +534,8 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *XrayStre
 
 	alpn := query.Get("alpn")
 	if len(alpn) > 0 {
-		tlsSettings.Alpn = strings.Split(alpn, ",")
+		alpn := conf.StringList(strings.Split(alpn, ","))
+		tlsSettings.ALPN = &alpn
 	}
 
 	// https://github.com/XTLS/Xray-core/discussions/716
@@ -474,7 +545,7 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *XrayStre
 	allowInsecure := query.Get("allowInsecure")
 	if len(allowInsecure) > 0 {
 		if allowInsecure == "true" || allowInsecure == "1" {
-			tlsSettings.AllowInsecure = true
+			tlsSettings.Insecure = true
 		}
 	}
 
@@ -496,16 +567,22 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *XrayStre
 	if proxy.link.Scheme == "trojan" && streamSettings.Security == "none" {
 		streamSettings.Security = "tls"
 	}
-	if streamSettings.Network == "ws" && len(tlsSettings.ServerName) == 0 {
-		if streamSettings.WsSettings != nil && len(streamSettings.WsSettings.Host) > 0 {
-			tlsSettings.ServerName = streamSettings.WsSettings.Host
+
+	network, err := streamSettings.Network.Build()
+	if err != nil {
+		return err
+	}
+	if network == "websocket" && len(tlsSettings.ServerName) == 0 {
+		if streamSettings.WSSettings != nil && len(streamSettings.WSSettings.Host) > 0 {
+			tlsSettings.ServerName = streamSettings.WSSettings.Host
 		}
 	}
 
 	switch streamSettings.Security {
 	case "tls":
-		streamSettings.TlsSettings = &tlsSettings
+		streamSettings.TLSSettings = tlsSettings
 	case "reality":
-		streamSettings.RealitySettings = &realitySettings
+		streamSettings.REALITYSettings = realitySettings
 	}
+	return nil
 }
