@@ -34,7 +34,9 @@ response of wrapper api.
 
 get free port.
 
-## nodep
+## share
+
+libXray use "sendThrough" to store the outbound name. This field will not be used in most cases when developing client.
 
 ### clash.go
 
