@@ -38,7 +38,7 @@ get free port.
 
 libXray use "sendThrough" to store the outbound name. This field will not be used in most cases when developing client.
 
-### clash.go
+### clash_meta.go
 
 parse Clash.Meta config.
 
