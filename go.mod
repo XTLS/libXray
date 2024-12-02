@@ -1,12 +1,12 @@
 module github.com/xtls/libxray
 
-go 1.23.2
+go 1.23.3
 
 replace github.com/xtls/xray-core => ../Xray-core
 
 require (
 	github.com/xtls/xray-core v0.0.0-00010101000000-000000000000
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.35.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -29,7 +29,7 @@ require (
 	github.com/quic-go/quic-go v0.46.0 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
-	github.com/sagernet/sing v0.5.0 // indirect
+	github.com/sagernet/sing v0.5.1 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.7 // indirect
 	github.com/seiflotfy/cuckoofilter v0.0.0-20240715131351-a2f2c23f1771 // indirect
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e // indirect
