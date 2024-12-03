@@ -8,25 +8,15 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 2. This lib does not guarantee the stability of the api, you need to adapt it by yourself.
 
-3. If your issue is about some Platform development, like iOS or Android, it will be just closed.
+3. If your issue is about some Platform development, like iOS or Android, it will just be closed.
 
 # Features
 
 ## nodep
 
-### clash.go
-
-parse Clash and Clash.Meta config.
-
 ### file.go
 
 write data to file.
-
-### generate_share.go
-
-convert v2rayN subscriptions to Xray Json.
-
-convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
 ### measure.go
 
@@ -36,13 +26,31 @@ ping xray outbound.
 
 try to control the max memory.
 
-### parse_share.go
+### model.go
 
-convert Xray Json to subscription links.
+response of wrapper api.
 
 ### port.go
 
 get free port.
+
+## share
+
+libXray use "sendThrough" to store the outbound name. This field will not be used in most cases when developing client.
+
+### clash_meta.go
+
+parse Clash.Meta config.
+
+### generate_share.go
+
+convert v2rayN subscriptions to Xray Json.
+
+convert VMessAEAD/VLESS sharing protocol to Xray Json.
+
+### parse_share.go
+
+convert Xray Json to subscription links.
 
 ### vmess.go
 
@@ -50,9 +58,7 @@ convert VMessQRCode to Xray Json.
 
 ### xray_json.go
 
-subset of Xray config, add name field to outbound.
-
-support flattening outbounds.
+helper when parsing share links.
 
 ## xray
 
@@ -67,6 +73,12 @@ test the delay.
 ### stats.go
 
 query inbound and outbound stats.
+
+Attention: 
+
+1. never enable metrics when ping and testing.
+
+2. always running Xray-core instance using standalone process, if you enable metrics.
 
 ### uuid.go
 
