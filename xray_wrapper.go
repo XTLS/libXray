@@ -81,7 +81,7 @@ func CustomUUID(base64Text string) string {
 	return response.EncodeToBase64(uuid, nil)
 }
 
-type testXrayRequest struct {
+type TestXrayRequest struct {
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
 }
@@ -93,7 +93,7 @@ func TestXray(base64Text string) string {
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
-	var request testXrayRequest
+	var request TestXrayRequest
 	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)
