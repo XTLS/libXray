@@ -15,20 +15,21 @@ import (
 	"github.com/xtls/libxray/nodep"
 )
 
-func checkDir(dir string) error {
-	if _, err := os.Stat(dir); err == nil {
-		err = os.RemoveAll(dir)
-		if err != nil {
+func ensureDir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.Mkdir(dir, os.ModePerm); err != nil {
 			return err
 		}
-	}
-	if err := os.Mkdir(dir, os.ModePerm); err != nil {
-		return err
 	}
 	return nil
 }
 
-func downloadFile(url string, writePath string) error {
+func downloadFileIfNotExists(url string, writePath string) error {
+	if _, err := os.Stat(writePath); err == nil {
+		fmt.Printf("File already exists: %s, skipping download.\n", writePath)
+		return nil
+	}
+
 	client := http.Client{}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -87,36 +88,44 @@ func main() {
 		os.Exit(1)
 	}
 	datDir := path.Join(cwd, "dat")
-	checkDir(datDir)
+	err = ensureDir(datDir)
+	if err != nil {
+		fmt.Println("Failed to ensure directory:", err)
+		os.Exit(1)
+	}
 
+	// Download geosite.dat
 	geositeUrl := "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 	geositePath := path.Join(datDir, "geosite.dat")
-	err = downloadFile(geositeUrl, geositePath)
+	err = downloadFileIfNotExists(geositeUrl, geositePath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	// Load geosite
 	geoSiteReq, err := makeLoadGeoDataRequest(datDir, "geosite", "domain")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
 	res := libXray.LoadGeoData(geoSiteReq)
 	resp, err := parseCallResponse(res)
 	if err != nil || !resp.Success {
-		fmt.Println("load geosite ", res)
+		fmt.Println("Failed to load geosite:", res)
 		os.Exit(1)
 	}
 
+	// Download geoip.dat
 	geoipUrl := "https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
 	geoipPath := path.Join(datDir, "geoip.dat")
-	err = downloadFile(geoipUrl, geoipPath)
+	err = downloadFileIfNotExists(geoipUrl, geoipPath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
+	// Load geoip
 	geoIpReq, err := makeLoadGeoDataRequest(datDir, "geoip", "ip")
 	if err != nil {
 		fmt.Println(err)
@@ -125,13 +134,15 @@ func main() {
 	res = libXray.LoadGeoData(geoIpReq)
 	resp, err = parseCallResponse(res)
 	if err != nil || !resp.Success {
-		fmt.Println("load geoip ", res)
+		fmt.Println("Failed to load geoip:", res)
 		os.Exit(1)
 	}
 
+	// Save timestamp
 	err = saveTimestamp(datDir)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	fmt.Println("Geo data setup completed successfully.")
 }
