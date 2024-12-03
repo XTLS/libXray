@@ -13,22 +13,22 @@ import (
 )
 
 func TestRunXrayWithVmess(t *testing.T) {
-	// 示例 vmess 配置
-	vmess := `eyJhZGQiOiAiMzguMTY1LjMzLjEyNiIsICJhaWQiOiAiMCIsICJob3N0IjogIiIsICJpZCI6ICJhYjliMWUwZC05YzczLTQxNzYtODE5OS00N2I0OTNhMjJlNGMiLCAibmV0IjogImtjcCIsICJwYXRoIjogIiIsICJwb3J0IjogMjYzODgsICJwcyI6ICIiLCAic2N5IjogIm5vbmUiLCAidGxzIjogIiIsICJ0eXBlIjogIm5vbmUiLCAidiI6ICIyIn0=`
+	// Example VMess configuration
+	vmess := `xxxx`
 
-	// 解码 vmess 配置
+	// Decode VMess configuration
 	decodedVmess, err := base64.StdEncoding.DecodeString(vmess)
 	if err != nil {
-		t.Fatalf("Failed to decode vmess: %v", err)
+		t.Fatalf("Failed to decode VMess: %v", err)
 	}
 
 	var vmessConfig map[string]interface{}
 	err = json.Unmarshal(decodedVmess, &vmessConfig)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal vmess: %v", err)
+		t.Fatalf("Failed to unmarshal VMess: %v", err)
 	}
 
-	// 生成一个 Xray 配置文件
+	// Generate an Xray configuration file
 	xrayConfig := map[string]interface{}{
 		"log": map[string]interface{}{
 			"loglevel": "debug",
@@ -72,7 +72,7 @@ func TestRunXrayWithVmess(t *testing.T) {
 	}
 
 	datDir := filepath.Join(projectRoot, "dat")
-	// 调用 TestXray
+	// Call TestXray
 	request := libXray.TestXrayRequest{
 		DatDir:     datDir,
 		ConfigPath: configPath,
@@ -81,7 +81,7 @@ func TestRunXrayWithVmess(t *testing.T) {
 	base64Request := base64.StdEncoding.EncodeToString(requestBytes)
 
 	response := libXray.TestXray(base64Request)
-	// 解码 Base64
+	// Decode Base64 response
 	decoded, err := base64.StdEncoding.DecodeString(response)
 	if err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
@@ -92,7 +92,7 @@ func TestRunXrayWithVmess(t *testing.T) {
 		t.Fatalf("Failed to parse response JSON: %v", err)
 	}
 
-	// 检查返回内容
+	// Check the response content
 	if success, ok := result["success"].(bool); !ok || !success {
 		t.Fatalf("TestXray failed: %v", response)
 	}
@@ -101,12 +101,23 @@ func TestRunXrayWithVmess(t *testing.T) {
 }
 
 func writeConfigToFile(config map[string]interface{}, path string) error {
+	// Ensure the directory exists
+	dir := filepath.Dir(path)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Create the configuration file
 	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
+	// Write the configuration to the file
 	encoder := json.NewEncoder(file)
 	return encoder.Encode(config)
 }
