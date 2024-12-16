@@ -14,7 +14,7 @@ import (
 
 func TestRunXrayWithVmess(t *testing.T) {
 	// Example VMess configuration
-	vmess := `xxxx`
+	vmess := `eyJhZGQiOiAiMzguMTY1LjMzLjEyNiIsICJhaWQiOiAiMCIsICJob3N0IjogIiIsICJpZCI6ICJhYjliMWUwZC05YzczLTQxNzYtODE5OS00N2I0OTNhMjJlNGMiLCAibmV0IjogImtjcCIsICJwYXRoIjogIiIsICJwb3J0IjogMjYzODgsICJwcyI6ICIiLCAic2N5IjogIm5vbmUiLCAidGxzIjogIiIsICJ0eXBlIjogIm5vbmUiLCAidiI6ICIyIn0=`
 
 	// Decode VMess configuration
 	decodedVmess, err := base64.StdEncoding.DecodeString(vmess)
