@@ -81,7 +81,7 @@ func CustomUUID(base64Text string) string {
 	return response.EncodeToBase64(uuid, nil)
 }
 
-type TestXrayRequest struct {
+type testXrayRequest struct {
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
 }
@@ -93,7 +93,7 @@ func TestXray(base64Text string) string {
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
-	var request TestXrayRequest
+	var request testXrayRequest
 	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)
@@ -106,9 +106,10 @@ type runXrayRequest struct {
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
 	MaxMemory  int64  `json:"maxMemory,omitempty"`
+	Tag        string `json:"tag,omitempty"`
 }
 
-// Run Xray instance.
+// Run Xray instance
 func RunXray(base64Text string) string {
 	var response nodep.CallResponse[string]
 	req, err := base64.StdEncoding.DecodeString(base64Text)
@@ -120,11 +121,24 @@ func RunXray(base64Text string) string {
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
-	err = xray.RunXray(request.DatDir, request.ConfigPath, request.MaxMemory)
+	
+	// Use default tag if none provided
+	if request.Tag == "" {
+		request.Tag = "default"
+	}
+	
+	err = xray.RunXray(request.DatDir, request.ConfigPath, request.MaxMemory, request.Tag)
 	return response.EncodeToBase64("", err)
 }
 
-// Stop Xray instance.
+// Stop specific instance
+func StopXrayInstance(tag string) string {
+	var response nodep.CallResponse[string]
+	err := xray.StopXrayInstance(tag)
+	return response.EncodeToBase64("", err)
+}
+
+// StopXray now stops all instances
 func StopXray() string {
 	var response nodep.CallResponse[string]
 	err := xray.StopXray()

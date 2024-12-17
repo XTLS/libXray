@@ -5,7 +5,7 @@ package xray
 // configPath means the config.json file path.
 func TestXray(datDir string, configPath string) error {
 	InitEnv(datDir)
-	server, err := StartXray(configPath)
+	server, err := StartXray(configPath, configPath)
 	if err != nil {
 		return err
 	}

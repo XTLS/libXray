@@ -3,6 +3,7 @@ package xray
 import (
 	"os"
 	"runtime/debug"
+	"sync"
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/cmdarg"
@@ -11,10 +12,12 @@ import (
 )
 
 var (
-	coreServer *core.Instance
+	// Map to store multiple server instances
+	serverInstances = make(map[string]*core.Instance)
+	serverMutex    sync.RWMutex
 )
 
-func StartXray(configPath string) (*core.Instance, error) {
+func StartXray(configPath string, tag string) (*core.Instance, error) {
 	file := cmdarg.Arg{configPath}
 	config, err := core.LoadConfig("json", file)
 	if err != nil {
@@ -25,6 +28,10 @@ func StartXray(configPath string) (*core.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	serverMutex.Lock()
+	serverInstances[tag] = server
+	serverMutex.Unlock()
 
 	return server, nil
 }
@@ -37,21 +44,19 @@ func setMaxMemory(maxMemory int64) {
 	nodep.InitForceFree(maxMemory, 1)
 }
 
-// Run Xray instance.
-// datDir means the dir which geosite.dat and geoip.dat are in.
-// configPath means the config.json file path.
-// maxMemory means the soft memory limit of golang, see SetMemoryLimit to find more information.
-func RunXray(datDir string, configPath string, maxMemory int64) (err error) {
+// Run Xray instance with a specific tag
+func RunXray(datDir string, configPath string, maxMemory int64, tag string) (err error) {
 	InitEnv(datDir)
 	if maxMemory > 0 {
 		setMaxMemory(maxMemory)
 	}
-	coreServer, err = StartXray(configPath)
+	
+	server, err := StartXray(configPath, tag)
 	if err != nil {
 		return
 	}
 
-	if err = coreServer.Start(); err != nil {
+	if err = server.Start(); err != nil {
 		return
 	}
 
@@ -59,16 +64,42 @@ func RunXray(datDir string, configPath string, maxMemory int64) (err error) {
 	return nil
 }
 
-// Stop Xray instance.
-func StopXray() error {
-	if coreServer != nil {
-		err := coreServer.Close()
-		coreServer = nil
+// Stop specific Xray instance
+func StopXrayInstance(tag string) error {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+	
+	if server, exists := serverInstances[tag]; exists {
+		err := server.Close()
 		if err != nil {
 			return err
 		}
+		delete(serverInstances, tag)
 	}
 	return nil
+}
+
+// Stop all Xray instances
+func StopXray() error {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
+	for tag, server := range serverInstances {
+		err := server.Close()
+		if err != nil {
+			return err
+		}
+		delete(serverInstances, tag)
+	}
+	return nil
+}
+
+// Get specific Xray instance
+func GetXrayInstance(tag string) *core.Instance {
+	serverMutex.RLock()
+	defer serverMutex.RUnlock()
+	
+	return serverInstances[tag]
 }
 
 // Xray's version
