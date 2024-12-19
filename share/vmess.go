@@ -141,21 +141,6 @@ func (proxy vmessQrCode) streamSettings() (*conf.StreamConfig, error) {
 		wsSettings.Host = proxy.Host
 
 		streamSettings.WSSettings = wsSettings
-	case "grpc", "gun":
-		grcpSettings := &conf.GRPCConfig{}
-		grcpSettings.ServiceName = proxy.Path
-		mode := proxy.Type
-		grcpSettings.MultiMode = mode == "multi"
-
-		streamSettings.GRPCConfig = grcpSettings
-	case "h2", "http":
-		httpSettings := &conf.HTTPConfig{}
-		hosts := strings.Split(proxy.Host, ",")
-		host := conf.StringList(hosts)
-		httpSettings.Host = &host
-		httpSettings.Path = proxy.Path
-
-		streamSettings.HTTPSettings = httpSettings
 	}
 
 	err := proxy.parseSecurity(streamSettings)

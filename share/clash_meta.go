@@ -44,8 +44,6 @@ type ClashProxy struct {
 	Plugin     string                `yaml:"plugin,omitempty"`
 	PluginOpts *ClashProxyPluginOpts `yaml:"plugin-opts,omitempty"`
 	WsOpts     *ClashProxyWsOpts     `yaml:"ws-opts,omitempty"`
-	H2Opts     *ClashProxyH2Opts     `yaml:"h2-opts,omitempty"`
-	GrpcOpts   *ClashProxyGrpcOpts   `yaml:"grpc-opts,omitempty"`
 	SsOpts     *ClashProxySsOpts     `yaml:"ss-opts,omitempty"`
 
 	// the below are fields of hysteria2.
@@ -378,22 +376,6 @@ func (proxy ClashProxy) streamSettings(outbound conf.OutboundDetourConfig) (*con
 			}
 			wsSettings.Path = proxy.WsOpts.Path
 			streamSettings.WSSettings = wsSettings
-		}
-	case "h2":
-		if proxy.H2Opts != nil {
-			httpSettings := &conf.HTTPConfig{}
-			host := conf.StringList(proxy.H2Opts.Host)
-			httpSettings.Host = &host
-			httpSettings.Path = proxy.H2Opts.Path
-
-			streamSettings.HTTPSettings = httpSettings
-		}
-	case "grpc":
-		if proxy.GrpcOpts != nil {
-			grpcSettings := &conf.GRPCConfig{}
-			grpcSettings.ServiceName = proxy.GrpcOpts.GrpcServiceName
-
-			streamSettings.GRPCConfig = grpcSettings
 		}
 	}
 	proxy.parseSecurity(streamSettings, outbound)
