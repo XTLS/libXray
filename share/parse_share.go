@@ -466,21 +466,6 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) (*conf.StreamConfig, er
 		wsSettings.Path = query.Get("path")
 		wsSettings.Host = query.Get("host")
 		streamSettings.WSSettings = wsSettings
-	case "grpc", "gun":
-		grcpSettings := &conf.GRPCConfig{}
-		grcpSettings.Authority = query.Get("authority")
-		grcpSettings.ServiceName = query.Get("serviceName")
-		grcpSettings.MultiMode = query.Get("mode") == "multi"
-
-		streamSettings.GRPCConfig = grcpSettings
-	case "h2", "http":
-		httpSettings := &conf.HTTPConfig{}
-		hosts := strings.Split(query.Get("host"), ",")
-		host := conf.StringList(hosts)
-		httpSettings.Host = &host
-		httpSettings.Path = query.Get("path")
-
-		streamSettings.HTTPSettings = httpSettings
 	case "httpupgrade":
 		httpupgradeSettings := &conf.HttpUpgradeConfig{}
 		httpupgradeSettings.Host = query.Get("host")

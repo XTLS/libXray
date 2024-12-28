@@ -10,7 +10,9 @@ This is an Xray wrapper focusing on improving the experience of [Xray-core](http
 
 3. If your issue is about some Platform development, like iOS or Android, it will just be closed.
 
-# Features
+4. This lib only keeps compatible with Xray-core latest stable version.
+
+# Features 
 
 ## nodep
 
