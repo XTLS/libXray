@@ -125,7 +125,7 @@ func handleTestResponse(response string, t *testing.T) {
 // TestRunXrayWithVmess tests running Xray with VMess configuration
 func TestRunXrayWithVmess(t *testing.T) {
 	// Example VMess configuration (base64 encoded)
-	vmess := ``
+	vmess := `xxx`
 
 	// Decode and parse the VMess configuration
 	vmessConfig, err := decodeVmessConfig(vmess)
