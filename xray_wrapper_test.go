@@ -125,7 +125,7 @@ func handleTestResponse(response string, t *testing.T) {
 // TestRunXrayWithVmess tests running Xray with VMess configuration
 func TestRunXrayWithVmess(t *testing.T) {
 	// Example VMess configuration (base64 encoded)
-	vmess := `eyJhZGQiOiAiMzguMTY1LjMzLjEyNiIsICJhaWQiOiAiMCIsICJob3N0IjogIiIsICJpZCI6ICJhYjliMWUwZC05YzczLTQxNzYtODE5OS00N2I0OTNhMjJlNGMiLCAibmV0IjogImtjcCIsICJwYXRoIjogIiIsICJwb3J0IjogMjYzODgsICJwcyI6ICIiLCAic2N5IjogIm5vbmUiLCAidGxzIjogIiIsICJ0eXBlIjogIm5vbmUiLCAidiI6ICIyIn0=`
+	vmess := ``
 
 	// Decode and parse the VMess configuration
 	vmessConfig, err := decodeVmessConfig(vmess)
@@ -169,7 +169,7 @@ func TestRunXrayWithVmess(t *testing.T) {
 // TestRunXray tests running Xray with a VMess configuration for real-world usage
 func TestRunXray(t *testing.T) {
 	// Example VMess configuration (same as in the previous test)
-	vmess := `eyJhZGQiOiAiMzguMTY1LjMzLjEyNiIsICJhaWQiOiAiMCIsICJob3N0IjogIiIsICJpZCI6ICJhYjliMWUwZC05YzczLTQxNzYtODE5OS00N2I0OTNhMjJlNGMiLCAibmV0IjogImtjcCIsICJwYXRoIjogIiIsICJwb3J0IjogMjYzODgsICJwcyI6ICIiLCAic2N5IjogIm5vbmUiLCAidGxzIjogIiIsICJ0eXBlIjogIm5vbmUiLCAydiI6ICIyIn0=`
+	vmess := `xxx`
 
 	// Decode and parse the VMess configuration
 	vmessConfig, err := decodeVmessConfig(vmess)
