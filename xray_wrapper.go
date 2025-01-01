@@ -102,7 +102,7 @@ func TestXray(base64Text string) string {
 	return response.EncodeToBase64("", err)
 }
 
-type runXrayRequest struct {
+type RunXrayRequest struct {
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
 	MaxMemory  int64  `json:"maxMemory,omitempty"`
@@ -115,7 +115,7 @@ func RunXray(base64Text string) string {
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
-	var request runXrayRequest
+	var request RunXrayRequest
 	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)

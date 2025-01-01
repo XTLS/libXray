@@ -28,3 +28,4 @@ dat/
 sub/
 test/
 config/
+.DS_Store
