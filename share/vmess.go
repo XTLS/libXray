@@ -141,6 +141,12 @@ func (proxy vmessQrCode) streamSettings() (*conf.StreamConfig, error) {
 		wsSettings.Host = proxy.Host
 
 		streamSettings.WSSettings = wsSettings
+	case "grpc", "gun":
+		grcpSettings := &conf.GRPCConfig{}
+		grcpSettings.ServiceName = proxy.Path
+		mode := proxy.Type
+		grcpSettings.MultiMode = mode == "multi"
+		streamSettings.GRPCSettings = grcpSettings
 	}
 
 	err := proxy.parseSecurity(streamSettings)

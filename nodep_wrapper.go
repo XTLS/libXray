@@ -26,7 +26,7 @@ func GetFreePorts(count int) string {
 }
 
 // Convert share text to XrayJson
-// support XrayJson, v2rayN plain text, v2rayN base64 text, Clash yaml, Clash.Meta yaml
+// support XrayJson, v2rayN plain text, v2rayN base64 text, Clash.Meta yaml
 func ConvertShareLinksToXrayJson(base64Text string) string {
 	var response nodep.CallResponse[*conf.Config]
 	links, err := base64.StdEncoding.DecodeString(base64Text)

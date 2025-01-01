@@ -287,6 +287,24 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if len(host) > 0 {
 			query = addQuery(query, "host", host)
 		}
+	case "grpc":
+		if streamSettings.GRPCSettings == nil {
+			break
+		}
+		mode := streamSettings.GRPCSettings.MultiMode
+		if mode {
+			query = addQuery(query, "mode", "multi")
+		} else {
+			query = addQuery(query, "mode", "gun")
+		}
+		serviceName := streamSettings.GRPCSettings.ServiceName
+		if len(serviceName) > 0 {
+			query = addQuery(query, "serviceName", serviceName)
+		}
+		authority := streamSettings.GRPCSettings.Authority
+		if len(authority) > 0 {
+			query = addQuery(query, "authority", authority)
+		}
 	case "httpupgrade":
 		if streamSettings.HTTPUPGRADESettings == nil {
 			break
