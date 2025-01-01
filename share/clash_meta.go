@@ -44,7 +44,6 @@ type ClashProxy struct {
 	Plugin     string                `yaml:"plugin,omitempty"`
 	PluginOpts *ClashProxyPluginOpts `yaml:"plugin-opts,omitempty"`
 	WsOpts     *ClashProxyWsOpts     `yaml:"ws-opts,omitempty"`
-	H2Opts     *ClashProxyH2Opts     `yaml:"h2-opts,omitempty"`
 	GrpcOpts   *ClashProxyGrpcOpts   `yaml:"grpc-opts,omitempty"`
 	SsOpts     *ClashProxySsOpts     `yaml:"ss-opts,omitempty"`
 
@@ -81,11 +80,6 @@ type ClashProxyWsOpts struct {
 
 type ClashProxyWsOptsHeaders struct {
 	Host string `yaml:"Host,omitempty"`
-}
-
-type ClashProxyH2Opts struct {
-	Host []string `yaml:"host,omitempty"`
-	Path string   `yaml:"path,omitempty"`
 }
 
 type ClashProxyGrpcOpts struct {
