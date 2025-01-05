@@ -2,8 +2,6 @@ module github.com/xtls/libxray
 
 go 1.23.2
 
-replace github.com/xtls/xray-core => ../Xray-core
-
 require (
 	github.com/stretchr/testify v1.10.0
 	github.com/xtls/xray-core v1.8.25-0.20250101120305-e80ca67feed9
