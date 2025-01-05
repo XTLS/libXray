@@ -6,7 +6,7 @@ replace github.com/xtls/xray-core => ../Xray-core
 
 require (
 	github.com/stretchr/testify v1.10.0
-	github.com/xtls/xray-core v0.0.0-00010101000000-000000000000
+	github.com/xtls/xray-core v1.8.25-0.20250101120305-e80ca67feed9
 	google.golang.org/protobuf v1.36.1
 	gopkg.in/yaml.v3 v3.0.1
 )
