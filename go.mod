@@ -53,6 +53,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250102185135-69823020774d // indirect
 	google.golang.org/grpc v1.69.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gvisor.dev/gvisor v0.0.0-20241230214704-4dbba85b072b // indirect
+	gvisor.dev/gvisor v0.0.0-20241227193629-b8cde430ca0a // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
