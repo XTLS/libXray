@@ -318,19 +318,30 @@ func (proxy xrayShareLink) socksOutbound() (*conf.OutboundDetourConfig, error) {
 	outbound.Protocol = "socks"
 	setOutboundName(outbound, proxy.link.Fragment)
 
-	userPassword := proxy.link.User.String()
-	passwordText, err := decodeBase64Text(userPassword)
-	if err != nil {
-		return nil, err
-	}
-	pwConfig := strings.SplitN(passwordText, ":", 2)
-	if len(pwConfig) != 2 {
-		return nil, fmt.Errorf("unsupport link socks user password: %s", passwordText)
-	}
+	users := []json.RawMessage{}
 
-	user := &conf.SocksAccount{}
-	user.Username = pwConfig[0]
-	user.Password = pwConfig[1]
+	userPassword := proxy.link.User.String()
+	if len(userPassword) > 0 {
+		passwordText, err := decodeBase64Text(userPassword)
+		if err != nil {
+			return nil, err
+		}
+		pwConfig := strings.SplitN(passwordText, ":", 2)
+		if len(pwConfig) != 2 {
+			return nil, fmt.Errorf("unsupport link socks user password: %s", passwordText)
+		}
+
+		user := &conf.SocksAccount{}
+		user.Username = pwConfig[0]
+		user.Password = pwConfig[1]
+
+		userRawMessage, err := convertJsonToRawMessage(user)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, userRawMessage)
+	}
 
 	server := &conf.SocksRemoteConfig{}
 	server.Address = parseAddress(proxy.link.Hostname())
@@ -339,12 +350,7 @@ func (proxy xrayShareLink) socksOutbound() (*conf.OutboundDetourConfig, error) {
 		return nil, err
 	}
 	server.Port = uint16(port)
-
-	userRawMessage, err := convertJsonToRawMessage(user)
-	if err != nil {
-		return nil, err
-	}
-	server.Users = []json.RawMessage{userRawMessage}
+	server.Users = users
 
 	settings := &conf.SocksClientConfig{}
 	settings.Servers = []*conf.SocksRemoteConfig{server}
