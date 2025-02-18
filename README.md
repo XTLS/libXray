@@ -128,6 +128,10 @@ export xray.
 
 # Breaking changes
 
+# 25.2.18
+
+From 25.2.18, maxMemory in RunXrayRequest has been dropped.
+
 # 24.9.30
 
 From 24.9.30, you need clone Xray-core to the parent directory of libXray.
