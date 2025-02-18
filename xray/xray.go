@@ -4,7 +4,6 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/core"
 	_ "github.com/xtls/xray-core/main/distro/all"
@@ -33,19 +32,11 @@ func InitEnv(datDir string) {
 	os.Setenv("xray.location.asset", datDir)
 }
 
-func setMaxMemory(maxMemory int64) {
-	nodep.InitForceFree(maxMemory, 1)
-}
-
 // Run Xray instance.
 // datDir means the dir which geosite.dat and geoip.dat are in.
 // configPath means the config.json file path.
-// maxMemory means the soft memory limit of golang, see SetMemoryLimit to find more information.
-func RunXray(datDir string, configPath string, maxMemory int64) (err error) {
+func RunXray(datDir string, configPath string) (err error) {
 	InitEnv(datDir)
-	if maxMemory > 0 {
-		setMaxMemory(maxMemory)
-	}
 	coreServer, err = StartXray(configPath)
 	if err != nil {
 		return

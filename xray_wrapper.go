@@ -105,7 +105,6 @@ func TestXray(base64Text string) string {
 type RunXrayRequest struct {
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
-	MaxMemory  int64  `json:"maxMemory,omitempty"`
 }
 
 // Run Xray instance.
@@ -120,7 +119,7 @@ func RunXray(base64Text string) string {
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
-	err = xray.RunXray(request.DatDir, request.ConfigPath, request.MaxMemory)
+	err = xray.RunXray(request.DatDir, request.ConfigPath)
 	return response.EncodeToBase64("", err)
 }
 
