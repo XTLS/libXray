@@ -18,20 +18,24 @@ use [gomobile](https://github.com/golang/mobile)
 
 ### 1. use gomobile
 
-need "iOS Simulator Runtime".
+Need "iOS Simulator Runtime".
 
 It is the best choice for most cases. Good apis, no conflicts
 with other frameworks.
+
+Support iOS, iOSSimulator, macOS, macCatalyst.
 
 But it does NOT support to set minimal macOS version of xcframework, and has no tvOS support.
 
 ### 2. use cgo
 
-need "iOS Simulator Runtime" and "tvOS Simulator Runtime".
+Need "iOS Simulator Runtime" and "tvOS Simulator Runtime".
 
-More controls in building progress, c header file output, and tvOS support.
+More controls in building progress, c header file output.
 
 Useful for ffi, like swift, kotlin, dart.
+
+Support iOS, iOSSimulator, macOS, tvOS.
 
 DO NOT contain **module.modulemap**. You need create a bridging-header file when using it in swift. 
 
