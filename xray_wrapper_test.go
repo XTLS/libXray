@@ -3,10 +3,11 @@ package libXray
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // writeConfigToFile writes the configuration to a file
@@ -194,8 +195,7 @@ func TestRunXray(t *testing.T) {
 	datDir := filepath.Join(projectRoot, "dat")
 	runRequest := RunXrayRequest{
 		DatDir:     datDir,
-		ConfigPath: configPath,
-		MaxMemory:  1024, // Set max memory limit for Xray
+		ConfigPath: configPath, // Set max memory limit for Xray
 	}
 
 	// Encode the request to base64
