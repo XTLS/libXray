@@ -9,39 +9,27 @@ import (
 	"time"
 )
 
-func InitDns(dns string, deviceName string) {
-	if dnsDialer != nil {
-		dnsDialer = nil
-	}
-
-	dnsDialer = &net.Dialer{
-		Timeout: time.Second * 16,
-	}
-
-	dnsDialer.Control = func(network, address string, c syscall.RawConn) error {
-		//copy from https://github.com/apernet/hysteria/blob/master/extras/outbounds/ob_direct_linux.go
-		var errBind error
-		err := c.Control(func(fd uintptr) {
-			errBind = syscall.BindToDevice(int(fd), deviceName)
-		})
-		if err != nil {
-			return err
-		}
-		return errBind
-	}
-
+func InitDns(deviceName string) {
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			return dnsDialer.DialContext(ctx, network, dns)
+			dial := makeDialer(deviceName)
+			return dial.DialContext(ctx, network, address)
 		},
 	}
 }
 
-func ResetDns() {
-	if dnsDialer != nil {
-		dnsDialer = nil
+func makeDialer(deviceName string) *net.Dialer {
+	dialer := &net.Dialer{
+		Timeout: time.Second * 16,
 	}
 
-	net.DefaultResolver = &net.Resolver{}
+	dialer.Control = func(network, address string, c syscall.RawConn) error {
+		err := c.Control(func(fd uintptr) {
+			syscall.BindToDevice(int(fd), deviceName)
+		})
+		return err
+	}
+
+	return dialer
 }

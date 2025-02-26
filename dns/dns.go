@@ -2,6 +2,6 @@ package dns
 
 import "net"
 
-var (
-	dnsDialer *net.Dialer
-)
+func ResetDns() {
+	net.DefaultResolver = &net.Resolver{}
+}
