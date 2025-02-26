@@ -10,12 +10,12 @@ import (
 )
 
 // Give a callback when parsing server domain. Useful for Android development.
-func InitDns(controller func(fd uintptr)) {
+func InitDns(dns string, controller func(fd uintptr)) {
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			dial := makeDialer(controller)
-			return dial.DialContext(ctx, network, address)
+			return dial.DialContext(ctx, network, dns)
 		},
 	}
 }
