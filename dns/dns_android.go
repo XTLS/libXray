@@ -14,6 +14,8 @@ func InitDns(dns string, controller func(fd uintptr)) {
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			// address on Android is always loopback address.
+			// so we use a custom dns instead.
 			dial := makeDialer(controller)
 			return dial.DialContext(ctx, network, dns)
 		},
