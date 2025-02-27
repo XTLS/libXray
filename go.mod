@@ -1,8 +1,6 @@
 module github.com/xtls/libxray
 
-go 1.23
-
-toolchain go1.23.6
+go 1.24.0
 
 replace github.com/xtls/xray-core => ../Xray-core
 
