@@ -9,12 +9,14 @@ import (
 	"time"
 )
 
-func InitDns(deviceName string) {
+func InitDns(dns string, deviceName string) {
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			dial := makeDialer(deviceName)
-			return dial.DialContext(ctx, network, address)
+			// address on linux is always loopback address.
+			// so we use a custom dns instead.
+			dialer := makeDialer(deviceName)
+			return dialer.DialContext(ctx, network, dns)
 		},
 	}
 }

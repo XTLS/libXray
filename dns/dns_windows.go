@@ -14,12 +14,12 @@ const (
 	IPV6_UNICAST_IF = 31
 )
 
-func InitDns(deviceName string) {
+func InitDns(_ string, deviceName string) {
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			dial := makeDialer(deviceName)
-			return dial.DialContext(ctx, network, address)
+			dialer := makeDialer(deviceName)
+			return dialer.DialContext(ctx, network, address)
 		},
 	}
 }
