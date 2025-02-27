@@ -128,9 +128,9 @@ export xray.
 
 # Breaking changes
 
-# 25.2.18
+# 25.2.21
 
-From 25.2.18, maxMemory in RunXrayRequest has been dropped.
+From 25.2.21, maxMemory in RunXrayRequest has been dropped. The original `nodep.InitForceFree()` will auto run on iOS. On other platform, it will no nothing.
 
 # 24.9.30
 
