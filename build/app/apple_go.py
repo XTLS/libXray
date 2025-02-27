@@ -165,7 +165,6 @@ class AppleGoBuilder(Builder):
             "-buildmode=c-archive",
         ]
         os.chdir(self.lib_dir)
-        print(run_env)
         print(cmd)
         ret = subprocess.run(cmd, env=run_env)
         if ret.returncode != 0:

@@ -45,8 +45,8 @@ depends on gcc && g++
 
 ## Windows
 
-depends on zig, you can install it by
+depends on [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw), you can install it by
 
 ```shell
-winget install zig.zig
+winget install MartinStorsjo.LLVM-MinGW.UCRT
 ```

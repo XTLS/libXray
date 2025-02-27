@@ -24,7 +24,7 @@ class LinuxBuilder(Builder):
         self.after_build()
 
     def build_linux(self):
-        output_dir = os.path.join(self.framework_dir)
+        output_dir = self.framework_dir
         create_dir_if_not_exists(output_dir)
         output_file = os.path.join(output_dir, self.lib_file)
         run_env = os.environ.copy()
@@ -40,7 +40,6 @@ class LinuxBuilder(Builder):
             "-buildmode=c-shared",
         ]
         os.chdir(self.lib_dir)
-        print(run_env)
         print(cmd)
         ret = subprocess.run(cmd, env=run_env)
         if ret.returncode != 0:
