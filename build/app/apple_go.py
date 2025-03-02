@@ -144,26 +144,61 @@ class AppleGoBuilder(Builder):
         output_file = os.path.join(output_dir, self.lib_file)
         sdk_path = self.get_sdk_dir_path(sdk)
         min_version_flag = f"-m{sdk}-version-min={min_version}"
+        
+        # Базовые флаги
         flags = f"-isysroot {sdk_path} {min_version_flag} -arch {apple_arch}"
+        
+        # Оптимизации для iOS
+        if "iphone" in sdk or "appletv" in sdk:
+            # Оптимизация размера и производительности
+            flags += " -Os"  # Оптимизация под размер
+            flags += " -fno-exceptions"  # Отключение исключений C++
+            flags += " -fno-rtti"  # Отключение RTTI
+            # Оптимизации памяти
+            flags += " -fstack-protector"  # Защита стека
+            flags += " -fobjc-arc"  # Автоматическое управление памятью
+            # Дополнительные оптимизации
+            flags += " -fembed-bitcode"  # Включение битового кода для App Store
+            flags += " -ffast-math"  # Оптимизация математических операций
+            
         run_env = os.environ.copy()
         run_env["GOOS"] = platform
         run_env["GOARCH"] = go_arch
         run_env["GOFLAGS"] = f"-tags={platform}"
+        
+        # Оптимизации для Go
+        if "iphone" in sdk or "appletv" in sdk:
+            run_env["GOFLAGS"] += " -trimpath"  # Удаление путей из бинарника
+        
         run_env["CC"] = f"xcrun --sdk {sdk} --toolchain {sdk} clang"
         run_env["CXX"] = f"xcrun --sdk {sdk} --toolchain {sdk} clang++"
         run_env["CGO_CFLAGS"] = flags
         run_env["CGO_CXXFLAGS"] = flags
-        run_env["CGO_LDFLAGS"] = f"{flags} -Wl,-Bsymbolic-functions"
+        
+        # Флаги линковщика
+        linker_flags = f"{flags} -Wl,-Bsymbolic-functions"
+        if "iphone" in sdk or "appletv" in sdk:
+            linker_flags += " -Wl,-dead_strip"  # Удаление неиспользуемого кода
+        run_env["CGO_LDFLAGS"] = linker_flags
+        
         run_env["CGO_ENABLED"] = "1"
         run_env["DARWIN_SDK"] = sdk
 
         cmd = [
             "go",
             "build",
-            "-ldflags=-w",
+            "-ldflags=-w -s",  # Удаление отладочной информации
             f"-o={output_file}",
             "-buildmode=c-archive",
         ]
+        
+        # Дополнительные оптимизации для iOS
+        if "iphone" in sdk or "appletv" in sdk:
+            cmd.extend([
+                "-gcflags=all=-B",  # Отключение bounds checking
+                "-gcflags=all=-l=4",  # Агрессивная оптимизация
+            ])
+        
         os.chdir(self.lib_dir)
         print(cmd)
         ret = subprocess.run(cmd, env=run_env)
