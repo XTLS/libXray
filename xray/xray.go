@@ -2,7 +2,9 @@ package xray
 
 import (
 	"os"
+	"runtime"
 	"runtime/debug"
+	"sync/atomic"
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/cmdarg"
@@ -11,10 +13,14 @@ import (
 )
 
 var (
-	coreServer *core.Instance
+	coreServer atomic.Pointer[core.Instance]
 )
 
 func StartXray(configPath string) (*core.Instance, error) {
+	// Принудительная очистка перед стартом
+	runtime.GC()
+	debug.FreeOSMemory()
+
 	file := cmdarg.Arg{configPath}
 	config, err := core.LoadConfig("json", file)
 	if err != nil {
@@ -37,29 +43,38 @@ func InitEnv(datDir string) {
 // datDir means the dir which geosite.dat and geoip.dat are in.
 // configPath means the config.json file path.
 func RunXray(datDir string, configPath string) (err error) {
+	// Останавливаем предыдущий инстанс если есть
+	if err = StopXray(); err != nil {
+		return
+	}
+
 	InitEnv(datDir)
 	nodep.InitForceFree()
-	coreServer, err = StartXray(configPath)
+
+	server, err := StartXray(configPath)
 	if err != nil {
 		return
 	}
 
-	if err = coreServer.Start(); err != nil {
+	if err = server.Start(); err != nil {
 		return
 	}
 
-	debug.FreeOSMemory()
+	coreServer.Store(server)
 	return nil
 }
 
 // Stop Xray instance.
 func StopXray() error {
-	if coreServer != nil {
-		err := coreServer.Close()
-		coreServer = nil
+	oldServer := coreServer.Swap(nil)
+	if oldServer != nil {
+		err := oldServer.Close()
 		if err != nil {
 			return err
 		}
+		// Принудительная очистка после остановки
+		runtime.GC()
+		debug.FreeOSMemory()
 	}
 	return nil
 }
