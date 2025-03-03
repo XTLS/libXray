@@ -35,7 +35,9 @@ class LinuxBuilder(Builder):
         cmd = [
             "go",
             "build",
-            "-ldflags=-w",
+            "-trimpath",
+            "-ldflags",
+            "-s -w",
             f"-o={output_file}",
             "-buildmode=c-shared",
         ]
