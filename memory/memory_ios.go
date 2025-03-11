@@ -1,6 +1,6 @@
 //go:build ios
 
-package nodep
+package memory
 
 import (
 	"runtime/debug"

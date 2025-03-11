@@ -1,5 +1,5 @@
 //go:build !ios
 
-package nodep
+package memory
 
 func InitForceFree() {}

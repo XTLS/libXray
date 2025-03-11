@@ -51,6 +51,12 @@ func CGoTestXray(base64Text *C.char) *C.char {
 	return C.CString(TestXray(text))
 }
 
+//export CGoThinGeoData
+func CGoThinGeoData(base64Text *C.char) *C.char {
+	text := C.GoString(base64Text)
+	return C.CString(ThinGeoData(text))
+}
+
 //export CGoRunXray
 func CGoRunXray(base64Text *C.char) *C.char {
 	text := C.GoString(base64Text)

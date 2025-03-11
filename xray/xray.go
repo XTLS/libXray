@@ -4,7 +4,7 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/xtls/libxray/nodep"
+	"github.com/xtls/libxray/memory"
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/core"
 	_ "github.com/xtls/xray-core/main/distro/all"
@@ -38,7 +38,7 @@ func InitEnv(datDir string) {
 // configPath means the config.json file path.
 func RunXray(datDir string, configPath string) (err error) {
 	InitEnv(datDir)
-	nodep.InitForceFree()
+	memory.InitForceFree()
 	coreServer, err = StartXray(configPath)
 	if err != nil {
 		return

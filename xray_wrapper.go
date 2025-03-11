@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/xtls/libxray/memory"
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/libxray/xray"
 )
@@ -99,6 +100,28 @@ func TestXray(base64Text string) string {
 		return response.EncodeToBase64("", err)
 	}
 	err = xray.TestXray(request.DatDir, request.ConfigPath)
+	return response.EncodeToBase64("", err)
+}
+
+type ThinGeoDataRequest struct {
+	DatDir     string `json:"datDir,omitempty"`
+	ConfigPath string `json:"configPath,omitempty"`
+	DstDir     string `json:"dstDir,omitempty"`
+}
+
+// thin geo data
+func ThinGeoData(base64Text string) string {
+	var response nodep.CallResponse[string]
+	req, err := base64.StdEncoding.DecodeString(base64Text)
+	if err != nil {
+		return response.EncodeToBase64("", err)
+	}
+	var request ThinGeoDataRequest
+	err = json.Unmarshal(req, &request)
+	if err != nil {
+		return response.EncodeToBase64("", err)
+	}
+	err = memory.ThinGeoData(request.DatDir, request.ConfigPath, request.DstDir)
 	return response.EncodeToBase64("", err)
 }
 
