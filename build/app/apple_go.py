@@ -159,12 +159,16 @@ class AppleGoBuilder(Builder):
         run_env["CGO_ENABLED"] = "1"
         run_env["DARWIN_SDK"] = sdk
 
-        # Enhanced obfuscation flags - more compatible approach
+        # Enhanced obfuscation for uniqueness of each build
         ldflags = "-s -w"  # Strip symbol table and DWARF debug info
         
-        # Add build timestamp for versioning
-        build_timestamp = time.strftime("%Y%m%d%H%M%S")
+        # Add build timestamp with microseconds for greater uniqueness
+        build_timestamp = time.strftime("%Y%m%d%H%M%S") + str(int(time.time() * 1000) % 1000)
         ldflags += f" -X 'main.buildTime={build_timestamp}'"
+        
+        # Add random identifier for each build
+        random_id = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=16))
+        ldflags += f" -X 'main.buildID={random_id}'"
         
         # Add git commit hash if available
         try:
@@ -172,10 +176,17 @@ class AppleGoBuilder(Builder):
                                               stderr=subprocess.DEVNULL).decode().strip()
             ldflags += f" -X 'main.buildVersion={git_hash}'"
         except:
-            pass
-            
-        # Use more compatible optimization flags
-        # Avoid -N flag which disables optimizations and can cause size issues
+            # If git is not available, use a random hash
+            fake_hash = ''.join(random.choices('0123456789abcdef', k=7))
+            ldflags += f" -X 'main.buildVersion={fake_hash}'"
+        
+        # Add random unused variables to change binary fingerprint
+        for i in range(5):
+            var_name = f"unusedVar{i}"
+            var_value = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+            ldflags += f" -X 'main.{var_name}={var_value}'"
+        
+        # Use compatible optimization flags
         gcflags = "all=-l=4"  # Limit inlining but keep other optimizations
         
         cmd = [
@@ -251,14 +262,44 @@ class AppleGoBuilder(Builder):
             lib_path = os.path.join(self.framework_dir, lib, self.lib_file)
             cmd.extend(["-library", lib_path, "-headers", include_dir])
 
-        output_file = os.path.join(self.lib_dir, "LibXray.xcframework")
+        # Add random suffix to framework name for uniqueness
+        random_suffix = ''.join(random.choices('0123456789', k=3))
+        framework_name = f"LibXray_{random_suffix}.xcframework"
+        
+        # Create symbolic link with original name for compatibility
+        output_file = os.path.join(self.lib_dir, framework_name)
+        original_name = os.path.join(self.lib_dir, "LibXray.xcframework")
+        
         cmd.extend(["-output", output_file])
 
         print(cmd)
         ret = subprocess.run(cmd)
         if ret.returncode != 0:
             raise Exception(f"create_framework failed")
+            
+        # Create symbolic link with original name
+        if os.path.exists(original_name):
+            os.remove(original_name)
+        os.symlink(framework_name, original_name)
 
     def after_build(self):
         super().after_build()
         self.reset_files()
+        
+        # Modify framework metadata for additional uniqueness
+        try:
+            framework_path = os.path.join(self.lib_dir, "LibXray.xcframework")
+            info_plist = os.path.join(framework_path, "Info.plist")
+            if os.path.exists(info_plist):
+                # Add random comment to Info.plist
+                random_comment = f"<!-- Build ID: {random.randint(10000, 99999)} -->"
+                with open(info_plist, 'r') as f:
+                    content = f.read()
+                
+                if "<!DOCTYPE plist" in content:
+                    content = content.replace("<!DOCTYPE plist", f"{random_comment}\n<!DOCTYPE plist")
+                    with open(info_plist, 'w') as f:
+                        f.write(content)
+        except:
+            # Ignore errors when modifying metadata
+            pass
