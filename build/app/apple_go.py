@@ -1,6 +1,8 @@
 import os.path
 import shutil
 import subprocess
+import random
+import time
 
 from app.build import Builder
 from app.cmd import create_dir_if_not_exists, delete_dir_if_exists
@@ -157,12 +159,31 @@ class AppleGoBuilder(Builder):
         run_env["CGO_ENABLED"] = "1"
         run_env["DARWIN_SDK"] = sdk
 
+        # Enhanced obfuscation flags - more compatible approach
+        ldflags = "-s -w"  # Strip symbol table and DWARF debug info
+        
+        # Add build timestamp for versioning
+        build_timestamp = time.strftime("%Y%m%d%H%M%S")
+        ldflags += f" -X 'main.buildTime={build_timestamp}'"
+        
+        # Add git commit hash if available
+        try:
+            git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
+                                              stderr=subprocess.DEVNULL).decode().strip()
+            ldflags += f" -X 'main.buildVersion={git_hash}'"
+        except:
+            pass
+            
+        # Use more compatible optimization flags
+        # Avoid -N flag which disables optimizations and can cause size issues
+        gcflags = "all=-l=4"  # Limit inlining but keep other optimizations
+        
         cmd = [
             "go",
             "build",
-            "-trimpath",
-            "-ldflags",
-            "-s -w",
+            "-trimpath",  # Remove all file system paths
+            "-ldflags", ldflags,
+            "-gcflags", gcflags,
             f"-o={output_file}",
             "-buildmode=c-archive",
         ]
