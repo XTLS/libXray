@@ -1,150 +1,196 @@
 # libXray
 
-This is an Xray wrapper focusing on improving the experience of [Xray-core](https://github.com/XTLS/Xray-core) mobile development.
+[简体中文](./readme/README.zh_CN.md)
+
+his is a wrapper around [Xray-core](https://github.com/XTLS/Xray-core) to improve the client development experience.
 
 # Note
 
-1. This repository has very limited maintainers. If you're not reporting a bug, or making a PR, your question will most likely be ignored.
+1. This repository has few maintainers. If you do not report a bug or initiate a PR, your issue will be ignored.
+2. This repository does not guarantee API stability, you need to adapt it yourself.
+3. This repository is only compatible with the latest release of Xray-core.
 
-2. This lib does not guarantee the stability of the api, you need to adapt it by yourself.
+# Features
 
-3. If your issue is about some Platform development, like iOS or Android, it will just be closed.
+## build
 
-4. This lib only keeps compatible with Xray-core latest stable version.
+Compile script. It is recommended to always use this script to compile libXray. We will not answer questions caused by using other compilation methods.
 
-# Features 
+You need to put Xray-core and libXray in the same directory to compile.
+
+### Usage
+
+```shell
+python3 build/main.py android
+python3 build/main.py apple gomobile
+python3 build/main.py apple go
+python3 build/main.py linux
+python3 build/main.py windows
+```
+
+### Android
+
+use [gomobile](https://github.com/golang/mobile) .
+
+### iOS && macOS
+
+#### 1. use gomobile
+
+Need "iOS Simulator Runtime".
+
+This is the best choice for general scenarios and will not conflict with other frameworks.
+
+Supports iOS, iOSSimulator, macOS, macCatalyst.
+
+But it is not possible to set the minimum macOS version, which will cause some warnings when compiling. And it does not support tvOS.
+
+#### 2. use cgo
+
+Need "iOS Simulator Runtime" and "tvOS Simulator Runtime".
+
+Support more compilation options, output c header files.
+
+This works well when you use ffi for integration. For example, integration with swift, kotlin, dart.
+
+Support iOS, iOSSimulator, macOS, tvOS.
+
+Note: The product `LibXray.xcframework` does not contain **module.modulemap**. When using swift, you need to create a bridge file.
+
+### Linux
+
+depend on gcc and g++.
+
+### Windows
+
+depend on [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw), you can install it using winget.
+
+```shell
+winget install MartinStorsjo.LLVM-MinGW.UCRT
+```
+
+## controller
+
+Used to solve the socket protect problem on Android.
+
+## dns
+
+Used to solve server address resolution issues on Android, Linux, and Windows. If not handled, the DNS traffic will be resent to the tun device, resulting in failure to initiate a connection.
+
+## geo
+
+### count
+
+Read geo files and count the categories and rules.
+
+### read
+
+Read the Xray Json configuration and extract the geo file name used.
+
+### thin
+
+Read the Xray Json configuration and cut the geo file used.
+
+## main
+
+Download geosite.dat and geoip.dat and count them.
+
+## memory
+
+Only executed on iOS, GC is initiated once a second. This can alleviate memory pressure on iOS.
 
 ## nodep
 
-### file.go
+### file
 
-write data to file.
+Write data to a file.
 
-### measure.go
+### measure
 
-ping xray outbound.
+Speed ​​test the Xray configuration.
 
-### memory.go
+### model
 
-try to control the max memory.
+The response body of the wrapper interface.
 
-### model.go
+### port
 
-response of wrapper api.
-
-### port.go
-
-get free port.
+Get free ports.
 
 ## share
 
-libXray use "sendThrough" to store the outbound name. This field will not be used in most cases when developing client.
+libXray uses `sendThrough` to store outbound names.
 
-### clash_meta.go
+### clash_meta
 
-parse Clash.Meta config.
+Parse Clash.Meta configuration.
 
-### generate_share.go
+### generate_share
 
-convert v2rayN subscriptions to Xray Json.
+convert Xray Json to VMessAEAD/VLESS sharing protocol.
+
+### parse_share
 
 convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
-### parse_share.go
+convert VMessQRCode to Xray Json.
 
-convert Xray Json to subscription links.
-
-### vmess.go
+### vmess
 
 convert VMessQRCode to Xray Json.
 
-### xray_json.go
+### xray_json
 
-helper when parsing share links.
+Some tools used to parse shared links.
 
 ## xray
 
-### geo.go
+### ping
 
-read geosite.dat and geoip.dat, generate json file and count rules, including Attribute.
+Latency testing.
 
-### ping.go
+### stats
 
-test the delay.
+Refer to the following configuration:
 
-### stats.go
+```json
+{
+  "metrics" : {
+    "tag" : "metrics",
+    "listen": "[::1]:49227",
+  },
+  "policy" : {
+    "system" : {
+      "statsInboundDownlink" : true,
+      "statsInboundUplink" : true,
+      "statsOutboundDownlink" : true,
+      "statsOutboundUplink" : true
+    }
+  },
+  "stats" : {}
+}
+```
 
-query inbound and outbound stats.
+Note:
 
-Attention: 
+1. When testing latency or validating configuration, make sure `metrics` is `null`.
 
-1. never enable metrics when ping and testing.
+2. When enabling metrics, the Xray-core instance needs to be run in a **child process**.
 
-2. always running Xray-core instance using standalone process, if you enable metrics.
+### validation
 
-### uuid.go
+Verify the Xray configuration.
 
-convert custom text to uuid.
+### xray
 
-### validation.go
+Start and stop Xray instances.
 
-test Xray config.
-
-### xray.go
-
-start and stop Xray instance.
-
-## lib package
-
-### build
-
-build libXray, currently support apple, android, linux and windows.
-
-You need clone Xray-core to the parent directory of libXray.
-
-### controller.go
-
-experimental Android support.
-
-register a controller to protect all connections.
-
-Because there is no api to reset effectiveListener, Only run them once when app running.
-
-### dns.go
-
-experimental Android support.
-
-register a controller to protect default dns queries.
-
-If the xray server address is a domain, InitDns will be useful to resolve the "first connection" problem.
-
-### nodep_wrapper.go
+## nodep_wrapper
 
 export nodep.
 
-### xray_wrapper.go
+### xray_wrapper
 
 export xray.
-
-# Breaking changes
-
-# 25.2.21
-
-From 25.2.21, maxMemory in RunXrayRequest has been dropped. The original `nodep.InitForceFree()` will auto run on iOS. On other platform, it will do nothing.
-
-# 24.9.30
-
-From 24.9.30, you need clone Xray-core to the parent directory of libXray.
-
-# 3.0.0
-
-From 3.0.0, all apis have changed to base64-encoded-string-based, including parameters and return values.
-
-The reasons are as bellow.
-
-1. We must be careful when using cgo. Always remember to free c-strings we pass to cgo and get from cgo. If there are many string parameters in the function, it will be a nightmare. So we just keep one string parameter and one string return value for every function.
-
-2. The string paramter and string return value may be transfered between languages, like go -> swift/kotlin/cpp -> dart, using their ffi. Some characters may be wrong when they are encoded and decoded many times. So encoding string to ascii characters will be a better choice, and we just choose base64.
 
 # Credits
 
@@ -153,3 +199,7 @@ The reasons are as bellow.
 [VMessPing](https://github.com/v2fly/vmessping)
 
 [FreePort](https://github.com/phayes/freeport)
+
+# License
+
+This repository is based on the MIT License.

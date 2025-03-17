@@ -1,4 +1,4 @@
-package xray
+package geo
 
 import (
 	"encoding/json"
@@ -31,14 +31,14 @@ const (
 // datDir means the dir which geo dat are in.
 // name means the geo dat file name, like "geosite", "geoip"
 // geoType must be the value of geoType
-func LoadGeoData(datDir string, name string, geoType string) error {
+func CountGeoData(datDir string, name string, geoType string) error {
 	switch geoType {
 	case geoTypeDomain:
-		if err := loadGeoSite(datDir, name); err != nil {
+		if err := countGeoSite(datDir, name); err != nil {
 			return err
 		}
 	case geoTypeIP:
-		if err := loadGeoIP(datDir, name); err != nil {
+		if err := countGeoIP(datDir, name); err != nil {
 			return err
 		}
 	default:
@@ -47,7 +47,7 @@ func LoadGeoData(datDir string, name string, geoType string) error {
 	return nil
 }
 
-func loadGeoSite(datDir string, name string) error {
+func countGeoSite(datDir string, name string) error {
 	datName := name + ".dat"
 	jsonName := name + ".json"
 	datPath := path.Join(datDir, datName)
@@ -99,7 +99,7 @@ func loadGeoSite(datDir string, name string) error {
 	return nil
 }
 
-func loadGeoIP(datDir string, name string) error {
+func countGeoIP(datDir string, name string) error {
 	datName := name + ".dat"
 	jsonName := name + ".json"
 	datPath := path.Join(datDir, datName)

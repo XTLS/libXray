@@ -21,10 +21,22 @@ func CGOConvertXrayJsonToShareLinks(base64Text *C.char) *C.char {
 	return C.CString(ConvertXrayJsonToShareLinks(text))
 }
 
-//export CGoLoadGeoData
-func CGoLoadGeoData(base64Text *C.char) *C.char {
+//export CGoCountGeoData
+func CGoCountGeoData(base64Text *C.char) *C.char {
 	text := C.GoString(base64Text)
-	return C.CString(LoadGeoData(text))
+	return C.CString(CountGeoData(text))
+}
+
+//export CGoThinGeoData
+func CGoThinGeoData(base64Text *C.char) *C.char {
+	text := C.GoString(base64Text)
+	return C.CString(ThinGeoData(text))
+}
+
+//export CGoReadGeoFiles
+func CGoReadGeoFiles(base64Text *C.char) *C.char {
+	text := C.GoString(base64Text)
+	return C.CString(ReadGeoFiles(text))
 }
 
 //export CGoPing
@@ -39,22 +51,10 @@ func CGoQueryStats(base64Text *C.char) *C.char {
 	return C.CString(QueryStats(text))
 }
 
-//export CGoCustomUUID
-func CGoCustomUUID(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(CustomUUID(text))
-}
-
 //export CGoTestXray
 func CGoTestXray(base64Text *C.char) *C.char {
 	text := C.GoString(base64Text)
 	return C.CString(TestXray(text))
-}
-
-//export CGoThinGeoData
-func CGoThinGeoData(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(ThinGeoData(text))
 }
 
 //export CGoRunXray

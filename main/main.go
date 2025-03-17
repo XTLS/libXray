@@ -62,14 +62,8 @@ func parseCallResponse(text string) (nodep.CallResponse[string], error) {
 	return response, err
 }
 
-type loadGeoDataRequest struct {
-	DatDir  string `json:"datDir,omitempty"`
-	Name    string `json:"name,omitempty"`
-	GeoType string `json:"geoType,omitempty"`
-}
-
 func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string, error) {
-	var request loadGeoDataRequest
+	var request libXray.CountGeoDataRequest
 	request.DatDir = datDir
 	request.Name = name
 	request.GeoType = geoType
@@ -109,7 +103,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	res := libXray.LoadGeoData(geoSiteReq)
+	res := libXray.CountGeoData(geoSiteReq)
 	resp, err := parseCallResponse(res)
 	if err != nil || !resp.Success {
 		fmt.Println("Failed to load geosite:", res)
@@ -131,7 +125,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	res = libXray.LoadGeoData(geoIpReq)
+	res = libXray.CountGeoData(geoIpReq)
 	resp, err = parseCallResponse(res)
 	if err != nil || !resp.Success {
 		fmt.Println("Failed to load geoip:", res)
