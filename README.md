@@ -2,7 +2,7 @@
 
 [简体中文](./readme/README.zh_CN.md)
 
-his is a wrapper around [Xray-core](https://github.com/XTLS/Xray-core) to improve the client development experience.
+This is a wrapper around [Xray-core](https://github.com/XTLS/Xray-core) to improve the client development experience.
 
 # Note
 
