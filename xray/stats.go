@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// query inbound and outbound stats.
+// QueryStats query inbound and outbound stats.
 // server means The metrics server address, like "http://[::1]:49227/debug/vars".
 func QueryStats(server string) (string, error) {
 	resp, err := http.Get(server)

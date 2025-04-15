@@ -33,7 +33,7 @@ func InitEnv(datDir string) {
 	os.Setenv("xray.location.asset", datDir)
 }
 
-// Run Xray instance.
+// RunXray Run Xray instance.
 // datDir means the dir which geosite.dat and geoip.dat are in.
 // configPath means the config.json file path.
 func RunXray(datDir string, configPath string) (err error) {
@@ -52,7 +52,7 @@ func RunXray(datDir string, configPath string) (err error) {
 	return nil
 }
 
-// Stop Xray instance.
+// StopXray Stop Xray instance.
 func StopXray() error {
 	if coreServer != nil {
 		err := coreServer.Close()
@@ -64,7 +64,7 @@ func StopXray() error {
 	return nil
 }
 
-// Xray's version
+// XrayVersion Xray's version
 func XrayVersion() string {
 	return core.Version()
 }

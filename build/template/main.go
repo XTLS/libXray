@@ -9,18 +9,6 @@ func CGoGetFreePorts(count int) *C.char {
 	return C.CString(GetFreePorts(count))
 }
 
-//export CGoConvertShareLinksToXrayJson
-func CGoConvertShareLinksToXrayJson(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(ConvertShareLinksToXrayJson(text))
-}
-
-//export CGOConvertXrayJsonToShareLinks
-func CGOConvertXrayJsonToShareLinks(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(ConvertXrayJsonToShareLinks(text))
-}
-
 //export CGoCountGeoData
 func CGoCountGeoData(base64Text *C.char) *C.char {
 	text := C.GoString(base64Text)

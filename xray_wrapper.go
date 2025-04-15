@@ -5,73 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/xtls/libxray/geo"
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/libxray/xray"
 )
-
-type CountGeoDataRequest struct {
-	DatDir  string `json:"datDir,omitempty"`
-	Name    string `json:"name,omitempty"`
-	GeoType string `json:"geoType,omitempty"`
-}
-
-// Read geo data and write all codes to text file.
-func CountGeoData(base64Text string) string {
-	var response nodep.CallResponse[string]
-	req, err := base64.StdEncoding.DecodeString(base64Text)
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-	var request CountGeoDataRequest
-	err = json.Unmarshal(req, &request)
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-	err = geo.CountGeoData(request.DatDir, request.Name, request.GeoType)
-	return response.EncodeToBase64("", err)
-}
-
-type ThinGeoDataRequest struct {
-	DatDir     string `json:"datDir,omitempty"`
-	ConfigPath string `json:"configPath,omitempty"`
-	DstDir     string `json:"dstDir,omitempty"`
-}
-
-// thin geo data
-func ThinGeoData(base64Text string) string {
-	var response nodep.CallResponse[string]
-	req, err := base64.StdEncoding.DecodeString(base64Text)
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-	var request ThinGeoDataRequest
-	err = json.Unmarshal(req, &request)
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-	err = geo.ThinGeoData(request.DatDir, request.ConfigPath, request.DstDir)
-	return response.EncodeToBase64("", err)
-}
-
-type readGeoFilesResponse struct {
-	Domain []string `json:"domain,omitempty"`
-	IP     []string `json:"ip,omitempty"`
-}
-
-// thin geo data
-func ReadGeoFiles(base64Text string) string {
-	var response nodep.CallResponse[*readGeoFilesResponse]
-	xray, err := base64.StdEncoding.DecodeString(base64Text)
-	if err != nil {
-		return response.EncodeToBase64(nil, err)
-	}
-	domain, ip := geo.ReadGeoFiles(xray)
-	var resp readGeoFilesResponse
-	resp.Domain = domain
-	resp.IP = ip
-	return response.EncodeToBase64(&resp, nil)
-}
 
 type pingRequest struct {
 	DatDir     string `json:"datDir,omitempty"`
