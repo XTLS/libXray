@@ -75,6 +75,28 @@ func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string,
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
+func downloadDat(url string, datDir string, fileName string, geoType string) {
+	datFile := fmt.Sprintf("%s.dat", fileName)
+	geositePath := path.Join(datDir, datFile)
+	err := downloadFileIfNotExists(url, geositePath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	geoReq, err := makeLoadGeoDataRequest(datDir, fileName, geoType)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	res := libXray.CountGeoData(geoReq)
+	resp, err := parseCallResponse(res)
+	if err != nil || !resp.Success {
+		fmt.Println("Failed to load geosite:", res)
+		os.Exit(1)
+	}
+}
+
 func main() {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -89,48 +111,9 @@ func main() {
 	}
 
 	// Download geosite.dat
-	geositeUrl := "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
-	geositePath := path.Join(datDir, "geosite.dat")
-	err = downloadFileIfNotExists(geositeUrl, geositePath)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	// Load geosite
-	geoSiteReq, err := makeLoadGeoDataRequest(datDir, "geosite", "domain")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	res := libXray.CountGeoData(geoSiteReq)
-	resp, err := parseCallResponse(res)
-	if err != nil || !resp.Success {
-		fmt.Println("Failed to load geosite:", res)
-		os.Exit(1)
-	}
-
+	downloadDat("https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat", datDir, "geosite", "domain")
 	// Download geoip.dat
-	geoipUrl := "https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
-	geoipPath := path.Join(datDir, "geoip.dat")
-	err = downloadFileIfNotExists(geoipUrl, geoipPath)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	// Load geoip
-	geoIpReq, err := makeLoadGeoDataRequest(datDir, "geoip", "ip")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	res = libXray.CountGeoData(geoIpReq)
-	resp, err = parseCallResponse(res)
-	if err != nil || !resp.Success {
-		fmt.Println("Failed to load geoip:", res)
-		os.Exit(1)
-	}
+	downloadDat("https://github.com/v2fly/geoip/releases/latest/download/geoip.dat", datDir, "geoip", "ip")
 
 	// Save timestamp
 	err = saveTimestamp(datDir)
