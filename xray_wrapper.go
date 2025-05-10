@@ -4,6 +4,9 @@ package libXray
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path"
 
 	"github.com/xtls/libxray/geo"
 	"github.com/xtls/libxray/nodep"
@@ -138,10 +141,46 @@ type RunXrayRequest struct {
 	ConfigPath string `json:"configPath,omitempty"`
 }
 
+func NewXrayRunRequest(configStr string) string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Error getting current directory: %v\n", err)
+		os.Exit(1)
+	}
+	datDir := path.Join(cwd, "dat")
+	configDir := path.Join(cwd, "config")
+	if err := ensureDir(configDir); err != nil {
+		fmt.Printf("Error creating config directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	configPath := path.Join(configDir, "config.json")
+	fmt.Printf("Writing configuration to: %s\n", configPath)
+	if err := os.WriteFile(configPath, []byte(configStr), 0644); err != nil {
+		fmt.Printf("Error writing config file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create request for running Xray
+	request := RunXrayRequest{
+		DatDir:     datDir,
+		ConfigPath: configPath,
+	}
+
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		fmt.Printf("Error marshaling request: %v\n", err)
+		os.Exit(1)
+	}
+	base64Request := base64.StdEncoding.EncodeToString(requestBytes)
+
+	return base64Request
+}
+
 // Run Xray instance.
-func RunXray(base64Text string) string {
+func RunXray(xrayRequest string) string {
 	var response nodep.CallResponse[string]
-	req, err := base64.StdEncoding.DecodeString(base64Text)
+	req, err := base64.StdEncoding.DecodeString(xrayRequest)
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
@@ -165,4 +204,12 @@ func StopXray() string {
 func XrayVersion() string {
 	var response nodep.CallResponse[string]
 	return response.EncodeToBase64(xray.XrayVersion(), nil)
+}
+func ensureDir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.Mkdir(dir, os.ModePerm); err != nil {
+			return err
+		}
+	}
+	return nil
 }
