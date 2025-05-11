@@ -66,7 +66,7 @@ class LinuxBuilder(Builder):
             "-ldflags",
             "-s -w",
             f"-o={output_file}",
-            "./route",
+            "./linux_route",
         ]
         os.chdir(self.lib_dir)
         print(cmd)

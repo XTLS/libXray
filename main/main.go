@@ -122,41 +122,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Download enhanced geosite.dat
-	downloadDat("https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat", datDir, "enGeosite", "domain")
-	// Download enhanced geoip.dat
-	downloadDat("https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat", datDir, "enGeoip", "ip")
-
-	// Save timestamp
-	err = saveTimestamp(datDir, "enTimestamp.txt")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	// Download ru geosite.dat
-	downloadDat("https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat", datDir, "ruGeosite", "domain")
-	// Download ru geoip.dat
-	downloadDat("https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat", datDir, "ruGeoip", "ip")
-
-	// Save ru timestamp
-	err = saveTimestamp(datDir, "ruTimestamp.txt")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	// Download ir geosite.dat
-	downloadDat("https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geosite.dat", datDir, "irGeosite", "domain")
-	// Download ir geoip.dat
-	downloadDat("https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geoip.dat", datDir, "irGeoip", "ip")
-
-	// Save ir timestamp
-	err = saveTimestamp(datDir, "irTimestamp.txt")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
 	fmt.Println("Geo data setup completed successfully.")
 }
