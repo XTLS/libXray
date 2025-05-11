@@ -84,7 +84,7 @@ class Builder(object):
         self.fix_package_name()
 
     def copy_template_file(self):
-        files = ['main.go']
+        files = ["main.go"]
         for file in files:
             src_file = os.path.join(self.build_dir, "template", file)
             shutil.copy(src_file, self.lib_dir)
