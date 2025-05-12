@@ -58,7 +58,7 @@ Note: The product `LibXray.xcframework` does not contain **module.modulemap**. W
 
 ### Linux
 
-depend on gcc and g++.
+depend on clang and clang++.
 
 ### Windows
 

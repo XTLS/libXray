@@ -56,7 +56,7 @@ python3 build/main.py windows
 
 ### Linux
 
-依赖 gcc 和 g++ 。
+依赖 clang 和 clang++ 。
 
 ### Windows
 

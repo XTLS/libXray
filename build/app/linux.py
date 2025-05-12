@@ -31,8 +31,8 @@ class LinuxBuilder(Builder):
         create_dir_if_not_exists(output_dir)
         output_file = os.path.join(output_dir, self.lib_file)
         run_env = os.environ.copy()
-        run_env["CC"] = "gcc"
-        run_env["CXX"] = "g++"
+        run_env["CC"] = "clang"
+        run_env["CXX"] = "clang++"
         run_env["CGO_ENABLED"] = "1"
 
         cmd = [
