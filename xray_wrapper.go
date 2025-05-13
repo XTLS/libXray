@@ -7,6 +7,7 @@ import (
 
 	"github.com/xtls/libxray/geo"
 	"github.com/xtls/libxray/nodep"
+	"github.com/xtls/libxray/share"
 	"github.com/xtls/libxray/xray"
 )
 
@@ -136,6 +137,10 @@ func TestXray(base64Text string) string {
 type RunXrayRequest struct {
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
+}
+
+func ParseVless2Json(config string) string {
+	return share.ParseVLESS(config)
 }
 
 // Run Xray instance.
