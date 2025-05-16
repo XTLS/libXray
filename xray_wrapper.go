@@ -139,8 +139,8 @@ type RunXrayRequest struct {
 	ConfigPath string `json:"configPath,omitempty"`
 }
 
-func ParseVless2Json(config string) string {
-	return share.ParseVLESS(config)
+func ParseVless2Json(config string, httpPort, socksPort int) string {
+	return share.ParseVLESS(config, httpPort, socksPort)
 }
 
 // Run Xray instance.
