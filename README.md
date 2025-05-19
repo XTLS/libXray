@@ -16,8 +16,6 @@ This is a wrapper around [Xray-core](https://github.com/XTLS/Xray-core) to impro
 
 Compile script. It is recommended to always use this script to compile libXray. We will not answer questions caused by using other compilation methods.
 
-You need to put Xray-core and libXray in the same directory to compile.
-
 ### Usage
 
 ```shell
