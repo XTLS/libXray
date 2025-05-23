@@ -21,17 +21,6 @@ class Builder(object):
             dir_path = os.path.join(self.lib_dir, dir_name)
             delete_dir_if_exists(dir_path)
 
-    def prepare_go(self):
-        clean_files = ["go.mod", "go.sum"]
-        self.clean_lib_files(clean_files)
-        os.chdir(self.lib_dir)
-        ret = subprocess.run(["go", "mod", "init", "github.com/xtls/libxray"])
-        if ret.returncode != 0:
-            raise Exception("go mod init failed")
-        ret = subprocess.run(["go", "mod", "tidy"])
-        if ret.returncode != 0:
-            raise Exception("go mod tidy failed")
-
     def download_geo(self):
         os.chdir(self.lib_dir)
         main_path = os.path.join("main", "main.go")
@@ -85,7 +74,6 @@ class Builder(object):
             f.writelines(new_lines)
 
     def before_build(self):
-        self.prepare_go()
         self.download_geo()
 
     def build(self):
