@@ -16,7 +16,7 @@ class AndroidBuilder(Builder):
         self.clean_lib_files(clean_files)
         os.chdir(self.lib_dir)
         ret = subprocess.run(
-            ["gomobile", "bind", "-target", "android", "-androidapi", "28"]
+            ["gomobile", "bind", "-target", "android", "-androidapi", "21"]
         )
         if ret.returncode != 0:
             raise Exception("build failed")
