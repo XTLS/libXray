@@ -138,6 +138,21 @@ type RunXrayRequest struct {
 	ConfigPath string `json:"configPath,omitempty"`
 }
 
+// Create Xray Run Request
+func NewXrayRunRequest(datDir, configPath string) (string, error) {
+	request := RunXrayRequest{
+		DatDir:     datDir,
+		ConfigPath: configPath,
+	}
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		return "", err
+	}
+
+	// Encode the JSON bytes to a base64 string
+	return base64.StdEncoding.EncodeToString(requestBytes), nil
+}
+
 // Run Xray instance.
 func RunXray(base64Text string) string {
 	var response nodep.CallResponse[string]
