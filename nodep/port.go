@@ -6,9 +6,10 @@ import (
 
 // https://github.com/phayes/freeport/blob/master/freeport.go
 // GetFreePort asks the kernel for free open ports that are ready to use.
+
 func GetFreePorts(count int) ([]int, error) {
 	var ports []int
-	for i := 0; i < count; i++ {
+	for range count {
 		addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 		if err != nil {
 			return ports, err
@@ -18,8 +19,8 @@ func GetFreePorts(count int) ([]int, error) {
 		if err != nil {
 			return ports, err
 		}
-		defer l.Close()
 		ports = append(ports, l.Addr().(*net.TCPAddr).Port)
+		l.Close()
 	}
 	return ports, nil
 }
