@@ -1,11 +1,12 @@
 package geo
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/app/router"
@@ -50,7 +51,7 @@ func loadXrayConfig(configBytes []byte) ([]string, []string) {
 	ip := []string{}
 
 	var xray conf.Config
-	err := json.Unmarshal(configBytes, &xray)
+	err := sonic.Unmarshal(configBytes, &xray)
 	if err != nil {
 		return domain, ip
 	}
@@ -87,7 +88,7 @@ func filterRouting(xray conf.Config) ([]string, []string) {
 
 	for _, rule := range rules {
 		var rawRule RawRule
-		err := json.Unmarshal(rule, &rawRule)
+		err := sonic.Unmarshal(rule, &rawRule)
 		if err != nil {
 			continue
 		}

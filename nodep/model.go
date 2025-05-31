@@ -2,7 +2,8 @@ package nodep
 
 import (
 	"encoding/base64"
-	"encoding/json"
+
+	"github.com/bytedance/sonic"
 )
 
 type CallResponse[T any] struct {
@@ -20,7 +21,7 @@ func (response CallResponse[T]) EncodeToBase64(data T, err error) string {
 		response.Success = true
 	}
 
-	jsonData, err := json.Marshal(response)
+	jsonData, err := sonic.Marshal(response)
 	if err != nil {
 		return ""
 	}

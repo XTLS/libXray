@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +9,8 @@ import (
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/bytedance/sonic"
 
 	libXray "github.com/xtls/libxray"
 	"github.com/xtls/libxray/nodep"
@@ -58,7 +59,7 @@ func parseCallResponse(text string) (nodep.CallResponse[string], error) {
 	if err != nil {
 		return response, err
 	}
-	err = json.Unmarshal(decoded, &response)
+	err = sonic.Unmarshal(decoded, &response)
 	return response, err
 }
 
@@ -68,7 +69,7 @@ func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string,
 	request.Name = name
 	request.GeoType = geoType
 
-	data, err := json.Marshal(&request)
+	data, err := sonic.Marshal(&request)
 	if err != nil {
 		return "", err
 	}
