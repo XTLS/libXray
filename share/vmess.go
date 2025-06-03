@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bytedance/sonic"
+
 	"github.com/xtls/xray-core/infra/conf"
 )
 
@@ -30,7 +32,7 @@ func parseVMessQrCode(text string) (*conf.OutboundDetourConfig, error) {
 	qrcodeBytes := []byte(text)
 	qrcode := vmessQrCode{}
 
-	err := json.Unmarshal(qrcodeBytes, &qrcode)
+	err := sonic.Unmarshal(qrcodeBytes, &qrcode)
 	if err != nil {
 		return nil, err
 	}
