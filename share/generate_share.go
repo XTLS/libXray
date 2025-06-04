@@ -2,11 +2,10 @@ package share
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/bytedance/sonic"
 
 	"github.com/xtls/xray-core/infra/conf"
 	"github.com/xtls/xray-core/proxy/vless"
@@ -17,7 +16,7 @@ import (
 func ConvertXrayJsonToShareLinks(xrayBytes []byte) (string, error) {
 	var xray conf.Config
 
-	err := sonic.Unmarshal(xrayBytes, &xray)
+	err := json.Unmarshal(xrayBytes, &xray)
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +77,7 @@ func shareLink(proxy conf.OutboundDetourConfig) (*url.URL, error) {
 
 func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	var settings conf.ShadowsocksClientConfig
-	err := sonic.Unmarshal(*proxy.Settings, &settings)
+	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
 	}
@@ -98,7 +97,7 @@ func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 
 func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	var settings conf.VMessOutboundConfig
-	err := sonic.Unmarshal(*proxy.Settings, &settings)
+	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
 	}
@@ -112,7 +111,7 @@ func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 		if len(vnext.Users) > 0 {
 			user := vnext.Users[0]
 			var account conf.VMessAccount
-			err := sonic.Unmarshal(user, &account)
+			err := json.Unmarshal(user, &account)
 			if err != nil {
 				return err
 			}
@@ -125,7 +124,7 @@ func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 
 func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	var settings conf.VLessOutboundConfig
-	err := sonic.Unmarshal(*proxy.Settings, &settings)
+	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
 	}
@@ -139,7 +138,7 @@ func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 		if len(vnext.Users) > 0 {
 			user := vnext.Users[0]
 			var account vless.Account
-			err := sonic.Unmarshal(user, &account)
+			err := json.Unmarshal(user, &account)
 			if err != nil {
 				return err
 			}
@@ -154,7 +153,7 @@ func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 
 func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	var settings conf.SocksClientConfig
-	err := sonic.Unmarshal(*proxy.Settings, &settings)
+	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
 	}
@@ -171,7 +170,7 @@ func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 		} else {
 			user := server.Users[0]
 			var account conf.SocksAccount
-			err := sonic.Unmarshal(user, &account)
+			err := json.Unmarshal(user, &account)
 			if err != nil {
 				return err
 			}
@@ -185,7 +184,7 @@ func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 
 func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	var settings conf.TrojanClientConfig
-	err := sonic.Unmarshal(*proxy.Settings, &settings)
+	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
 	}
@@ -230,7 +229,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			break
 		}
 		var header XrayRawSettingsHeader
-		err := sonic.Unmarshal(headerConfig, &header)
+		err := json.Unmarshal(headerConfig, &header)
 		if err != nil {
 			break
 		}
@@ -267,7 +266,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			break
 		}
 		var header XrayFakeHeader
-		err := sonic.Unmarshal(headerConfig, &header)
+		err := json.Unmarshal(headerConfig, &header)
 		if err != nil {
 			break
 		}

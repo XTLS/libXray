@@ -3,8 +3,7 @@ package libXray
 
 import (
 	"encoding/base64"
-
-	"github.com/bytedance/sonic"
+	"encoding/json"
 
 	"github.com/xtls/libxray/geo"
 	"github.com/xtls/libxray/nodep"
@@ -25,7 +24,7 @@ func CountGeoData(base64Text string) string {
 		return response.EncodeToBase64("", err)
 	}
 	var request CountGeoDataRequest
-	err = sonic.Unmarshal(req, &request)
+	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
@@ -47,7 +46,7 @@ func ThinGeoData(base64Text string) string {
 		return response.EncodeToBase64("", err)
 	}
 	var request ThinGeoDataRequest
-	err = sonic.Unmarshal(req, &request)
+	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
@@ -90,7 +89,7 @@ func Ping(base64Text string) string {
 		return response.EncodeToBase64(nodep.PingDelayError, err)
 	}
 	var request pingRequest
-	err = sonic.Unmarshal(req, &request)
+	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64(nodep.PingDelayError, err)
 	}
@@ -126,7 +125,7 @@ func TestXray(base64Text string) string {
 		return response.EncodeToBase64("", err)
 	}
 	var request TestXrayRequest
-	err = sonic.Unmarshal(req, &request)
+	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}
@@ -145,7 +144,7 @@ func NewXrayRunRequest(datDir, configPath string) (string, error) {
 		DatDir:     datDir,
 		ConfigPath: configPath,
 	}
-	requestBytes, err := sonic.Marshal(request)
+	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		return "", err
 	}
@@ -162,7 +161,7 @@ func RunXray(base64Text string) string {
 		return response.EncodeToBase64("", err)
 	}
 	var request RunXrayRequest
-	err = sonic.Unmarshal(req, &request)
+	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}

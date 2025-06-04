@@ -1,12 +1,11 @@
 package geo
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
 	"sort"
-
-	"github.com/bytedance/sonic"
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/app/router"
@@ -89,7 +88,7 @@ func countGeoSite(datDir string, name string) error {
 
 	sortCodes(codes)
 	list.Codes = codes
-	jsonBytes, err := sonic.Marshal(&list)
+	jsonBytes, err := json.Marshal(&list)
 	if err != nil {
 		return err
 	}
@@ -128,7 +127,7 @@ func countGeoIP(datDir string, name string) error {
 	sortCodes(codes)
 
 	list.Codes = codes
-	jsonBytes, err := sonic.Marshal(&list)
+	jsonBytes, err := json.Marshal(&list)
 	if err != nil {
 		return err
 	}

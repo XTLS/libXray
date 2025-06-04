@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bytedance/sonic"
-
 	"github.com/xtls/xray-core/infra/conf"
 	"github.com/xtls/xray-core/proxy/vless"
 )
@@ -21,7 +19,7 @@ func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
 	text := strings.TrimSpace(links)
 	if strings.HasPrefix(text, "{") {
 		var xray conf.Config
-		err := sonic.Unmarshal([]byte(text), &xray)
+		err := json.Unmarshal([]byte(text), &xray)
 		if err != nil {
 			return nil, err
 		}
@@ -497,7 +495,7 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) (*conf.StreamConfig, er
 		extra := query.Get("extra")
 		if len(extra) > 0 {
 			var extraConfig conf.SplitHTTPConfig
-			err := sonic.Unmarshal([]byte(extra), &extraConfig)
+			err := json.Unmarshal([]byte(extra), &extraConfig)
 			if err != nil {
 				return nil, err
 			}
