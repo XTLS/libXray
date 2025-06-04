@@ -4,8 +4,7 @@ package libXray
 
 import (
 	"encoding/base64"
-
-	"github.com/bytedance/sonic"
+	"encoding/json"
 
 	"github.com/xtls/libxray/dns"
 	"github.com/xtls/libxray/nodep"
@@ -24,7 +23,7 @@ func InitDns(base64Text string) string {
 		return response.EncodeToBase64("", err)
 	}
 	var request InitDnsRequest
-	err = sonic.Unmarshal(req, &request)
+	err = json.Unmarshal(req, &request)
 	if err != nil {
 		return response.EncodeToBase64("", err)
 	}

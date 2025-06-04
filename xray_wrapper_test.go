@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bytedance/sonic"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +43,7 @@ func decodeVmessConfig(vmess string) (map[string]interface{}, error) {
 
 	// Unmarshal the decoded string into a map
 	var vmessConfig map[string]interface{}
-	err = sonic.Unmarshal(decodedVmess, &vmessConfig)
+	err = json.Unmarshal(decodedVmess, &vmessConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +92,7 @@ func createXrayConfig(vmessConfig map[string]interface{}) map[string]interface{}
 // base64EncodeRequest encodes a request struct into a base64 string
 func base64EncodeRequest(request interface{}) (string, error) {
 	// Marshal the request struct into JSON bytes
-	requestBytes, err := sonic.Marshal(request)
+	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +111,7 @@ func handleTestResponse(response string, t *testing.T) {
 
 	// Parse the decoded response into a map
 	var result map[string]interface{}
-	if err := sonic.Unmarshal(decoded, &result); err != nil {
+	if err := json.Unmarshal(decoded, &result); err != nil {
 		t.Fatalf("Failed to parse response JSON: %v", err)
 	}
 
