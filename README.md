@@ -19,11 +19,19 @@ Compile script. It is recommended to always use this script to compile libXray. 
 ### Usage
 
 ```shell
-python3 build/main.py android
+# Android (optional: specify Android API level, default is 21)
+python3 build/main.py android [api-level]
+
+# Apple (gomobile or go)
 python3 build/main.py apple gomobile
 python3 build/main.py apple go
+
+# Linux
 python3 build/main.py linux
+
+# Windows
 python3 build/main.py windows
+
 ```
 
 ### Android
