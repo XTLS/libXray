@@ -1,3 +1,4 @@
+# main.py
 import os
 import sys
 
@@ -17,6 +18,7 @@ def build_dir_path():
 if __name__ == "__main__":
     print(sys.argv)
     platform = sys.argv[1]
+
     if platform == "apple":
         tool = sys.argv[2]
         if tool == "go":
@@ -27,14 +29,19 @@ if __name__ == "__main__":
             builder.build()
         else:
             raise Exception(f"platform {platform} tool {tool} not supported")
+
     elif platform == "android":
-        builder = AndroidBuilder(build_dir_path())
+        android_api = sys.argv[2] if len(sys.argv) > 2 else "21"
+        builder = AndroidBuilder(build_dir_path(), android_api)
         builder.build()
+
     elif platform == "linux":
         builder = LinuxBuilder(build_dir_path())
         builder.build()
+
     elif platform == "windows":
         builder = WindowsBuilder(build_dir_path())
         builder.build()
+
     else:
         raise Exception(f"platform {platform} not supported")
