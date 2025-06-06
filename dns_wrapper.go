@@ -15,6 +15,21 @@ type InitDnsRequest struct {
 	DeviceName string `json:"deviceName,omitempty"`
 }
 
+// Init Dns Request
+func NewInitDnsRequest(dns, deviceName string) (string, error) {
+	request := InitDnsRequest{
+		Dns:        dns,
+		DeviceName: deviceName,
+	}
+
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		return "", err
+	}
+	// Encode the JSON bytes to a base64 string
+	return base64.StdEncoding.EncodeToString(requestBytes), nil
+}
+
 // Init Dns.
 func InitDns(base64Text string) string {
 	var response nodep.CallResponse[string]
