@@ -169,6 +169,11 @@ func RunXray(base64Text string) string {
 	return response.EncodeToBase64("", err)
 }
 
+// Get Xray State
+func GetXrayState() bool {
+	return xray.GetXrayState()
+}
+
 // Stop Xray instance.
 func StopXray() string {
 	var response nodep.CallResponse[string]

@@ -52,6 +52,11 @@ func RunXray(datDir string, configPath string) (err error) {
 	return nil
 }
 
+// Get Xray State
+func GetXrayState() bool {
+	return coreServer.IsRunning()
+}
+
 // Stop Xray instance.
 func StopXray() error {
 	if coreServer != nil {
