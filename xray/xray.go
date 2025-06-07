@@ -10,6 +10,12 @@ import (
 	_ "github.com/xtls/xray-core/main/distro/all"
 )
 
+// Constants for environment variables
+const (
+	coreAsset = "xray.location.asset"
+	coreCert  = "xray.location.cert"
+)
+
 var (
 	coreServer *core.Instance
 )
@@ -30,7 +36,8 @@ func StartXray(configPath string) (*core.Instance, error) {
 }
 
 func InitEnv(datDir string) {
-	os.Setenv("xray.location.asset", datDir)
+	os.Setenv(coreAsset, datDir)
+	os.Setenv(coreCert, datDir)
 }
 
 // Run Xray instance.
