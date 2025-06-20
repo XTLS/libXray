@@ -6,9 +6,6 @@ from app.build import Builder
 
 
 class AndroidBuilder(Builder):
-    def __init__(self, build_dir, android_api="21"):
-        super().__init__(build_dir)
-        self.android_api = android_api
 
     def before_build(self):
         super().before_build()
@@ -20,8 +17,9 @@ class AndroidBuilder(Builder):
         clean_files = ["libXray-sources.jar", "libXray.aar"]
         self.clean_lib_files(clean_files)
         os.chdir(self.lib_dir)
+        # keep same with flutter
         ret = subprocess.run(
-            ["gomobile", "bind", "-target", "android", "-androidapi", self.android_api]
+            ["gomobile", "bind", "-target", "android", "-androidapi", "21"]
         )
         if ret.returncode != 0:
             raise Exception("build failed")

@@ -31,8 +31,7 @@ if __name__ == "__main__":
             raise Exception(f"platform {platform} tool {tool} not supported")
 
     elif platform == "android":
-        android_api = sys.argv[2] if len(sys.argv) > 2 else "21"
-        builder = AndroidBuilder(build_dir_path(), android_api)
+        builder = AndroidBuilder(build_dir_path())
         builder.build()
 
     elif platform == "linux":
