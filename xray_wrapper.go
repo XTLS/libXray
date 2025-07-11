@@ -138,11 +138,31 @@ type RunXrayRequest struct {
 	ConfigPath string `json:"configPath,omitempty"`
 }
 
+type RunXrayFromJSONRequest struct {
+	DatDir     string `json:"datDir,omitempty"`
+	ConfigJSON string `json:"configJSON,omitempty"`
+}
+
 // Create Xray Run Request
 func NewXrayRunRequest(datDir, configPath string) (string, error) {
 	request := RunXrayRequest{
 		DatDir:     datDir,
 		ConfigPath: configPath,
+	}
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		return "", err
+	}
+
+	// Encode the JSON bytes to a base64 string
+	return base64.StdEncoding.EncodeToString(requestBytes), nil
+}
+
+// Create Xray Run From JSON Request
+func NewXrayRunFromJSONRequest(datDir, configJSON string) (string, error) {
+	request := RunXrayFromJSONRequest{
+		DatDir:     datDir,
+		ConfigJSON: configJSON,
 	}
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
@@ -166,6 +186,22 @@ func RunXray(base64Text string) string {
 		return response.EncodeToBase64("", err)
 	}
 	err = xray.RunXray(request.DatDir, request.ConfigPath)
+	return response.EncodeToBase64("", err)
+}
+
+// Run Xray instance with JSON configuration.
+func RunXrayFromJSON(base64Text string) string {
+	var response nodep.CallResponse[string]
+	req, err := base64.StdEncoding.DecodeString(base64Text)
+	if err != nil {
+		return response.EncodeToBase64("", err)
+	}
+	var request RunXrayFromJSONRequest
+	err = json.Unmarshal(req, &request)
+	if err != nil {
+		return response.EncodeToBase64("", err)
+	}
+	err = xray.RunXrayFromJSON(request.DatDir, request.ConfigJSON)
 	return response.EncodeToBase64("", err)
 }
 
