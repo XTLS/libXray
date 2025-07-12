@@ -15,6 +15,12 @@ func CGoResetDns() *C.char {
 	return C.CString(ResetDns())
 }
 
+//export CGoRunXrayFromJSON
+func CGoRunXrayFromJSON(base64Text *C.char) *C.char {
+	text := C.GoString(base64Text)
+	return C.CString(RunXrayFromJSON(text))
+}
+
 //export CGoGetFreePorts
 func CGoGetFreePorts(count int) *C.char {
 	return C.CString(GetFreePorts(count))
