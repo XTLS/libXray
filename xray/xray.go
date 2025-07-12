@@ -35,6 +35,19 @@ func StartXray(configPath string) (*core.Instance, error) {
 	return server, nil
 }
 
+func StartXrayFromJSON(configJSON string) (*core.Instance, error) {
+	// Convert JSON string to bytes
+	configBytes := []byte(configJSON)
+	
+	// Use core.StartInstance which can load configuration directly from bytes
+	server, err := core.StartInstance("json", configBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return server, nil
+}
+
 func InitEnv(datDir string) {
 	os.Setenv(coreAsset, datDir)
 	os.Setenv(coreCert, datDir)
@@ -47,6 +60,25 @@ func RunXray(datDir string, configPath string) (err error) {
 	InitEnv(datDir)
 	memory.InitForceFree()
 	coreServer, err = StartXray(configPath)
+	if err != nil {
+		return
+	}
+
+	if err = coreServer.Start(); err != nil {
+		return
+	}
+
+	debug.FreeOSMemory()
+	return nil
+}
+
+// Run Xray instance with JSON configuration string.
+// datDir means the dir which geosite.dat and geoip.dat are in.
+// configJSON means the JSON configuration string.
+func RunXrayFromJSON(datDir string, configJSON string) (err error) {
+	InitEnv(datDir)
+	memory.InitForceFree()
+	coreServer, err = StartXrayFromJSON(configJSON)
 	if err != nil {
 		return
 	}
