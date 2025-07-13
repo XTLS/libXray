@@ -24,9 +24,21 @@ class Builder(object):
     def download_geo(self):
         os.chdir(self.lib_dir)
         main_path = os.path.join("main", "main.go")
-        ret = subprocess.run(["go", "run", main_path])
-        if ret.returncode != 0:
-            raise Exception("download_geo failed")
+        try:
+            ret = subprocess.run(
+                ["go", "run", main_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True  # ensures output is string, not bytes
+            )
+            if ret.returncode != 0:
+                raise Exception(
+                    f"download_geo failed with return code {ret.returncode}\n"
+                    f"stdout:\n{ret.stdout}\n"
+                    f"stderr:\n{ret.stderr}"
+                )
+        except Exception as e:
+            raise Exception(f"download_geo encountered an error: {e}")
 
     def prepare_gomobile(self):
         ret = subprocess.run(
