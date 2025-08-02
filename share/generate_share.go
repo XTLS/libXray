@@ -384,6 +384,10 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if len(sid) > 0 {
 			query = addQuery(query, "sid", sid)
 		}
+		pqv := streamSettings.REALITYSettings.Mldsa65Verify
+		if len(pqv) > 0 {
+			query = addQuery(query, "pqv", pqv)
+		}
 		spx := streamSettings.REALITYSettings.SpiderX
 		if len(spx) > 0 {
 			query = addQuery(query, "spx", spx)

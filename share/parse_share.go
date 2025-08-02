@@ -549,9 +549,12 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *conf.Str
 	}
 
 	pbk := query.Get("pbk")
+	realitySettings.Password = pbk
 	realitySettings.PublicKey = pbk
 	sid := query.Get("sid")
 	realitySettings.ShortId = sid
+	pqv := query.Get("pqv")
+	realitySettings.Mldsa65Verify = pqv
 	spx := query.Get("spx")
 	realitySettings.SpiderX = spx
 
