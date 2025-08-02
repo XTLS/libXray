@@ -147,6 +147,18 @@ func (proxy vmessQrCode) streamSettings() (*conf.StreamConfig, error) {
 		mode := proxy.Type
 		grcpSettings.MultiMode = mode == "multi"
 		streamSettings.GRPCSettings = grcpSettings
+	case "httpupgrade":
+		httpupgradeSettings := &conf.HttpUpgradeConfig{}
+		httpupgradeSettings.Host = proxy.Host
+		httpupgradeSettings.Path = proxy.Path
+
+		streamSettings.HTTPUPGRADESettings = httpupgradeSettings
+	case "xhttp", "splithttp":
+		xhttpSettings := &conf.SplitHTTPConfig{}
+		xhttpSettings.Host = proxy.Host
+		xhttpSettings.Path = proxy.Path
+		xhttpSettings.Mode = proxy.Type
+		streamSettings.XHTTPSettings = xhttpSettings
 	}
 
 	err := proxy.parseSecurity(streamSettings)

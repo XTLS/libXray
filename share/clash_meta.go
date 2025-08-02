@@ -27,7 +27,7 @@ type ClashProxy struct {
 	Password string `yaml:"password,omitempty"`
 
 	Udp        bool `yaml:"udp,omitempty"`
-	udpOverTcp bool `yaml:"udp-over-tcp,omitempty"`
+	UdpOverTcp bool `yaml:"udp-over-tcp,omitempty"`
 
 	Tls            bool     `yaml:"tls,omitempty"`
 	SkipCertVerify bool     `yaml:"skip-cert-verify,omitempty"`
@@ -43,19 +43,14 @@ type ClashProxy struct {
 	Network    string                `yaml:"network,omitempty"`
 	Plugin     string                `yaml:"plugin,omitempty"`
 	PluginOpts *ClashProxyPluginOpts `yaml:"plugin-opts,omitempty"`
+	EchOpts    *ClashProxyEchOpts    `yaml:"ech-opts,omitempty"`
 	WsOpts     *ClashProxyWsOpts     `yaml:"ws-opts,omitempty"`
 	GrpcOpts   *ClashProxyGrpcOpts   `yaml:"grpc-opts,omitempty"`
-	SsOpts     *ClashProxySsOpts     `yaml:"ss-opts,omitempty"`
+}
 
-	// the below are fields of hysteria2.
-	// although xray doesn't support hysteria2,
-	// but someone may need them.
-	Ports        string `yaml:"ports,omitempty"`
-	HopInterval  int    `yaml:"hop-interval,omitempty"`
-	Up           string `yaml:"up,omitempty"`
-	Down         string `yaml:"down,omitempty"`
-	Obfs         string `yaml:"obfs,omitempty"`
-	ObfsPassword string `yaml:"obfs-password,omitempty"`
+type ClashProxyEchOpts struct {
+	Enable bool   `yaml:"enable,omitempty"`
+	Config string `yaml:"config,omitempty"`
 }
 
 type ClashProxyRealityOpts struct {
@@ -64,13 +59,14 @@ type ClashProxyRealityOpts struct {
 }
 
 type ClashProxyPluginOpts struct {
-	Mode           string `yaml:"mode,omitempty"`
-	Tls            bool   `yaml:"tls,omitempty"`
-	Fingerprint    string `yaml:"fingerprint,omitempty"`
-	SkipCertVerify bool   `yaml:"skip-cert-verify,omitempty"`
-	Host           string `yaml:"host,omitempty"`
-	Path           string `yaml:"path,omitempty"`
-	Mux            bool   `yaml:"mux,omitempty"`
+	Mode           string             `yaml:"mode,omitempty"`
+	Tls            bool               `yaml:"tls,omitempty"`
+	Fingerprint    string             `yaml:"fingerprint,omitempty"`
+	EchOpts        *ClashProxyEchOpts `yaml:"ech-opts,omitempty"`
+	SkipCertVerify bool               `yaml:"skip-cert-verify,omitempty"`
+	Host           string             `yaml:"host,omitempty"`
+	Path           string             `yaml:"path,omitempty"`
+	Mux            bool               `yaml:"mux,omitempty"`
 }
 
 type ClashProxyWsOpts struct {
@@ -84,12 +80,6 @@ type ClashProxyWsOptsHeaders struct {
 
 type ClashProxyGrpcOpts struct {
 	GrpcServiceName string `yaml:"grpc-service-name,omitempty"`
-}
-
-type ClashProxySsOpts struct {
-	Enabled  bool   `yaml:"enabled,omitempty"`
-	Method   string `yaml:"method,omitempty"`
-	Password string `yaml:"password,omitempty"`
 }
 
 func tryToParseClashYaml(text string) (*conf.Config, error) {
@@ -170,6 +160,7 @@ func (proxy ClashProxy) shadowsocksOutbound() (*conf.OutboundDetourConfig, error
 	server.Port = proxy.Port
 	server.Cipher = proxy.Cipher
 	server.Password = proxy.Password
+	server.UoT = proxy.UdpOverTcp
 
 	var settings conf.ShadowsocksClientConfig
 	settings.Servers = []*conf.ShadowsocksServerTarget{server}
@@ -207,6 +198,13 @@ func (proxy ClashProxy) shadowsocksOutbound() (*conf.OutboundDetourConfig, error
 			tlsSettings := &conf.TLSConfig{}
 			tlsSettings.Fingerprint = proxy.PluginOpts.Fingerprint
 			tlsSettings.Insecure = proxy.PluginOpts.SkipCertVerify
+
+			if proxy.PluginOpts.EchOpts != nil {
+				if proxy.PluginOpts.EchOpts.Enable {
+					tlsSettings.ECHConfigList = proxy.PluginOpts.EchOpts.Config
+				}
+			}
+
 			streamSetting.TLSSettings = tlsSettings
 		}
 
@@ -393,6 +391,12 @@ func (proxy ClashProxy) parseSecurity(streamSettings *conf.StreamConfig, outboun
 	}
 	if proxy.SkipCertVerify {
 		tlsSettings.Insecure = true
+	}
+
+	if proxy.EchOpts != nil {
+		if proxy.EchOpts.Enable {
+			tlsSettings.ECHConfigList = proxy.EchOpts.Config
+		}
 	}
 
 	if proxy.RealityOpts != nil {
