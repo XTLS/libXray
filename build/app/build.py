@@ -24,9 +24,31 @@ class Builder(object):
     def download_geo(self):
         os.chdir(self.lib_dir)
         main_path = os.path.join("main", "main.go")
-        ret = subprocess.run(["go", "run", main_path])
-        if ret.returncode != 0:
-            raise Exception("download_geo failed")
+
+        # Try up to 3 times with increasing timeout
+        for attempt in range(3):
+            print(f"Attempting to download geo data (attempt {attempt + 1}/3)...")
+            ret = subprocess.run(["go", "run", main_path],
+                               timeout=300,  # 5 minutes timeout
+                               capture_output=True,
+                               text=True)
+            if ret.returncode == 0:
+                print("Geo data download completed successfully.")
+                return
+            else:
+                print(f"Attempt {attempt + 1} failed with return code {ret.returncode}")
+                if ret.stdout:
+                    print(f"stdout: {ret.stdout}")
+                if ret.stderr:
+                    print(f"stderr: {ret.stderr}")
+
+                if attempt < 2:  # Not the last attempt
+                    import time
+                    wait_time = 5 * (attempt + 1)  # 5, 10, 15 seconds
+                    print(f"Waiting {wait_time} seconds before retry...")
+                    time.sleep(wait_time)
+
+        raise Exception("download_geo failed after 3 attempts")
 
     def prepare_gomobile(self):
         ret = subprocess.run(

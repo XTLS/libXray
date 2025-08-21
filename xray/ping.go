@@ -1,17 +1,15 @@
 package xray
 
 import (
+	"runtime/debug"
+
+	"github.com/xtls/libxray/memory"
 	"github.com/xtls/libxray/nodep"
 )
 
-// Ping Xray config and find the delay and country code of its outbound.
-// datDir means the dir which geosite.dat and geoip.dat are in.
-// configPath means the config.json file path.
-// timeout means how long the http request will be cancelled if no response, in units of seconds.
-// url means the website we use to test speed. "https://www.google.com" is a good choice for most cases.
-// proxy means the local http/socks5 proxy, like "socks5://[::1]:1080".
 func Ping(datDir string, configPath string, timeout int, url string, proxy string) (int64, error) {
 	InitEnv(datDir)
+	memory.InitForceFree()
 	server, err := StartXray(configPath)
 	if err != nil {
 		return nodep.PingDelayError, err
@@ -20,9 +18,132 @@ func Ping(datDir string, configPath string, timeout int, url string, proxy strin
 	if err := server.Start(); err != nil {
 		return nodep.PingDelayError, err
 	}
-	defer server.Close()
+	defer func() {
+		server.Close()
+		debug.FreeOSMemory()
+	}()
 
 	delay, err := nodep.MeasureDelay(timeout, url, proxy)
+	if err != nil {
+		return delay, err
+	}
+
+	return delay, nil
+}
+
+func PingTCP(datDir string, configPath string, timeout int, host string, port int, proxy string) (int64, error) {
+	InitEnv(datDir)
+	memory.InitForceFree()
+	server, err := StartXray(configPath)
+	if err != nil {
+		return nodep.PingDelayError, err
+	}
+
+	if err := server.Start(); err != nil {
+		return nodep.PingDelayError, err
+	}
+	defer func() {
+		server.Close()
+		debug.FreeOSMemory()
+	}()
+
+	delay, err := nodep.MeasureTCPDelay(timeout, host, port, proxy)
+	if err != nil {
+		return delay, err
+	}
+
+	return delay, nil
+}
+
+func Connect(datDir string, configPath string, timeout int, targetHost string, targetPort int, proxy string) (int64, error) {
+	InitEnv(datDir)
+	memory.InitForceFree()
+	server, err := StartXray(configPath)
+	if err != nil {
+		return nodep.PingDelayError, err
+	}
+
+	if err := server.Start(); err != nil {
+		return nodep.PingDelayError, err
+	}
+	defer func() {
+		server.Close()
+		debug.FreeOSMemory()
+	}()
+
+	delay, err := nodep.MeasureProxyConnectDelay(timeout, targetHost, targetPort, proxy)
+	if err != nil {
+		return delay, err
+	}
+
+	return delay, nil
+}
+
+func PingFromJSON(datDir string, configJSON string, timeout int, url string, proxy string) (int64, error) {
+	InitEnv(datDir)
+	memory.InitForceFree()
+	server, err := StartXrayFromJSON(configJSON)
+	if err != nil {
+		return nodep.PingDelayError, err
+	}
+
+	if err := server.Start(); err != nil {
+		return nodep.PingDelayError, err
+	}
+	defer func() {
+		server.Close()
+		debug.FreeOSMemory()
+	}()
+
+	delay, err := nodep.MeasureDelay(timeout, url, proxy)
+	if err != nil {
+		return delay, err
+	}
+
+	return delay, nil
+}
+
+func PingTCPFromJSON(datDir string, configJSON string, timeout int, host string, port int, proxy string) (int64, error) {
+	InitEnv(datDir)
+	memory.InitForceFree()
+	server, err := StartXrayFromJSON(configJSON)
+	if err != nil {
+		return nodep.PingDelayError, err
+	}
+
+	if err := server.Start(); err != nil {
+		return nodep.PingDelayError, err
+	}
+	defer func() {
+		server.Close()
+		debug.FreeOSMemory()
+	}()
+
+	delay, err := nodep.MeasureTCPDelay(timeout, host, port, proxy)
+	if err != nil {
+		return delay, err
+	}
+
+	return delay, nil
+}
+
+func ConnectFromJSON(datDir string, configJSON string, timeout int, targetHost string, targetPort int, proxy string) (int64, error) {
+	InitEnv(datDir)
+	memory.InitForceFree()
+	server, err := StartXrayFromJSON(configJSON)
+	if err != nil {
+		return nodep.PingDelayError, err
+	}
+
+	if err := server.Start(); err != nil {
+		return nodep.PingDelayError, err
+	}
+	defer func() {
+		server.Close()
+		debug.FreeOSMemory()
+	}()
+
+	delay, err := nodep.MeasureProxyConnectDelay(timeout, targetHost, targetPort, proxy)
 	if err != nil {
 		return delay, err
 	}

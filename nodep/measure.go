@@ -1,7 +1,10 @@
 package nodep
 
 import (
+	"context"
+	"fmt"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -63,4 +66,107 @@ func PingHTTPRequest(c *http.Client, url string, timeout int) (int64, error) {
 		}
 	}
 	return delay, nil
+}
+
+func MeasureTCPDelay(timeout int, host string, port int, proxy string) (int64, error) {
+	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	httpTimeout := time.Second * time.Duration(timeout)
+
+	var dialer *net.Dialer
+	var err error
+
+	if len(proxy) > 0 {
+		// 代理进行TCP
+		dialer, err = createProxyDialer(httpTimeout, proxy)
+		if err != nil {
+			return PingDelayError, err
+		}
+	} else {
+		// 直连TCP
+		dialer = &net.Dialer{
+			Timeout: httpTimeout,
+		}
+	}
+
+	start := time.Now()
+	conn, err := dialer.Dial("tcp", address)
+	delay := time.Since(start).Milliseconds()
+
+	if conn != nil {
+		conn.Close()
+	}
+
+	if err != nil {
+		precision := delay - int64(timeout)*1000
+		if math.Abs(float64(precision)) < 50 {
+			return PingDelayTimeout, err
+		} else {
+			return PingDelayError, err
+		}
+	}
+
+	return delay, nil
+}
+
+
+func MeasureProxyConnectDelay(timeout int, targetHost string, targetPort int, proxy string) (int64, error) {
+	if len(proxy) == 0 {
+		return PingDelayError, fmt.Errorf("proxy address cannot be empty")
+	}
+
+	httpTimeout := time.Second * time.Duration(timeout)
+
+	client, err := CoreHTTPClient(httpTimeout, proxy)
+	if err != nil {
+		return PingDelayError, err
+	}
+
+	start := time.Now()
+
+	var testURL string
+	if targetPort == 443 {
+		testURL = fmt.Sprintf("https://%s", targetHost)
+	} else {
+		testURL = fmt.Sprintf("http://%s:%d", targetHost, targetPort)
+	}
+
+	req, err := http.NewRequest("HEAD", testURL, nil)
+	if err != nil {
+		return PingDelayError, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
+	defer cancel()
+	req = req.WithContext(ctx)
+
+	resp, err := client.Do(req)
+	delay := time.Since(start).Milliseconds()
+
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	if err != nil {
+		precision := delay - int64(timeout)*1000
+		if math.Abs(float64(precision)) < 50 {
+			return PingDelayTimeout, err
+		} else {
+			return PingDelayError, err
+		}
+	}
+
+	return delay, nil
+}
+
+func createProxyDialer(timeout time.Duration, proxy string) (*net.Dialer, error) {
+	_, err := url.Parse(proxy)
+	if err != nil {
+		return nil, err
+	}
+
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+
+	return dialer, nil
 }
