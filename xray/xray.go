@@ -93,7 +93,7 @@ func RunXrayFromJSON(datDir string, configJSON string) (err error) {
 
 // Get Xray State
 func GetXrayState() bool {
-	return coreServer.IsRunning()
+	return coreServer != nil && coreServer.IsRunning()
 }
 
 // Stop Xray instance.
