@@ -146,6 +146,9 @@ func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 			if len(account.Flow) > 0 {
 				link.RawQuery = addQuery(link.RawQuery, "flow", account.Flow)
 			}
+			if len(account.Encryption) > 0 {
+				link.RawQuery = addQuery(link.RawQuery, "encryption", account.Encryption)
+			}
 		}
 	}
 	return nil
