@@ -31,7 +31,15 @@ func setOutboundName(outbound *conf.OutboundDetourConfig, name string) {
 
 func getOutboundName(outbound conf.OutboundDetourConfig) string {
 	if outbound.SendThrough != nil {
-		return *outbound.SendThrough
+		if len(*outbound.SendThrough) > 0 {
+			return *outbound.SendThrough
+		}
+	}
+	if len(outbound.Tag) > 0 {
+		return outbound.Tag
+	}
+	if len(outbound.Protocol) > 0 {
+		return outbound.Protocol
 	}
 	return ""
 }

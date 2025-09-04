@@ -49,7 +49,7 @@ func loadXrayConfig(configBytes []byte) ([]string, []string) {
 	domain := []string{}
 	ip := []string{}
 
-	var xray conf.Config
+	var xray *conf.Config
 	err := json.Unmarshal(configBytes, &xray)
 	if err != nil {
 		return domain, ip
@@ -66,7 +66,7 @@ func loadXrayConfig(configBytes []byte) ([]string, []string) {
 	return domain, ip
 }
 
-func filterRouting(xray conf.Config) ([]string, []string) {
+func filterRouting(xray *conf.Config) ([]string, []string) {
 	domain := []string{}
 	ip := []string{}
 
@@ -101,7 +101,7 @@ func filterRouting(xray conf.Config) ([]string, []string) {
 	return domain, ip
 }
 
-func filterDns(xray conf.Config) ([]string, []string) {
+func filterDns(xray *conf.Config) ([]string, []string) {
 	domain := []string{}
 	ip := []string{}
 

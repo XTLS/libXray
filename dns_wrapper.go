@@ -22,7 +22,7 @@ func NewInitDnsRequest(dns, deviceName string) (string, error) {
 		DeviceName: deviceName,
 	}
 
-	requestBytes, err := json.Marshal(request)
+	requestBytes, err := json.Marshal(&request)
 	if err != nil {
 		return "", err
 	}

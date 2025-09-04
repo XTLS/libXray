@@ -28,7 +28,7 @@ type vmessQrCode struct {
 
 func parseVMessQrCode(text string) (*conf.OutboundDetourConfig, error) {
 	qrcodeBytes := []byte(text)
-	qrcode := vmessQrCode{}
+	var qrcode *vmessQrCode
 
 	err := json.Unmarshal(qrcodeBytes, &qrcode)
 	if err != nil {

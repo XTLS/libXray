@@ -20,7 +20,7 @@ func (response CallResponse[T]) EncodeToBase64(data T, err error) string {
 		response.Success = true
 	}
 
-	jsonData, err := json.Marshal(response)
+	jsonData, err := json.Marshal(&response)
 	if err != nil {
 		return ""
 	}

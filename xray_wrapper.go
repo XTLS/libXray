@@ -149,7 +149,7 @@ func NewXrayRunRequest(datDir, configPath string) (string, error) {
 		DatDir:     datDir,
 		ConfigPath: configPath,
 	}
-	requestBytes, err := json.Marshal(request)
+	requestBytes, err := json.Marshal(&request)
 	if err != nil {
 		return "", err
 	}
@@ -164,7 +164,7 @@ func NewXrayRunFromJSONRequest(datDir, configJSON string) (string, error) {
 		DatDir:     datDir,
 		ConfigJSON: configJSON,
 	}
-	requestBytes, err := json.Marshal(request)
+	requestBytes, err := json.Marshal(&request)
 	if err != nil {
 		return "", err
 	}

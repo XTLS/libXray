@@ -18,7 +18,7 @@ import (
 func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
 	text := strings.TrimSpace(links)
 	if strings.HasPrefix(text, "{") {
-		var xray conf.Config
+		var xray *conf.Config
 		err := json.Unmarshal([]byte(text), &xray)
 		if err != nil {
 			return nil, err
@@ -29,7 +29,7 @@ func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
 			return nil, fmt.Errorf("no valid outbounds")
 		}
 
-		return &xray, nil
+		return xray, nil
 	}
 
 	text = FixWindowsReturn(text)
@@ -494,7 +494,7 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) (*conf.StreamConfig, er
 
 		extra := query.Get("extra")
 		if len(extra) > 0 {
-			var extraConfig conf.SplitHTTPConfig
+			var extraConfig *conf.SplitHTTPConfig
 			err := json.Unmarshal([]byte(extra), &extraConfig)
 			if err != nil {
 				return nil, err

@@ -14,7 +14,7 @@ import (
 // Convert XrayJson to share links.
 // VMess will generate VMessAEAD link.
 func ConvertXrayJsonToShareLinks(xrayBytes []byte) (string, error) {
-	var xray conf.Config
+	var xray *conf.Config
 
 	err := json.Unmarshal(xrayBytes, &xray)
 	if err != nil {
@@ -76,7 +76,7 @@ func shareLink(proxy conf.OutboundDetourConfig) (*url.URL, error) {
 }
 
 func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings conf.ShadowsocksClientConfig
+	var settings *conf.ShadowsocksClientConfig
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings conf.VMessOutboundConfig
+	var settings *conf.VMessOutboundConfig
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 		link.Host = fmt.Sprintf("%s:%d", vnext.Address, vnext.Port)
 		if len(vnext.Users) > 0 {
 			user := vnext.Users[0]
-			var account conf.VMessAccount
+			var account *conf.VMessAccount
 			err := json.Unmarshal(user, &account)
 			if err != nil {
 				return err
@@ -123,7 +123,7 @@ func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings conf.VLessOutboundConfig
+	var settings *conf.VLessOutboundConfig
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -137,7 +137,7 @@ func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 		link.Host = fmt.Sprintf("%s:%d", vnext.Address, vnext.Port)
 		if len(vnext.Users) > 0 {
 			user := vnext.Users[0]
-			var account vless.Account
+			var account *vless.Account
 			err := json.Unmarshal(user, &account)
 			if err != nil {
 				return err
@@ -155,7 +155,7 @@ func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings conf.SocksClientConfig
+	var settings *conf.SocksClientConfig
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -172,7 +172,7 @@ func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 			link.User = url.User(username)
 		} else {
 			user := server.Users[0]
-			var account conf.SocksAccount
+			var account *conf.SocksAccount
 			err := json.Unmarshal(user, &account)
 			if err != nil {
 				return err
@@ -186,7 +186,7 @@ func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings conf.TrojanClientConfig
+	var settings *conf.TrojanClientConfig
 	err := json.Unmarshal(*proxy.Settings, &settings)
 	if err != nil {
 		return err
@@ -231,7 +231,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if headerConfig == nil {
 			break
 		}
-		var header XrayRawSettingsHeader
+		var header *XrayRawSettingsHeader
 		err := json.Unmarshal(headerConfig, &header)
 		if err != nil {
 			break
@@ -268,7 +268,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if headerConfig == nil {
 			break
 		}
-		var header XrayFakeHeader
+		var header *XrayFakeHeader
 		err := json.Unmarshal(headerConfig, &header)
 		if err != nil {
 			break
@@ -338,7 +338,14 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		}
 		extra := streamSettings.XHTTPSettings.Extra
 		if extra != nil {
-			query = addQuery(query, "extra", string(extra))
+			var extraConfig *conf.SplitHTTPConfig
+			err := json.Unmarshal(extra, &extraConfig)
+			if err == nil {
+				extraBytes, err := json.Marshal(extraConfig)
+				if err == nil {
+					query = addQuery(query, "extra", string(extraBytes))
+				}
+			}
 		}
 	}
 
@@ -379,7 +386,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if len(sni) > 0 {
 			query = addQuery(query, "sni", sni)
 		}
-		pbk := streamSettings.REALITYSettings.PublicKey
+		pbk := streamSettings.REALITYSettings.Password
 		if len(pbk) > 0 {
 			query = addQuery(query, "pbk", pbk)
 		}
