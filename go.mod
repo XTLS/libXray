@@ -1,11 +1,11 @@
 module github.com/xtls/libxray
 
-go 1.25.0
+go 1.25.1
 
 require (
 	github.com/stretchr/testify v1.11.1
 	github.com/vishvananda/netlink v1.3.1
-	github.com/xtls/xray-core v1.250831.0
+	github.com/xtls/xray-core v1.250905.0
 	google.golang.org/protobuf v1.36.8
 	gopkg.in/yaml.v3 v3.0.1
 )
