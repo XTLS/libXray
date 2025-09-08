@@ -28,8 +28,8 @@ class WindowsBuilder(Builder):
         create_dir_if_not_exists(output_dir)
         output_file = os.path.join(output_dir, self.lib_file)
         run_env = os.environ.copy()
-        run_env["CC"] = "clang.exe"
-        run_env["CXX"] = "clang++.exe"
+        run_env["CC"] = "gcc.exe"
+        run_env["CXX"] = "g++.exe"
         run_env["CGO_ENABLED"] = "1"
 
         cmd = [
