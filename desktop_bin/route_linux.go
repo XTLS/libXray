@@ -4,27 +4,22 @@ package main
 
 import (
 	"net"
-	"strconv"
 
 	"github.com/vishvananda/netlink"
 )
 
 // sudo ip route add default dev tun0 metric 20
 // sudo ip -6 route add default dev tun0 metric 20
-func initIpRoute(tunName string, tunPriority string) error {
-	priority, err := strconv.Atoi(tunPriority)
-	if err != nil {
-		return err
-	}
+func initIpRoute(tunName string, tunPriority int) error {
 	link, err := netlink.LinkByName(tunName)
 	if err != nil {
 		return err
 	}
-	err = addRoute(link.Attrs().Index, "0.0.0.0/0", netlink.FAMILY_V4, priority)
+	err = addRoute(link.Attrs().Index, "0.0.0.0/0", netlink.FAMILY_V4, tunPriority)
 	if err != nil {
 		return err
 	}
-	err = addRoute(link.Attrs().Index, "::/0", netlink.FAMILY_V6, priority)
+	err = addRoute(link.Attrs().Index, "::/0", netlink.FAMILY_V6, tunPriority)
 	if err != nil {
 		return err
 	}

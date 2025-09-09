@@ -13,7 +13,6 @@ class LinuxBuilder(Builder):
         create_dir_if_not_exists(self.framework_dir)
         self.lib_file = "libXray.so"
         self.lib_header_file = "libXray.h"
-        self.bin_file = "route"
 
     def before_build(self):
         super().before_build()
@@ -24,7 +23,7 @@ class LinuxBuilder(Builder):
         self.build_linux()
         self.after_build()
 
-        self.build_linux_bin()
+        self.build_desktop_bin()
 
     def build_linux(self):
         output_dir = self.framework_dir
@@ -54,22 +53,4 @@ class LinuxBuilder(Builder):
         super().after_build()
         self.reset_files()
 
-    def build_linux_bin(self):
-        output_file = os.path.join(self.lib_dir, self.bin_file)
-        run_env = os.environ.copy()
-        run_env["CGO_ENABLED"] = "0"
-
-        cmd = [
-            "go",
-            "build",
-            "-trimpath",
-            "-ldflags",
-            "-s -w",
-            f"-o={output_file}",
-            "./linux_route",
-        ]
-        os.chdir(self.lib_dir)
-        print(cmd)
-        ret = subprocess.run(cmd, env=run_env)
-        if ret.returncode != 0:
-            raise Exception(f"build_linux_bin failed")
+    

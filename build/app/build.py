@@ -10,6 +10,7 @@ class Builder(object):
     def __init__(self, build_dir: str):
         self.build_dir = build_dir
         self.lib_dir = os.path.join(self.build_dir, "..")
+        self.bin_file = "xray"
 
     def clean_lib_files(self, files: list[str]):
         for file in files:
@@ -23,7 +24,7 @@ class Builder(object):
 
     def download_geo(self):
         os.chdir(self.lib_dir)
-        main_path = os.path.join("main", "main.go")
+        main_path = os.path.join("download_geo", "main.go")
         ret = subprocess.run(["go", "run", main_path])
         if ret.returncode != 0:
             raise Exception("download_geo failed")
@@ -101,3 +102,24 @@ class Builder(object):
                 new_lines.append(new_line)
         with open(file_path, "w") as f:
             f.writelines(new_lines)
+
+
+    def build_desktop_bin(self):
+        output_file = os.path.join(self.lib_dir, self.bin_file)
+        run_env = os.environ.copy()
+        run_env["CGO_ENABLED"] = "0"
+
+        cmd = [
+            "go",
+            "build",
+            "-trimpath",
+            "-ldflags",
+            "-s -w",
+            f"-o={output_file}",
+            "./desktop_bin",
+        ]
+        os.chdir(self.lib_dir)
+        print(cmd)
+        ret = subprocess.run(cmd, env=run_env)
+        if ret.returncode != 0:
+            raise Exception(f"build_desktop_bin failed")

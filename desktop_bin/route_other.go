@@ -2,6 +2,6 @@
 
 package main
 
-func initIpRoute(_ string, _ string) error {
+func initIpRoute(_ string, _ int) error {
 	return nil
 }
