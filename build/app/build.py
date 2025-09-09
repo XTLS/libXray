@@ -3,7 +3,11 @@ import re
 import shutil
 import subprocess
 
-from app.cmd import delete_file_if_exists, delete_dir_if_exists
+from app.cmd import (
+    create_dir_if_not_exists,
+    delete_file_if_exists,
+    delete_dir_if_exists,
+)
 
 
 class Builder(object):
@@ -103,9 +107,10 @@ class Builder(object):
         with open(file_path, "w") as f:
             f.writelines(new_lines)
 
-
     def build_desktop_bin(self):
-        output_file = os.path.join(self.lib_dir, self.bin_file)
+        bin_dir = os.path.join(self.lib_dir, "bin")
+        create_dir_if_not_exists(bin_dir)
+        output_file = os.path.join(bin_dir, self.bin_file)
         run_env = os.environ.copy()
         run_env["CGO_ENABLED"] = "0"
 

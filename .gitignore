@@ -29,5 +29,4 @@ sub/
 test/
 config/
 .DS_Store
-route
-tun
+bin/
