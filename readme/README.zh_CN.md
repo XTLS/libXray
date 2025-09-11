@@ -54,14 +54,17 @@ python3 build/main.py windows
 
 ### Linux
 
-依赖 clang 和 clang++ 。
+依赖 gcc 和 g++ 。
 
 ### Windows
 
-依赖 [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw)，你可使用 winget 安装。
+依赖 MinGW 。
+
+你可使用 winget 安装 [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw) 或 [WinLibs](https://github.com/brechtsanders/winlibs_mingw) 。
 
 ```shell
 winget install MartinStorsjo.LLVM-MinGW.UCRT
+winget install BrechtSanders.WinLibs.POSIX.UCRT
 ```
 
 ## controller

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/xtls/xray-core/infra/conf"
-	"github.com/xtls/xray-core/proxy/vless"
 )
 
 // Convert XrayJson to share links.
@@ -132,25 +131,15 @@ func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Fragment = getOutboundName(proxy)
 	link.Scheme = "vless"
 
-	if len(settings.Vnext) > 0 {
-		vnext := settings.Vnext[0]
-		link.Host = fmt.Sprintf("%s:%d", vnext.Address, vnext.Port)
-		if len(vnext.Users) > 0 {
-			user := vnext.Users[0]
-			var account *vless.Account
-			err := json.Unmarshal(user, &account)
-			if err != nil {
-				return err
-			}
-			link.User = url.User(account.Id)
-			if len(account.Flow) > 0 {
-				link.RawQuery = addQuery(link.RawQuery, "flow", account.Flow)
-			}
-			if len(account.Encryption) > 0 {
-				link.RawQuery = addQuery(link.RawQuery, "encryption", account.Encryption)
-			}
-		}
+	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
+	link.User = url.User(settings.Id)
+	if len(settings.Flow) > 0 {
+		link.RawQuery = addQuery(link.RawQuery, "flow", settings.Flow)
 	}
+	if len(settings.Encryption) > 0 {
+		link.RawQuery = addQuery(link.RawQuery, "encryption", settings.Encryption)
+	}
+
 	return nil
 }
 

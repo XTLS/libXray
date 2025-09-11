@@ -64,14 +64,17 @@ Note: The product `LibXray.xcframework` does not contain **module.modulemap**. W
 
 ### Linux
 
-depend on clang and clang++.
+depend on gcc and g++.
 
 ### Windows
 
-depend on [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw), you can install it using winget.
+depend on MinGW.
+
+you can use winget to install [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw) or [WinLibs](https://github.com/brechtsanders/winlibs_mingw) .
 
 ```shell
 winget install MartinStorsjo.LLVM-MinGW.UCRT
+winget install BrechtSanders.WinLibs.POSIX.UCRT
 ```
 
 ## controller
