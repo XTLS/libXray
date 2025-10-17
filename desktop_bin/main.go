@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,8 +13,8 @@ import (
 )
 
 func main() {
-	configPath := os.Args[1]
-	fmt.Println("configPath:", configPath)
+	configPath := flag.String("configPath", "config.json", "Path of config.json")
+	flag.Parse()
 	err := runXray(configPath)
 	if err != nil {
 		os.Exit(1)
