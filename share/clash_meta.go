@@ -1,13 +1,11 @@
 package share
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/xtls/xray-core/infra/conf"
-	"github.com/xtls/xray-core/proxy/vless"
 )
 
 // https://github.com/MetaCubeX/mihomo/blob/Alpha/docs/config.yaml
@@ -17,14 +15,15 @@ type ClashYaml struct {
 }
 
 type ClashProxy struct {
-	Name     string `yaml:"name,omitempty"`
-	Type     string `yaml:"type,omitempty"`
-	Server   string `yaml:"server,omitempty"`
-	Port     uint16 `yaml:"port,omitempty"`
-	Uuid     string `yaml:"uuid,omitempty"`
-	Cipher   string `yaml:"cipher,omitempty"`
-	Username string `yaml:"username,omitempty"`
-	Password string `yaml:"password,omitempty"`
+	Name       string `yaml:"name,omitempty"`
+	Type       string `yaml:"type,omitempty"`
+	Server     string `yaml:"server,omitempty"`
+	Port       uint16 `yaml:"port,omitempty"`
+	Uuid       string `yaml:"uuid,omitempty"`
+	Cipher     string `yaml:"cipher,omitempty"`
+	Username   string `yaml:"username,omitempty"`
+	Password   string `yaml:"password,omitempty"`
+	Encryption string `yaml:"encryption,omitempty"`
 
 	Udp        bool `yaml:"udp,omitempty"`
 	UdpOverTcp bool `yaml:"udp-over-tcp,omitempty"`
@@ -155,15 +154,14 @@ func (proxy ClashProxy) shadowsocksOutbound() (*conf.OutboundDetourConfig, error
 	outbound.Protocol = "shadowsocks"
 	setOutboundName(outbound, proxy.Name)
 
-	server := &conf.ShadowsocksServerTarget{}
-	server.Address = parseAddress(proxy.Server)
-	server.Port = proxy.Port
-	server.Cipher = proxy.Cipher
-	server.Password = proxy.Password
-	server.UoT = proxy.UdpOverTcp
+	settings := conf.ShadowsocksClientConfig{}
 
-	var settings conf.ShadowsocksClientConfig
-	settings.Servers = []*conf.ShadowsocksServerTarget{server}
+	settings.Address = parseAddress(proxy.Server)
+	settings.Port = proxy.Port
+
+	settings.Cipher = proxy.Cipher
+	settings.Password = proxy.Password
+	settings.UoT = proxy.UdpOverTcp
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -218,22 +216,13 @@ func (proxy ClashProxy) vmessOutbound() (*conf.OutboundDetourConfig, error) {
 	outbound.Protocol = "vmess"
 	setOutboundName(outbound, proxy.Name)
 
-	user := &conf.VMessAccount{}
-	user.ID = proxy.Uuid
-	user.Security = proxy.Cipher
-
-	vnext := &conf.VMessOutboundTarget{}
-	vnext.Address = parseAddress(proxy.Server)
-	vnext.Port = proxy.Port
-
-	userRawMessage, err := convertJsonToRawMessage(user)
-	if err != nil {
-		return nil, err
-	}
-	vnext.Users = []json.RawMessage{userRawMessage}
-
 	settings := conf.VMessOutboundConfig{}
-	settings.Receivers = []*conf.VMessOutboundTarget{vnext}
+
+	settings.Address = parseAddress(proxy.Server)
+	settings.Port = proxy.Port
+
+	settings.ID = proxy.Uuid
+	settings.Security = proxy.Cipher
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -255,22 +244,16 @@ func (proxy ClashProxy) vlessOutbound() (*conf.OutboundDetourConfig, error) {
 	outbound.Protocol = "vless"
 	setOutboundName(outbound, proxy.Name)
 
-	user := &vless.Account{}
-	user.Id = proxy.Uuid
-	user.Flow = proxy.Flow
+	settings := conf.VLessOutboundConfig{}
 
-	vnext := &conf.VLessOutboundVnext{}
-	vnext.Address = parseAddress(proxy.Server)
-	vnext.Port = proxy.Port
+	settings.Address = parseAddress(proxy.Server)
+	settings.Port = proxy.Port
 
-	userRawMessage, err := convertJsonToRawMessage(user)
-	if err != nil {
-		return nil, err
+	settings.Id = proxy.Uuid
+	settings.Flow = proxy.Flow
+	if len(proxy.Encryption) > 0 {
+		settings.Encryption = proxy.Encryption
 	}
-	vnext.Users = []json.RawMessage{userRawMessage}
-
-	settings := &conf.VLessOutboundConfig{}
-	settings.Vnext = []*conf.VLessOutboundVnext{vnext}
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -292,22 +275,13 @@ func (proxy ClashProxy) socksOutbound() (*conf.OutboundDetourConfig, error) {
 	outbound.Protocol = "socks"
 	setOutboundName(outbound, proxy.Name)
 
-	user := &conf.SocksAccount{}
-	user.Username = proxy.Username
-	user.Password = proxy.Password
+	settings := conf.SocksClientConfig{}
 
-	server := &conf.SocksRemoteConfig{}
-	server.Address = parseAddress(proxy.Server)
-	server.Port = proxy.Port
+	settings.Address = parseAddress(proxy.Server)
+	settings.Port = proxy.Port
 
-	userRawMessage, err := convertJsonToRawMessage(user)
-	if err != nil {
-		return nil, err
-	}
-	server.Users = []json.RawMessage{userRawMessage}
-
-	settings := &conf.SocksClientConfig{}
-	settings.Servers = []*conf.SocksRemoteConfig{server}
+	settings.Username = proxy.Username
+	settings.Password = proxy.Password
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -329,13 +303,12 @@ func (proxy ClashProxy) trojanOutbound() (*conf.OutboundDetourConfig, error) {
 	outbound.Protocol = "trojan"
 	setOutboundName(outbound, proxy.Name)
 
-	server := &conf.TrojanServerTarget{}
-	server.Address = parseAddress(proxy.Server)
-	server.Port = proxy.Port
-	server.Password = proxy.Password
+	settings := conf.TrojanClientConfig{}
 
-	settings := &conf.TrojanClientConfig{}
-	settings.Servers = []*conf.TrojanServerTarget{server}
+	settings.Address = parseAddress(proxy.Server)
+	settings.Port = proxy.Port
+
+	settings.Password = proxy.Password
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {

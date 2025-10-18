@@ -160,13 +160,14 @@ func (proxy xrayShareLink) shadowsocksOutbound() (*conf.OutboundDetourConfig, er
 	outbound.Protocol = "shadowsocks"
 	setOutboundName(outbound, proxy.link.Fragment)
 
-	server := &conf.ShadowsocksServerTarget{}
-	server.Address = parseAddress(proxy.link.Hostname())
+	settings := &conf.ShadowsocksClientConfig{}
+
+	settings.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	server.Port = uint16(port)
+	settings.Port = uint16(port)
 
 	user := proxy.link.User.String()
 	passwordText, err := decodeBase64Text(user)
@@ -177,11 +178,8 @@ func (proxy xrayShareLink) shadowsocksOutbound() (*conf.OutboundDetourConfig, er
 	if len(pwConfig) != 2 {
 		return nil, fmt.Errorf("unsupport link shadowsocks password: %s", passwordText)
 	}
-	server.Cipher = pwConfig[0]
-	server.Password = pwConfig[1]
-
-	var settings conf.ShadowsocksClientConfig
-	settings.Servers = []*conf.ShadowsocksServerTarget{server}
+	settings.Cipher = pwConfig[0]
+	settings.Password = pwConfig[1]
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -212,33 +210,24 @@ func (proxy xrayShareLink) vmessOutbound() (*conf.OutboundDetourConfig, error) {
 
 	query := proxy.link.Query()
 
-	user := &conf.VMessAccount{}
-	id, err := url.QueryUnescape(proxy.link.User.String())
-	if err != nil {
-		return nil, err
-	}
-	user.ID = id
-	security := query.Get("encryption")
-	if len(security) > 0 {
-		user.Security = security
-	}
+	settings := conf.VMessOutboundConfig{}
 
-	vnext := &conf.VMessOutboundTarget{}
-	vnext.Address = parseAddress(proxy.link.Hostname())
+	settings.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	vnext.Port = uint16(port)
+	settings.Port = uint16(port)
 
-	userRawMessage, err := convertJsonToRawMessage(user)
+	id, err := url.QueryUnescape(proxy.link.User.String())
 	if err != nil {
 		return nil, err
 	}
-	vnext.Users = []json.RawMessage{userRawMessage}
-
-	settings := conf.VMessOutboundConfig{}
-	settings.Receivers = []*conf.VMessOutboundTarget{vnext}
+	settings.ID = id
+	security := query.Get("encryption")
+	if len(security) > 0 {
+		settings.Security = security
+	}
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -269,6 +258,7 @@ func (proxy xrayShareLink) vlessOutbound() (*conf.OutboundDetourConfig, error) {
 		return nil, err
 	}
 	settings.Port = uint16(port)
+
 	id, err := url.QueryUnescape(proxy.link.User.String())
 	if err != nil {
 		return nil, err
@@ -278,7 +268,6 @@ func (proxy xrayShareLink) vlessOutbound() (*conf.OutboundDetourConfig, error) {
 	if len(flow) > 0 {
 		settings.Flow = flow
 	}
-
 	encryption := query.Get("encryption")
 	if len(encryption) > 0 {
 		settings.Encryption = encryption
@@ -306,7 +295,14 @@ func (proxy xrayShareLink) socksOutbound() (*conf.OutboundDetourConfig, error) {
 	outbound.Protocol = "socks"
 	setOutboundName(outbound, proxy.link.Fragment)
 
-	users := []json.RawMessage{}
+	settings := &conf.SocksClientConfig{}
+
+	settings.Address = parseAddress(proxy.link.Hostname())
+	port, err := strconv.Atoi(proxy.link.Port())
+	if err != nil {
+		return nil, err
+	}
+	settings.Port = uint16(port)
 
 	userPassword := proxy.link.User.String()
 	if len(userPassword) > 0 {
@@ -319,29 +315,9 @@ func (proxy xrayShareLink) socksOutbound() (*conf.OutboundDetourConfig, error) {
 			return nil, fmt.Errorf("unsupport link socks user password: %s", passwordText)
 		}
 
-		user := &conf.SocksAccount{}
-		user.Username = pwConfig[0]
-		user.Password = pwConfig[1]
-
-		userRawMessage, err := convertJsonToRawMessage(user)
-		if err != nil {
-			return nil, err
-		}
-
-		users = append(users, userRawMessage)
+		settings.Username = pwConfig[0]
+		settings.Password = pwConfig[1]
 	}
-
-	server := &conf.SocksRemoteConfig{}
-	server.Address = parseAddress(proxy.link.Hostname())
-	port, err := strconv.Atoi(proxy.link.Port())
-	if err != nil {
-		return nil, err
-	}
-	server.Port = uint16(port)
-	server.Users = users
-
-	settings := &conf.SocksClientConfig{}
-	settings.Servers = []*conf.SocksRemoteConfig{server}
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -363,22 +339,20 @@ func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) 
 	outbound.Protocol = "trojan"
 	setOutboundName(outbound, proxy.link.Fragment)
 
-	server := &conf.TrojanServerTarget{}
-	server.Address = parseAddress(proxy.link.Hostname())
+	settings := &conf.TrojanClientConfig{}
+
+	settings.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {
 		return nil, err
 	}
-	server.Port = uint16(port)
+	settings.Port = uint16(port)
 
 	password, err := url.QueryUnescape(proxy.link.User.String())
 	if err != nil {
 		return nil, err
 	}
-	server.Password = password
-
-	settings := &conf.TrojanClientConfig{}
-	settings.Servers = []*conf.TrojanServerTarget{server}
+	settings.Password = password
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {

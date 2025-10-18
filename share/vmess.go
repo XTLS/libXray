@@ -43,28 +43,18 @@ func (proxy vmessQrCode) outbound() (*conf.OutboundDetourConfig, error) {
 	outbound.Protocol = "vmess"
 	setOutboundName(outbound, proxy.Ps)
 
-	user := &conf.VMessAccount{}
-	user.ID = proxy.Id
-	user.Security = proxy.Scy
+	settings := conf.VMessOutboundConfig{}
 
-	vnext := &conf.VMessOutboundTarget{}
-	vnext.Address = parseAddress(proxy.Add)
-
+	settings.Address = parseAddress(proxy.Add)
 	portStr := fmt.Sprintf("%v", proxy.Port)
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		return nil, err
 	}
-	vnext.Port = uint16(port)
+	settings.Port = uint16(port)
 
-	userRawMessage, err := convertJsonToRawMessage(user)
-	if err != nil {
-		return nil, err
-	}
-	vnext.Users = []json.RawMessage{userRawMessage}
-
-	settings := conf.VMessOutboundConfig{}
-	settings.Receivers = []*conf.VMessOutboundTarget{vnext}
+	settings.ID = proxy.Id
+	settings.Security = proxy.Scy
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {

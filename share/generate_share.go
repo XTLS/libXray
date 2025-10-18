@@ -84,13 +84,11 @@ func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Fragment = getOutboundName(proxy)
 	link.Scheme = "ss"
 
-	if len(settings.Servers) > 0 {
-		server := settings.Servers[0]
-		link.Host = fmt.Sprintf("%s:%d", server.Address, server.Port)
-		password := fmt.Sprintf("%s:%s", server.Cipher, server.Password)
-		username := base64.StdEncoding.EncodeToString([]byte(password))
-		link.User = url.User(username)
-	}
+	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
+	password := fmt.Sprintf("%s:%s", settings.Cipher, settings.Password)
+	username := base64.StdEncoding.EncodeToString([]byte(password))
+	link.User = url.User(username)
+
 	return nil
 }
 
@@ -104,20 +102,12 @@ func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Fragment = getOutboundName(proxy)
 	link.Scheme = "vmess"
 
-	if len(settings.Receivers) > 0 {
-		vnext := settings.Receivers[0]
-		link.Host = fmt.Sprintf("%s:%d", vnext.Address, vnext.Port)
-		if len(vnext.Users) > 0 {
-			user := vnext.Users[0]
-			var account *conf.VMessAccount
-			err := json.Unmarshal(user, &account)
-			if err != nil {
-				return err
-			}
-			link.User = url.User(account.ID)
-			link.RawQuery = addQuery(link.RawQuery, "encryption", account.Security)
-		}
+	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
+	link.User = url.User(settings.ID)
+	if len(settings.Security) > 0 {
+		link.RawQuery = addQuery(link.RawQuery, "encryption", settings.Security)
 	}
+
 	return nil
 }
 
@@ -153,24 +143,11 @@ func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Fragment = getOutboundName(proxy)
 	link.Scheme = "socks"
 
-	if len(settings.Servers) > 0 {
-		server := settings.Servers[0]
-		link.Host = fmt.Sprintf("%s:%d", server.Address, server.Port)
-		if len(server.Users) == 0 {
-			username := base64.StdEncoding.EncodeToString([]byte(":"))
-			link.User = url.User(username)
-		} else {
-			user := server.Users[0]
-			var account *conf.SocksAccount
-			err := json.Unmarshal(user, &account)
-			if err != nil {
-				return err
-			}
-			password := fmt.Sprintf("%s:%s", account.Username, account.Password)
-			username := base64.StdEncoding.EncodeToString([]byte(password))
-			link.User = url.User(username)
-		}
-	}
+	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
+	password := fmt.Sprintf("%s:%s", settings.Username, settings.Password)
+	username := base64.StdEncoding.EncodeToString([]byte(password))
+	link.User = url.User(username)
+
 	return nil
 }
 
@@ -184,11 +161,9 @@ func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Fragment = getOutboundName(proxy)
 	link.Scheme = "trojan"
 
-	if len(settings.Servers) > 0 {
-		server := settings.Servers[0]
-		link.Host = fmt.Sprintf("%s:%d", server.Address, server.Port)
-		link.User = url.User(server.Password)
-	}
+	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
+	link.User = url.User(settings.Password)
+
 	return nil
 }
 
