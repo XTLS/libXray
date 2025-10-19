@@ -32,28 +32,6 @@ func CountGeoData(base64Text string) string {
 	return response.EncodeToBase64("", err)
 }
 
-type ThinGeoDataRequest struct {
-	DatDir     string `json:"datDir,omitempty"`
-	ConfigPath string `json:"configPath,omitempty"`
-	DstDir     string `json:"dstDir,omitempty"`
-}
-
-// thin geo data
-func ThinGeoData(base64Text string) string {
-	var response nodep.CallResponse[string]
-	req, err := base64.StdEncoding.DecodeString(base64Text)
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-	var request ThinGeoDataRequest
-	err = json.Unmarshal(req, &request)
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-	err = geo.ThinGeoData(request.DatDir, request.ConfigPath, request.DstDir)
-	return response.EncodeToBase64("", err)
-}
-
 type readGeoFilesResponse struct {
 	Domain []string `json:"domain,omitempty"`
 	IP     []string `json:"ip,omitempty"`

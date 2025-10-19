@@ -44,12 +44,6 @@ func CGoCountGeoData(base64Text *C.char) *C.char {
 	return C.CString(CountGeoData(text))
 }
 
-//export CGoThinGeoData
-func CGoThinGeoData(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(ThinGeoData(text))
-}
-
 //export CGoReadGeoFiles
 func CGoReadGeoFiles(base64Text *C.char) *C.char {
 	text := C.GoString(base64Text)
