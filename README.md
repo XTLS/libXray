@@ -95,10 +95,6 @@ Read geo files and count the categories and rules.
 
 Read the Xray Json configuration and extract the geo file name used.
 
-### thin
-
-Read the Xray Json configuration and cut the geo file used.
-
 ## main
 
 Download geosite.dat and geoip.dat and count them.

@@ -85,10 +85,6 @@ winget install BrechtSanders.WinLibs.POSIX.UCRT
 
 读取 Xray Json 配置，提取使用到的 geo 文件名。
 
-### thin
-
-读取 Xray Json 配置，剪切使用到的 geo 文件。
-
 ## main
 
 下载 geosite.dat 和 geoip.dat，并进行计数。
