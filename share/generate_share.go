@@ -68,6 +68,11 @@ func shareLink(proxy conf.OutboundDetourConfig) (*url.URL, error) {
 		if err != nil {
 			return nil, err
 		}
+	case "hysteria":
+		err := hysteriaLink(proxy, shareUrl)
+		if err != nil {
+			return nil, err
+		}
 	}
 	streamSettingsQuery(proxy, shareUrl)
 
@@ -164,6 +169,29 @@ func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
 	link.User = url.User(settings.Password)
 
+	if len(settings.Flow) > 0 {
+		link.RawQuery = addQuery(link.RawQuery, "flow", settings.Flow)
+	}
+
+	return nil
+}
+
+func hysteriaLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
+	var settings *conf.HysteriaClientConfig
+	err := json.Unmarshal(*proxy.Settings, &settings)
+	if err != nil {
+		return err
+	}
+
+	link.Fragment = getOutboundName(proxy)
+	link.Scheme = "hysteria2"
+
+	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
+
+	if proxy.StreamSetting.HysteriaSettings != nil {
+		link.User = url.User(proxy.StreamSetting.HysteriaSettings.Auth)
+	}
+
 	return nil
 }
 
@@ -178,6 +206,32 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 	if streamSettings.Network != nil {
 		network = string(*streamSettings.Network)
 	}
+
+	if network == "hysteria" {
+		if streamSettings.TLSSettings != nil {
+			if len(streamSettings.TLSSettings.ServerName) > 0 {
+				query = addQuery(query, "sni", streamSettings.TLSSettings.ServerName)
+			}
+			if streamSettings.TLSSettings.Insecure {
+				query = addQuery(query, "insecure", "1")
+			}
+		}
+
+		if len(streamSettings.Udpmasks) > 0 {
+			mask := streamSettings.Udpmasks[0]
+			if mask.Settings != nil {
+				var obfs *conf.Salamander
+				err := json.Unmarshal(*mask.Settings, &obfs)
+				if err == nil {
+					query = addQuery(query, "obfs", "salamander")
+					query = addQuery(query, "obfs-password", obfs.Password)
+				}
+			}
+		}
+		link.RawQuery = query
+		return
+	}
+
 	query = addQuery(query, "type", network)
 
 	if len(streamSettings.Security) == 0 {

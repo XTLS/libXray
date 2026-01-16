@@ -32,7 +32,7 @@ func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
 	}
 
 	text = FixWindowsReturn(text)
-	if strings.HasPrefix(text, "vless://") || strings.HasPrefix(text, "vmess://") || strings.HasPrefix(text, "socks://") || strings.HasPrefix(text, "ss://") || strings.HasPrefix(text, "trojan://") {
+	if checkSupportedShareLink(text) {
 		xray, err := parsePlainShareText(text)
 		if err != nil {
 			return xray, err
@@ -45,6 +45,16 @@ func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
 		}
 		return xray, nil
 	}
+}
+
+func checkSupportedShareLink(text string) bool {
+	supportedSchemes := []string{"vless://", "vmess://", "socks://", "ss://", "trojan://", "hysteria2://", "hy2://"}
+	for _, scheme := range supportedSchemes {
+		if strings.HasPrefix(text, scheme) {
+			return true
+		}
+	}
+	return false
 }
 
 func FixWindowsReturn(text string) string {
@@ -70,6 +80,8 @@ func parsePlainShareText(text string) (*conf.Config, error) {
 			} else {
 				fmt.Println(err)
 			}
+		} else {
+			fmt.Println(err)
 		}
 	}
 	if len(outbounds) == 0 {
@@ -147,6 +159,12 @@ func (proxy xrayShareLink) outbound() (*conf.OutboundDetourConfig, error) {
 		return outbound, nil
 	case "trojan":
 		outbound, err := proxy.trojanOutbound()
+		if err != nil {
+			return nil, err
+		}
+		return outbound, nil
+	case "hysteria2", "hy2":
+		outbound, err := proxy.hysteriaOutbound()
 		if err != nil {
 			return nil, err
 		}
@@ -339,6 +357,8 @@ func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) 
 	outbound.Protocol = "trojan"
 	setOutboundName(outbound, proxy.link.Fragment)
 
+	query := proxy.link.Query()
+
 	settings := &conf.TrojanClientConfig{}
 
 	settings.Address = parseAddress(proxy.link.Hostname())
@@ -353,6 +373,11 @@ func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) 
 		return nil, err
 	}
 	settings.Password = password
+
+	flow := query.Get("flow")
+	if len(flow) > 0 {
+		settings.Flow = flow
+	}
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -369,6 +394,78 @@ func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) 
 	return outbound, nil
 }
 
+func (proxy xrayShareLink) hysteriaOutbound() (*conf.OutboundDetourConfig, error) {
+	outbound := &conf.OutboundDetourConfig{}
+	outbound.Protocol = "hysteria"
+	setOutboundName(outbound, proxy.link.Fragment)
+
+	settings := &conf.HysteriaClientConfig{}
+
+	settings.Address = parseAddress(proxy.link.Hostname())
+	port, err := strconv.Atoi(proxy.link.Port())
+	if err != nil {
+		return nil, err
+	}
+	settings.Port = uint16(port)
+
+	settingsRawMessage, err := convertJsonToRawMessage(settings)
+	if err != nil {
+		return nil, err
+	}
+	outbound.Settings = &settingsRawMessage
+
+	streamSettings := &conf.StreamConfig{}
+	network := conf.TransportProtocol("hysteria")
+	streamSettings.Network = &network
+
+	hysteriaSettings := &conf.HysteriaConfig{}
+	hysteriaSettings.Version = 2
+	auth, err := url.QueryUnescape(proxy.link.User.String())
+	if err != nil {
+		return nil, err
+	}
+	hysteriaSettings.Auth = auth
+	streamSettings.HysteriaSettings = hysteriaSettings
+
+	streamSettings.Security = "tls"
+
+	query := proxy.link.Query()
+	if len(query) > 0 {
+		tlsSettings := &conf.TLSConfig{}
+		insecure := query.Get("insecure")
+		if insecure == "1" {
+			tlsSettings.Insecure = true
+		}
+		sni := query.Get("sni")
+		if len(sni) > 0 {
+			tlsSettings.ServerName = sni
+		}
+		streamSettings.TLSSettings = tlsSettings
+
+		obfsPassword := query.Get("obfs-password")
+		if len(obfsPassword) > 0 {
+			obfs := &conf.FinalMask{}
+			obfs.Type = "salamander"
+
+			settings := &conf.Salamander{}
+			settings.Password = obfsPassword
+
+			settingsRawMessage, err := convertJsonToRawMessage(settings)
+			if err != nil {
+				return nil, err
+			}
+
+			obfs.Settings = &settingsRawMessage
+
+			streamSettings.Udpmasks = []*conf.FinalMask{obfs}
+		}
+	}
+
+	outbound.StreamSetting = streamSettings
+
+	return outbound, nil
+}
+
 func (proxy xrayShareLink) streamSettings(link *url.URL) (*conf.StreamConfig, error) {
 	query := link.Query()
 	if len(query) == 0 {
@@ -376,6 +473,7 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) (*conf.StreamConfig, er
 	}
 
 	streamSettings := &conf.StreamConfig{}
+
 	network := query.Get("type")
 	if len(network) == 0 {
 		network = "raw"
