@@ -357,8 +357,6 @@ func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) 
 	outbound.Protocol = "trojan"
 	setOutboundName(outbound, proxy.link.Fragment)
 
-	query := proxy.link.Query()
-
 	settings := &conf.TrojanClientConfig{}
 
 	settings.Address = parseAddress(proxy.link.Hostname())
@@ -373,11 +371,6 @@ func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) 
 		return nil, err
 	}
 	settings.Password = password
-
-	flow := query.Get("flow")
-	if len(flow) > 0 {
-		settings.Flow = flow
-	}
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {

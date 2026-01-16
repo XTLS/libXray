@@ -169,10 +169,6 @@ func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
 	link.User = url.User(settings.Password)
 
-	if len(settings.Flow) > 0 {
-		link.RawQuery = addQuery(link.RawQuery, "flow", settings.Flow)
-	}
-
 	return nil
 }
 

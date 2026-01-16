@@ -323,10 +323,6 @@ func (proxy ClashProxy) trojanOutbound() (*conf.OutboundDetourConfig, error) {
 
 	settings.Password = proxy.Password
 
-	if len(proxy.Flow) > 0 {
-		settings.Flow = proxy.Flow
-	}
-
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
 		return nil, err
