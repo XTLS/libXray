@@ -394,6 +394,7 @@ func (proxy xrayShareLink) hysteriaOutbound() (*conf.OutboundDetourConfig, error
 
 	settings := &conf.HysteriaClientConfig{}
 
+	settings.Version = 2
 	settings.Address = parseAddress(proxy.link.Hostname())
 	port, err := strconv.Atoi(proxy.link.Port())
 	if err != nil {

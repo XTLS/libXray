@@ -345,6 +345,7 @@ func (proxy ClashProxy) hysteria2Outbound() (*conf.OutboundDetourConfig, error) 
 
 	settings := conf.HysteriaClientConfig{}
 
+	settings.Version = 2
 	settings.Address = parseAddress(proxy.Server)
 	settings.Port = proxy.Port
 
