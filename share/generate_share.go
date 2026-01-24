@@ -380,13 +380,13 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if alpn != nil && len(*alpn) > 0 {
 			query = addQuery(query, "alpn", strings.Join(*alpn, ","))
 		}
-		// https://github.com/XTLS/Xray-core/discussions/716
-		// 4.4.3 allowInsecure
-		// 没有这个字段。不安全的节点，不适合分享。
-		// I don't like this field, but too many people ask for it.
-		allowInsecure := streamSettings.TLSSettings.Insecure
-		if allowInsecure {
-			query = addQuery(query, "allowInsecure", "1")
+		ech := streamSettings.TLSSettings.ECHConfigList
+		if len(ech) > 0 {
+			query = addQuery(query, "ech", ech)
+		}
+		pcs := streamSettings.TLSSettings.PinnedPeerCertSha256
+		if len(pcs) > 0 {
+			query = addQuery(query, "pcs", pcs)
 		}
 	case "reality":
 		if streamSettings.REALITYSettings == nil {

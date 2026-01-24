@@ -585,21 +585,16 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *conf.Str
 	tlsSettings.ServerName = sni
 	realitySettings.ServerName = sni
 
+	ech := query.Get("ech")
+	tlsSettings.ECHConfigList = ech
+
+	pcs := query.Get("pcs")
+	tlsSettings.PinnedPeerCertSha256 = pcs
+
 	alpn := query.Get("alpn")
 	if len(alpn) > 0 {
 		alpn := conf.StringList(strings.Split(alpn, ","))
 		tlsSettings.ALPN = &alpn
-	}
-
-	// https://github.com/XTLS/Xray-core/discussions/716
-	// 4.4.3 allowInsecure
-	// 没有这个字段。不安全的节点，不适合分享。
-	// I don't like this field, but too many people ask for it.
-	allowInsecure := query.Get("allowInsecure")
-	if len(allowInsecure) > 0 {
-		if allowInsecure == "true" || allowInsecure == "1" {
-			tlsSettings.Insecure = true
-		}
 	}
 
 	pbk := query.Get("pbk")
