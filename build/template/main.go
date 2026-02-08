@@ -83,3 +83,9 @@ func CGoStopXray() *C.char {
 func CGoXrayVersion() *C.char {
 	return C.CString(XrayVersion())
 }
+
+//export CGoBuildMphCache
+func CGoBuildMphCache(base64Text *C.char) *C.char {
+	text := C.GoString(base64Text)
+	return C.CString(BuildMphCache(text))
+}

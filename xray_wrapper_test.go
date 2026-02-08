@@ -149,7 +149,7 @@ func TestRunXrayWithVmess(t *testing.T) {
 
 	// Create a request for testing Xray
 	datDir := filepath.Join(projectRoot, "dat")
-	request := TestXrayRequest{
+	request := RunXrayRequest{
 		DatDir:     datDir,
 		ConfigPath: configPath,
 	}

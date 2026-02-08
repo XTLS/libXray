@@ -18,8 +18,9 @@ type runXrayConfig struct {
 	Dns           string `json:"dns,omitempty"`
 	BindInterface string `json:"bindInterface,omitempty"`
 	// xray
-	DatDir     string `json:"datDir,omitempty"`
-	ConfigPath string `json:"configPath,omitempty"`
+	DatDir       string `json:"datDir,omitempty"`
+	MphCachePath string `json:"mphCachePath,omitempty"`
+	ConfigPath   string `json:"configPath,omitempty"`
 }
 
 func runXray(configPath string) error {
@@ -39,5 +40,5 @@ func runXray(configPath string) error {
 		}
 		dns.InitDns(config.Dns, config.BindInterface)
 	}
-	return xray.RunXray(config.DatDir, config.ConfigPath)
+	return xray.RunXray(config.DatDir, config.MphCachePath, config.ConfigPath)
 }
