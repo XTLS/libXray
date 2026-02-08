@@ -12,6 +12,7 @@ from app.cmd import (
 XRAY_CORE_REPO = "https://github.com/XTLS/Xray-core.git"
 XRAY_CORE_VERSION = "v26.2.6"
 XRAY_CORE_DIR_NAME = "Xray-core-libXray"
+LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 
 
 class Builder(object):
@@ -51,7 +52,7 @@ class Builder(object):
     def init_go_env(self):
         os.chdir(self.lib_dir)
         self.clean_lib_files(["go.mod", "go.sum"])
-        ret = subprocess.run(["go", "mod", "init", "github.com/xtls/libxray"])
+        ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
         if ret.returncode != 0:
             raise Exception("go mod init failed")
         ret = subprocess.run(
@@ -60,7 +61,7 @@ class Builder(object):
                 "mod",
                 "edit",
                 "-replace",
-                "github.com/xtls/xray-core=../Xray-core-libXray",
+                f"github.com/xtls/xray-core=../{XRAY_CORE_DIR_NAME}",
             ]
         )
         if ret.returncode != 0:
@@ -184,7 +185,7 @@ class Builder(object):
     def revert_go_env(self):
         os.chdir(self.lib_dir)
         self.clean_lib_files(["go.mod", "go.sum"])
-        ret = subprocess.run(["go", "mod", "init", "github.com/xtls/libxray"])
+        ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
         if ret.returncode != 0:
             raise Exception("go mod init failed")
 
