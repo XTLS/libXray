@@ -438,10 +438,10 @@ func (proxy ClashProxy) streamSettings(outbound conf.OutboundDetourConfig) (*con
 			obfs.Settings = &settingsRawMessage
 
 			udp := []conf.Mask{obfs}
-			udpmasks := conf.FinalMask{}
-			udpmasks.Udp = udp
+			finalMask := conf.FinalMask{}
+			finalMask.Udp = udp
 
-			streamSettings.FinalMask = &udpmasks
+			streamSettings.FinalMask = &finalMask
 		}
 	}
 	proxy.parseSecurity(streamSettings, outbound)
