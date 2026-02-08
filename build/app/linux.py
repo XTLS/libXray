@@ -24,6 +24,7 @@ class LinuxBuilder(Builder):
         self.after_build()
 
         self.build_desktop_bin()
+        self.revert_go_env()
 
     def build_linux(self):
         output_dir = self.framework_dir
@@ -52,5 +53,3 @@ class LinuxBuilder(Builder):
     def after_build(self):
         super().after_build()
         self.reset_files()
-
-    

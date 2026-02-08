@@ -208,13 +208,10 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			if len(streamSettings.TLSSettings.ServerName) > 0 {
 				query = addQuery(query, "sni", streamSettings.TLSSettings.ServerName)
 			}
-			if streamSettings.TLSSettings.Insecure {
-				query = addQuery(query, "insecure", "1")
-			}
 		}
 
-		if len(streamSettings.Udpmasks) > 0 {
-			mask := streamSettings.Udpmasks[0]
+		if streamSettings.FinalMask != nil && len(streamSettings.FinalMask.Udp) > 0 {
+			mask := streamSettings.FinalMask.Udp[0]
 			if mask.Settings != nil {
 				var obfs *conf.Salamander
 				err := json.Unmarshal(*mask.Settings, &obfs)
@@ -388,6 +385,10 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if len(pcs) > 0 {
 			query = addQuery(query, "pcs", pcs)
 		}
+		vcn := streamSettings.TLSSettings.VerifyPeerCertByName
+		if len(vcn) > 0 {
+			query = addQuery(query, "vcn", vcn)
+		}
 	case "reality":
 		if streamSettings.REALITYSettings == nil {
 			break
@@ -415,6 +416,14 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		spx := streamSettings.REALITYSettings.SpiderX
 		if len(spx) > 0 {
 			query = addQuery(query, "spx", spx)
+		}
+	}
+
+	if streamSettings.FinalMask != nil {
+		finalMask := streamSettings.FinalMask
+		fmBytes, err := json.Marshal(finalMask)
+		if err == nil {
+			query = addQuery(query, "fm", string(fmBytes))
 		}
 	}
 

@@ -22,9 +22,11 @@ class WindowsBuilder(Builder):
     def build(self):
         self.before_build()
         self.build_windows()
+
         self.after_build()
 
         self.build_desktop_bin()
+        self.revert_go_env()
 
     def build_windows(self):
         output_dir = self.framework_dir

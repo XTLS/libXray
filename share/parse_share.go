@@ -426,10 +426,6 @@ func (proxy xrayShareLink) hysteriaOutbound() (*conf.OutboundDetourConfig, error
 	query := proxy.link.Query()
 	if len(query) > 0 {
 		tlsSettings := &conf.TLSConfig{}
-		insecure := query.Get("insecure")
-		if insecure == "1" {
-			tlsSettings.Insecure = true
-		}
 		sni := query.Get("sni")
 		if len(sni) > 0 {
 			tlsSettings.ServerName = sni
@@ -438,7 +434,7 @@ func (proxy xrayShareLink) hysteriaOutbound() (*conf.OutboundDetourConfig, error
 
 		obfsPassword := query.Get("obfs-password")
 		if len(obfsPassword) > 0 {
-			obfs := &conf.FinalMask{}
+			obfs := conf.Mask{}
 			obfs.Type = "salamander"
 
 			settings := &conf.Salamander{}
@@ -451,7 +447,11 @@ func (proxy xrayShareLink) hysteriaOutbound() (*conf.OutboundDetourConfig, error
 
 			obfs.Settings = &settingsRawMessage
 
-			streamSettings.Udpmasks = []*conf.FinalMask{obfs}
+			udp := []conf.Mask{obfs}
+			finalMask := conf.FinalMask{}
+			finalMask.Udp = udp
+
+			streamSettings.FinalMask = &finalMask
 		}
 	}
 
@@ -563,6 +563,16 @@ func (proxy xrayShareLink) streamSettings(link *url.URL) (*conf.StreamConfig, er
 		streamSettings.XHTTPSettings = xhttpSettings
 	}
 
+	fm := query.Get("fm")
+	if len(fm) > 0 {
+		var finalMask *conf.FinalMask
+		err := json.Unmarshal([]byte(fm), &finalMask)
+		if err != nil {
+			return nil, err
+		}
+		streamSettings.FinalMask = finalMask
+	}
+
 	err := proxy.parseSecurity(link, streamSettings)
 	if err != nil {
 		return nil, err
@@ -590,6 +600,8 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *conf.Str
 
 	pcs := query.Get("pcs")
 	tlsSettings.PinnedPeerCertSha256 = pcs
+	vcn := query.Get("vcn")
+	tlsSettings.VerifyPeerCertByName = vcn
 
 	alpn := query.Get("alpn")
 	if len(alpn) > 0 {

@@ -26,7 +26,7 @@ type ClashProxy struct {
 	Encryption string `yaml:"encryption,omitempty"`
 
 	Ports        string `yaml:"ports,omitempty"`
-	HopInterval  int64  `yaml:"hop-interval,omitempty"`
+	HopInterval  int32  `yaml:"hop-interval,omitempty"`
 	Up           string `yaml:"up,omitempty"`
 	Down         string `yaml:"down,omitempty"`
 	Obfs         string `yaml:"obfs,omitempty"`
@@ -208,7 +208,6 @@ func (proxy ClashProxy) shadowsocksOutbound() (*conf.OutboundDetourConfig, error
 		if proxy.PluginOpts.Tls {
 			tlsSettings := &conf.TLSConfig{}
 			tlsSettings.Fingerprint = proxy.PluginOpts.Fingerprint
-			tlsSettings.Insecure = proxy.PluginOpts.SkipCertVerify
 
 			if proxy.PluginOpts.EchOpts != nil {
 				if proxy.PluginOpts.EchOpts.Enable {
@@ -413,14 +412,19 @@ func (proxy ClashProxy) streamSettings(outbound conf.OutboundDetourConfig) (*con
 				return nil, err
 			}
 			udpHop.PortList = portListRawMessage
-			udpHop.Interval = proxy.HopInterval
+
+			interval := conf.Int32Range{}
+			interval.Left = proxy.HopInterval
+			interval.Right = proxy.HopInterval
+
+			udpHop.Interval = &interval
 
 			hysteriaSettings.UdpHop = udpHop
 		}
 		streamSettings.HysteriaSettings = hysteriaSettings
 		// udpmasks
 		if proxy.Obfs == "salamander" {
-			obfs := &conf.FinalMask{}
+			obfs := conf.Mask{}
 			obfs.Type = "salamander"
 
 			settings := &conf.Salamander{}
@@ -433,7 +437,11 @@ func (proxy ClashProxy) streamSettings(outbound conf.OutboundDetourConfig) (*con
 
 			obfs.Settings = &settingsRawMessage
 
-			streamSettings.Udpmasks = []*conf.FinalMask{obfs}
+			udp := []conf.Mask{obfs}
+			udpmasks := conf.FinalMask{}
+			udpmasks.Udp = udp
+
+			streamSettings.FinalMask = &udpmasks
 		}
 	}
 	proxy.parseSecurity(streamSettings, outbound)
@@ -446,9 +454,6 @@ func (proxy ClashProxy) parseSecurity(streamSettings *conf.StreamConfig, outboun
 
 	if proxy.Tls {
 		streamSettings.Security = "tls"
-	}
-	if proxy.SkipCertVerify {
-		tlsSettings.Insecure = true
 	}
 
 	if proxy.EchOpts != nil {

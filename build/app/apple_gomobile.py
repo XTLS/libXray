@@ -26,3 +26,7 @@ class AppleGoMobileBuilder(Builder):
         )
         if ret.returncode != 0:
             raise Exception("build failed")
+
+        self.after_build()
+
+        self.revert_go_env()

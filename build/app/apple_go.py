@@ -128,6 +128,8 @@ class AppleGoBuilder(Builder):
         self.create_include_dir()
         self.create_framework()
 
+        self.revert_go_env()
+
     def build_targets(self, targets: list[AppleTarget]):
         for target in targets:
             self.run_build_cmd(
