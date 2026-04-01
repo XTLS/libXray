@@ -421,38 +421,73 @@ func (proxy xrayShareLink) hysteriaOutbound() (*conf.OutboundDetourConfig, error
 	hysteriaSettings.Auth = auth
 	streamSettings.HysteriaSettings = hysteriaSettings
 
-	streamSettings.Security = "tls"
-
 	query := proxy.link.Query()
-	if len(query) > 0 {
-		tlsSettings := &conf.TLSConfig{}
-		sni := query.Get("sni")
-		if len(sni) > 0 {
-			tlsSettings.ServerName = sni
+
+	// Build QuicParams from bandwidth and port-hopping params
+	up := query.Get("up")
+	down := query.Get("down")
+	ports := query.Get("ports")
+	hopInterval := query.Get("hop-interval")
+
+	var quicParams *conf.QuicParamsConfig
+	if len(up) > 0 || len(down) > 0 || len(ports) > 0 {
+		quicParams = &conf.QuicParamsConfig{}
+		if len(up) > 0 || len(down) > 0 {
+			quicParams.Congestion = "brutal"
 		}
-		streamSettings.TLSSettings = tlsSettings
-
-		obfsPassword := query.Get("obfs-password")
-		if len(obfsPassword) > 0 {
-			obfs := conf.Mask{}
-			obfs.Type = "salamander"
-
-			settings := &conf.Salamander{}
-			settings.Password = obfsPassword
-
-			settingsRawMessage, err := convertJsonToRawMessage(settings)
+		if len(up) > 0 {
+			quicParams.BrutalUp = conf.Bandwidth(up)
+		}
+		if len(down) > 0 {
+			quicParams.BrutalDown = conf.Bandwidth(down)
+		}
+		if len(ports) > 0 {
+			udpHop := conf.UdpHop{}
+			portListJSON, err := json.Marshal(ports)
 			if err != nil {
 				return nil, err
 			}
-
-			obfs.Settings = &settingsRawMessage
-
-			udp := []conf.Mask{obfs}
-			finalMask := conf.FinalMask{}
-			finalMask.Udp = udp
-
-			streamSettings.FinalMask = &finalMask
+			udpHop.PortList = portListJSON
+			if len(hopInterval) > 0 {
+				interval, err := strconv.ParseInt(hopInterval, 10, 32)
+				if err != nil {
+					return nil, err
+				}
+				i32 := int32(interval)
+				udpHop.Interval = &conf.Int32Range{Left: i32, Right: i32, From: i32, To: i32}
+			}
+			quicParams.UdpHop = udpHop
 		}
+	}
+
+	// Build Salamander UDP masks
+	obfsType := query.Get("obfs")
+	obfsPassword := query.Get("obfs-password")
+	var udpMasks []conf.Mask
+	if obfsType == "salamander" && len(obfsPassword) > 0 {
+		obfs := conf.Mask{}
+		obfs.Type = "salamander"
+
+		salamander := &conf.Salamander{}
+		salamander.Password = obfsPassword
+
+		salamanderRawMessage, err := convertJsonToRawMessage(salamander)
+		if err != nil {
+			return nil, err
+		}
+		obfs.Settings = &salamanderRawMessage
+		udpMasks = []conf.Mask{obfs}
+	}
+
+	// Compose FinalMask from QuicParams + Salamander
+	if quicParams != nil || len(udpMasks) > 0 {
+		streamSettings.FinalMask = &conf.FinalMask{QuicParams: quicParams, Udp: udpMasks}
+	}
+
+	// Delegate TLS to parseSecurity
+	err = proxy.parseSecurity(proxy.link, streamSettings)
+	if err != nil {
+		return nil, err
 	}
 
 	outbound.StreamSetting = streamSettings
@@ -609,6 +644,11 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *conf.Str
 		tlsSettings.ALPN = &alpn
 	}
 
+	insecure := query.Get("insecure")
+	if insecure == "1" {
+		tlsSettings.AllowInsecure = true
+	}
+
 	pbk := query.Get("pbk")
 	realitySettings.Password = pbk
 	realitySettings.PublicKey = pbk
@@ -627,8 +667,11 @@ func (proxy xrayShareLink) parseSecurity(link *url.URL, streamSettings *conf.Str
 	}
 
 	// some link omits too many params, here is some fixing
-	if proxy.link.Scheme == "trojan" && streamSettings.Security == "none" {
-		streamSettings.Security = "tls"
+	switch proxy.link.Scheme {
+	case "trojan", "hysteria2", "hy2":
+		if streamSettings.Security == "none" {
+			streamSettings.Security = "tls"
+		}
 	}
 
 	network, err := streamSettings.Network.Build()
