@@ -4,6 +4,11 @@ import "C"
 
 func main() {}
 
+//export CGoSetTunFd
+func CGoSetTunFd(fd C.int) {
+	SetTunFd(int32(fd))
+}
+
 //export CGoInitDns
 func CGoInitDns(base64Text *C.char) *C.char {
 	text := C.GoString(base64Text)
