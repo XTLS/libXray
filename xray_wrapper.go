@@ -10,6 +10,12 @@ import (
 	"github.com/xtls/libxray/xray"
 )
 
+// SetTunFd sets the TUN file descriptor.
+// Call this BEFORE RunXray/RunXrayFromJSON.
+func SetTunFd(fd int32) {
+	xray.SetTunFd(fd)
+}
+
 type CountGeoDataRequest struct {
 	DatDir  string `json:"datDir,omitempty"`
 	Name    string `json:"name,omitempty"`
