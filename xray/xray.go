@@ -49,7 +49,7 @@ func StartXrayFromJSON(configJSON string) (*core.Instance, error) {
 // SetTunFd sets the TUN file descriptor.
 // Call this BEFORE RunXray/RunXrayFromJSON.
 func SetTunFd(fd int32) {
-	os.Setenv("XRAY_TUN_FD", strconv.Itoa(int(fd)))
+	os.Setenv(platform.TunFdKey, strconv.Itoa(int(fd)))
 }
 
 func InitEnv(datDir string, mphCachePath string) {

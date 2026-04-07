@@ -1,6 +1,6 @@
 module github.com/xtls/libxray
 
-go 1.26
+go 1.26.1
 
 require (
 	github.com/stretchr/testify v1.11.1
