@@ -33,6 +33,11 @@ func runXray(configPath string) error {
 	if err != nil {
 		return err
 	}
+
+	err = xray.RunXray(config.DatDir, config.MphCachePath, config.ConfigPath)
+	if err != nil {
+		return err
+	}
 	if config.Mode == "tun" {
 		err = initIpRoute(config.TunName, config.TunPriority)
 		if err != nil {
@@ -40,5 +45,9 @@ func runXray(configPath string) error {
 		}
 		dns.InitDns(config.Dns, config.BindInterface)
 	}
-	return xray.RunXray(config.DatDir, config.MphCachePath, config.ConfigPath)
+	return nil
+}
+
+func stopXray() {
+	xray.StopXray()
 }

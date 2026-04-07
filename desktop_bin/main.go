@@ -7,8 +7,6 @@ import (
 	"runtime"
 	"runtime/debug"
 	"syscall"
-
-	"github.com/xtls/libxray/xray"
 )
 
 func main() {
@@ -18,7 +16,7 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-	defer xray.StopXray()
+	defer stopXray()
 	// Explicitly triggering GC to remove garbage from config loading.
 	runtime.GC()
 	debug.FreeOSMemory()
