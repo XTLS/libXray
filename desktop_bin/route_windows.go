@@ -7,20 +7,16 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
-	"time"
 )
 
 func initIpRoute(tunName string, tunPriority int) error {
-	var err error
-	for i := 0; i < 3; i++ {
+	err := retryRouteInitStep("find tun device "+tunName, func() error {
+		var err error
 		_, err = net.InterfaceByName(tunName)
-		if err == nil {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
+		return err
+	})
 	if err != nil {
-		return fmt.Errorf("tun device %s not found after 3 attempts: %w", tunName, err)
+		return err
 	}
 
 	err = addRoute("ipv4", "0.0.0.0/0", tunName, tunPriority)
