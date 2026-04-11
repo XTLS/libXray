@@ -52,6 +52,7 @@ type ClashProxy struct {
 	EchOpts    *ClashProxyEchOpts    `yaml:"ech-opts,omitempty"`
 	WsOpts     *ClashProxyWsOpts     `yaml:"ws-opts,omitempty"`
 	GrpcOpts   *ClashProxyGrpcOpts   `yaml:"grpc-opts,omitempty"`
+	XhttpOpts  *ClashProxyXhttpOpts  `yaml:"xhttp-opts,omitempty"`
 }
 
 type ClashProxyEchOpts struct {
@@ -86,6 +87,48 @@ type ClashProxyWsOptsHeaders struct {
 
 type ClashProxyGrpcOpts struct {
 	GrpcServiceName string `yaml:"grpc-service-name,omitempty"`
+}
+
+type ClashProxyXhttpOpts struct {
+	Path               string                               `yaml:"path,omitempty"`
+	Host               string                               `yaml:"host,omitempty"`
+	Mode               string                               `yaml:"mode,omitempty"`
+	Headers            map[string]string                    `yaml:"headers,omitempty"`
+	NoGrpcHeader       bool                                 `yaml:"no-grpc-header,omitempty"`
+	XPaddingBytes      string                               `yaml:"x-padding-bytes,omitempty"`
+	ScMaxEachPostBytes string                               `yaml:"sc-max-each-post-bytes,omitempty"`
+	ReuseSettings      *ClashProxyXhttpOptsXMUX             `yaml:"reuse-settings,omitempty"`
+	DownloadSettings   *ClashProxyXhttpOptsDownloadSettings `yaml:"download-settings,omitempty"`
+}
+
+type ClashProxyXhttpOptsXMUX struct {
+	MaxConnections   string `yaml:"max-connections,omitempty"`
+	MaxConcurrency   string `yaml:"max-concurrency,omitempty"`
+	CMaxReuseTimes   string `yaml:"c-max-reuse-times,omitempty"`
+	HMaxRequestTimes string `yaml:"h-max-request-times,omitempty"`
+	HMaxReusableSecs string `yaml:"h-max-reusable-secs,omitempty"`
+}
+
+type ClashProxyXhttpOptsDownloadSettings struct {
+	Path               string                   `yaml:"path,omitempty"`
+	Host               string                   `yaml:"host,omitempty"`
+	Mode               string                   `yaml:"mode,omitempty"`
+	Headers            map[string]string        `yaml:"headers,omitempty"`
+	NoGrpcHeader       bool                     `yaml:"no-grpc-header,omitempty"`
+	XPaddingBytes      string                   `yaml:"x-padding-bytes,omitempty"`
+	ScMaxEachPostBytes string                   `yaml:"sc-max-each-post-bytes,omitempty"`
+	ReuseSettings      *ClashProxyXhttpOptsXMUX `yaml:"reuse-settings,omitempty"`
+	// proxy part
+	Server            string                 `yaml:"server,omitempty"`
+	Port              uint16                 `yaml:"port,omitempty"`
+	Tls               bool                   `yaml:"tls,omitempty"`
+	Alpn              []string               `yaml:"alpn,omitempty"`
+	EchOpts           *ClashProxyEchOpts     `yaml:"ech-opts,omitempty"`
+	RealityOpts       *ClashProxyRealityOpts `yaml:"reality-opts,omitempty"`
+	SkipCertVerify    bool                   `yaml:"skip-cert-verify,omitempty"`
+	Fingerprint       string                 `yaml:"fingerprint,omitempty"`
+	Servername        string                 `yaml:"servername,omitempty"`
+	ClientFingerprint string                 `yaml:"client-fingerprint,omitempty"`
 }
 
 func tryToParseClashYaml(text string) (*conf.Config, error) {
@@ -395,6 +438,14 @@ func (proxy ClashProxy) streamSettings(outbound conf.OutboundDetourConfig) (*con
 			grpcSettings.ServiceName = proxy.GrpcOpts.GrpcServiceName
 			streamSettings.GRPCSettings = grpcSettings
 		}
+	case "xhttp":
+		if proxy.XhttpOpts != nil {
+			xhttpSettings, err := parseXHTTPOpts(*proxy.XhttpOpts)
+			if err != nil {
+				return nil, err
+			}
+			streamSettings.XHTTPSettings = xhttpSettings
+		}
 	case "hysteria":
 		hysteriaSettings := &conf.HysteriaConfig{}
 		hysteriaSettings.Version = 2
@@ -499,6 +550,199 @@ func (proxy ClashProxy) parseSecurity(streamSettings *conf.StreamConfig, outboun
 	if (outbound.Protocol == "trojan" || outbound.Protocol == "hysteria") && len(streamSettings.Security) == 0 {
 		streamSettings.Security = "tls"
 	}
+
+	switch streamSettings.Security {
+	case "tls":
+		streamSettings.TLSSettings = tlsSettings
+	case "reality":
+		streamSettings.REALITYSettings = realitySettings
+	}
+}
+
+func parseXHTTPOpts(xhttpOpts ClashProxyXhttpOpts) (*conf.SplitHTTPConfig, error) {
+	xhttpSettings := &conf.SplitHTTPConfig{}
+	xhttpSettings.Path = xhttpOpts.Path
+	xhttpSettings.Host = xhttpOpts.Host
+	xhttpSettings.Mode = xhttpOpts.Mode
+
+	extra := &conf.SplitHTTPConfig{}
+	if len(xhttpOpts.Headers) > 0 {
+		extra.Headers = xhttpOpts.Headers
+	}
+	extra.NoGRPCHeader = xhttpOpts.NoGrpcHeader
+	if len(xhttpOpts.XPaddingBytes) > 0 {
+		int32Range, err := parseInt32RangeString(xhttpOpts.XPaddingBytes)
+		if err != nil {
+			return nil, err
+		}
+		extra.XPaddingBytes = *int32Range
+	}
+	if len(xhttpOpts.ScMaxEachPostBytes) > 0 {
+		int32Range, err := parseInt32RangeString(xhttpOpts.ScMaxEachPostBytes)
+		if err != nil {
+			return nil, err
+		}
+		extra.ScMaxEachPostBytes = *int32Range
+	}
+	if xhttpOpts.ReuseSettings != nil {
+		xmuxSettings, err := parseXHTTPXMUX(xhttpOpts.ReuseSettings)
+		if err != nil {
+			return nil, err
+		}
+		extra.Xmux = *xmuxSettings
+	}
+	if xhttpOpts.DownloadSettings != nil {
+		downloadSettings, err := parseXHTTPDownloadSettings(xhttpOpts.DownloadSettings)
+		if err != nil {
+			return nil, err
+		}
+		extra.DownloadSettings = downloadSettings
+	}
+
+	extraRawMessage, err := convertJsonToRawMessage(extra)
+	if err != nil {
+		return nil, err
+	}
+	xhttpSettings.Extra = extraRawMessage
+	return xhttpSettings, nil
+}
+
+func parseInt32RangeString(s string) (*conf.Int32Range, error) {
+	left, right, err := conf.ParseRangeString(s)
+	if err != nil {
+		return nil, err
+	}
+	return &conf.Int32Range{
+		Left:  int32(left),
+		Right: int32(right),
+		From:  int32(left),
+		To:    int32(right),
+	}, nil
+}
+
+func parseXHTTPXMUX(reuseSettings *ClashProxyXhttpOptsXMUX) (*conf.XmuxConfig, error) {
+	xmuxSettings := &conf.XmuxConfig{}
+	if len(reuseSettings.MaxConnections) > 0 {
+		int32Range, err := parseInt32RangeString(reuseSettings.MaxConnections)
+		if err != nil {
+			return nil, err
+		}
+		xmuxSettings.MaxConnections = *int32Range
+	}
+	if len(reuseSettings.MaxConcurrency) > 0 {
+		int32Range, err := parseInt32RangeString(reuseSettings.MaxConcurrency)
+		if err != nil {
+			return nil, err
+		}
+		xmuxSettings.MaxConcurrency = *int32Range
+	}
+	if len(reuseSettings.CMaxReuseTimes) > 0 {
+		int32Range, err := parseInt32RangeString(reuseSettings.CMaxReuseTimes)
+		if err != nil {
+			return nil, err
+		}
+		xmuxSettings.CMaxReuseTimes = *int32Range
+	}
+	if len(reuseSettings.HMaxRequestTimes) > 0 {
+		int32Range, err := parseInt32RangeString(reuseSettings.HMaxRequestTimes)
+		if err != nil {
+			return nil, err
+		}
+		xmuxSettings.HMaxRequestTimes = *int32Range
+	}
+	if len(reuseSettings.HMaxReusableSecs) > 0 {
+		int32Range, err := parseInt32RangeString(reuseSettings.HMaxReusableSecs)
+		if err != nil {
+			return nil, err
+		}
+		xmuxSettings.HMaxReusableSecs = *int32Range
+	}
+	return xmuxSettings, nil
+}
+
+func parseXHTTPDownloadSettings(downloadSettings *ClashProxyXhttpOptsDownloadSettings) (*conf.StreamConfig, error) {
+	streamSettings := &conf.StreamConfig{}
+
+	streamSettings.Address = parseAddress(downloadSettings.Server)
+	streamSettings.Port = downloadSettings.Port
+
+	network := conf.TransportProtocol("xhttp")
+	streamSettings.Network = &network
+
+	xhttpSettings := &conf.SplitHTTPConfig{}
+	xhttpSettings.Path = downloadSettings.Path
+	xhttpSettings.Host = downloadSettings.Host
+	xhttpSettings.Mode = downloadSettings.Mode
+
+	if len(downloadSettings.Headers) > 0 {
+		xhttpSettings.Headers = downloadSettings.Headers
+	}
+	xhttpSettings.NoGRPCHeader = downloadSettings.NoGrpcHeader
+	if len(downloadSettings.XPaddingBytes) > 0 {
+		int32Range, err := parseInt32RangeString(downloadSettings.XPaddingBytes)
+		if err != nil {
+			return nil, err
+		}
+		xhttpSettings.XPaddingBytes = *int32Range
+	}
+	if len(downloadSettings.ScMaxEachPostBytes) > 0 {
+		int32Range, err := parseInt32RangeString(downloadSettings.ScMaxEachPostBytes)
+		if err != nil {
+			return nil, err
+		}
+		xhttpSettings.ScMaxEachPostBytes = *int32Range
+	}
+	if downloadSettings.ReuseSettings != nil {
+		xmuxSettings, err := parseXHTTPXMUX(downloadSettings.ReuseSettings)
+		if err != nil {
+			return nil, err
+		}
+		xhttpSettings.Xmux = *xmuxSettings
+	}
+	streamSettings.XHTTPSettings = xhttpSettings
+
+	parseXHTTPDownloadSettingsSecurity(streamSettings, downloadSettings)
+
+	return streamSettings, nil
+}
+
+func parseXHTTPDownloadSettingsSecurity(streamSettings *conf.StreamConfig, proxy *ClashProxyXhttpOptsDownloadSettings) {
+	tlsSettings := &conf.TLSConfig{}
+	realitySettings := &conf.REALITYConfig{}
+
+	if proxy.Tls {
+		streamSettings.Security = "tls"
+	}
+
+	if proxy.EchOpts != nil {
+		if proxy.EchOpts.Enable {
+			tlsSettings.ECHConfigList = proxy.EchOpts.Config
+		}
+	}
+
+	if proxy.RealityOpts != nil {
+		streamSettings.Security = "reality"
+		realitySettings.PublicKey = proxy.RealityOpts.PublicKey
+		realitySettings.ShortId = proxy.RealityOpts.ShortId
+	}
+	if len(proxy.Servername) > 0 {
+		tlsSettings.ServerName = proxy.Servername
+		realitySettings.ServerName = proxy.Servername
+	}
+	if len(proxy.Alpn) > 0 {
+		alpn := conf.StringList(proxy.Alpn)
+		tlsSettings.ALPN = &alpn
+	}
+	if len(proxy.Fingerprint) > 0 {
+		tlsSettings.Fingerprint = proxy.Fingerprint
+		realitySettings.Fingerprint = proxy.Fingerprint
+	}
+	if len(proxy.ClientFingerprint) > 0 {
+		tlsSettings.Fingerprint = proxy.ClientFingerprint
+		realitySettings.Fingerprint = proxy.ClientFingerprint
+	}
+
+	tlsSettings.AllowInsecure = proxy.SkipCertVerify
 
 	switch streamSettings.Security {
 	case "tls":
