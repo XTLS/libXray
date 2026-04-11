@@ -8,6 +8,12 @@ import (
 const (
 	routeInitRetryAttempts = 3
 	routeInitRetryInterval = 2 * time.Second
+	defaultTunIPv4Address  = "198.18.0.1/15"
+	defaultTunIPv4Gateway  = "198.18.0.2"
+	defaultIPv4Route       = "0.0.0.0/0"
+	defaultTunIPv6Address  = "fc00::1/64"
+	defaultTunIPv6Gateway  = "fc00::2"
+	defaultIPv6Route       = "::/0"
 )
 
 func retryRouteInitStep(step string, fn func() error) error {
