@@ -27,14 +27,10 @@ type vmessQrCode struct {
 }
 
 func parseVMessQrCode(text string) (*conf.OutboundDetourConfig, error) {
-	qrcodeBytes := []byte(text)
-	var qrcode *vmessQrCode
-
-	err := json.Unmarshal(qrcodeBytes, &qrcode)
-	if err != nil {
+	var qrcode vmessQrCode
+	if err := json.Unmarshal([]byte(text), &qrcode); err != nil {
 		return nil, err
 	}
-
 	return qrcode.outbound()
 }
 
@@ -44,7 +40,6 @@ func (proxy vmessQrCode) outbound() (*conf.OutboundDetourConfig, error) {
 	setOutboundName(outbound, proxy.Ps)
 
 	settings := conf.VMessOutboundConfig{}
-
 	settings.Address = parseAddress(proxy.Add)
 	portStr := fmt.Sprintf("%v", proxy.Port)
 	port, err := strconv.Atoi(portStr)
@@ -52,7 +47,6 @@ func (proxy vmessQrCode) outbound() (*conf.OutboundDetourConfig, error) {
 		return nil, err
 	}
 	settings.Port = uint16(port)
-
 	settings.ID = proxy.Id
 	settings.Security = proxy.Scy
 
@@ -62,120 +56,29 @@ func (proxy vmessQrCode) outbound() (*conf.OutboundDetourConfig, error) {
 	}
 	outbound.Settings = &settingsRawMessage
 
-	streamSettings, err := proxy.streamSettings()
+	streamSettings, err := buildStreamFromTransportFields(transportFieldsFromVmessQR(proxy))
 	if err != nil {
+		return nil, err
+	}
+	if err := proxy.parseSecurity(streamSettings); err != nil {
 		return nil, err
 	}
 	outbound.StreamSetting = streamSettings
-
 	return outbound, nil
-}
-
-func (proxy vmessQrCode) streamSettings() (*conf.StreamConfig, error) {
-	streamSettings := &conf.StreamConfig{}
-	network := proxy.Net
-	if len(network) == 0 {
-		network = "raw"
-	}
-	transportProtocol := conf.TransportProtocol(network)
-	streamSettings.Network = &transportProtocol
-
-	switch network {
-	case "raw", "tcp":
-		headerType := proxy.Type
-		if headerType == "http" {
-			var request XrayRawSettingsHeaderRequest
-			path := proxy.Path
-			if len(path) > 0 {
-				request.Path = strings.Split(path, ",")
-			}
-			host := proxy.Host
-			if len(host) > 0 {
-				var headers XrayRawSettingsHeaderRequestHeaders
-				headers.Host = strings.Split(host, ",")
-				request.Headers = &headers
-			}
-			var header XrayRawSettingsHeader
-			header.Type = headerType
-			header.Request = &request
-
-			rawSettings := &conf.TCPConfig{}
-
-			headerRawMessage, err := convertJsonToRawMessage(header)
-			if err != nil {
-				return nil, err
-			}
-			rawSettings.HeaderConfig = headerRawMessage
-
-			streamSettings.RAWSettings = rawSettings
-		}
-	case "kcp", "mkcp":
-		kcpSettings := &conf.KCPConfig{}
-		headerType := proxy.Type
-		if len(headerType) > 0 {
-			var header XrayFakeHeader
-			header.Type = headerType
-
-			headerRawMessage, err := convertJsonToRawMessage(header)
-			if err != nil {
-				return nil, err
-			}
-			kcpSettings.HeaderConfig = headerRawMessage
-		}
-		kcpSettings.Seed = &proxy.Path
-
-		streamSettings.KCPSettings = kcpSettings
-	case "ws", "websocket":
-		wsSettings := &conf.WebSocketConfig{}
-		wsSettings.Path = proxy.Path
-		wsSettings.Host = proxy.Host
-
-		streamSettings.WSSettings = wsSettings
-	case "grpc", "gun":
-		grcpSettings := &conf.GRPCConfig{}
-		grcpSettings.ServiceName = proxy.Path
-		mode := proxy.Type
-		grcpSettings.MultiMode = mode == "multi"
-		streamSettings.GRPCSettings = grcpSettings
-	case "httpupgrade":
-		httpupgradeSettings := &conf.HttpUpgradeConfig{}
-		httpupgradeSettings.Host = proxy.Host
-		httpupgradeSettings.Path = proxy.Path
-
-		streamSettings.HTTPUPGRADESettings = httpupgradeSettings
-	case "xhttp", "splithttp":
-		xhttpSettings := &conf.SplitHTTPConfig{}
-		xhttpSettings.Host = proxy.Host
-		xhttpSettings.Path = proxy.Path
-		xhttpSettings.Mode = proxy.Type
-		streamSettings.XHTTPSettings = xhttpSettings
-	}
-
-	err := proxy.parseSecurity(streamSettings)
-	if err != nil {
-		return nil, err
-	}
-
-	return streamSettings, nil
 }
 
 func (proxy vmessQrCode) parseSecurity(streamSettings *conf.StreamConfig) error {
 	tlsSettings := &conf.TLSConfig{}
-
 	tlsSettings.Fingerprint = proxy.Fp
 	tlsSettings.ServerName = proxy.Sni
-
-	alpn := proxy.Alpn
-	if len(alpn) > 0 {
-		alpn := conf.StringList(strings.Split(alpn, ","))
-		tlsSettings.ALPN = &alpn
+	if proxy.Alpn != "" {
+		tlsSettings.ALPN = new(conf.StringList(strings.Split(proxy.Alpn, ",")))
 	}
 
-	security := proxy.Tls
-	if len(security) == 0 {
+	if proxy.Tls == "" {
 		streamSettings.Security = "none"
 	} else {
-		streamSettings.Security = security
+		streamSettings.Security = proxy.Tls
 	}
 
 	network, err := streamSettings.Network.Build()
@@ -183,10 +86,9 @@ func (proxy vmessQrCode) parseSecurity(streamSettings *conf.StreamConfig) error 
 		return err
 	}
 	// some link omits too many params, here is some fixing
-	if network == "websocket" && len(tlsSettings.ServerName) == 0 {
-		if streamSettings.WSSettings != nil && len(streamSettings.WSSettings.Host) > 0 {
-			tlsSettings.ServerName = streamSettings.WSSettings.Host
-		}
+	if network == "websocket" && tlsSettings.ServerName == "" &&
+		streamSettings.WSSettings != nil && streamSettings.WSSettings.Host != "" {
+		tlsSettings.ServerName = streamSettings.WSSettings.Host
 	}
 
 	switch streamSettings.Security {

@@ -26,7 +26,7 @@ func ConvertXrayJsonToShareLinks(xrayBytes []byte) (string, error) {
 		return "", fmt.Errorf("no valid outbounds")
 	}
 
-	var links []string
+	links := make([]string, 0, len(outbounds))
 	for _, outbound := range outbounds {
 		link, err := shareLink(outbound)
 		if err == nil {
@@ -480,11 +480,15 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 	link.RawQuery = query
 }
 
-func addQuery(query string, key string, value string) string {
-	newQuery := fmt.Sprintf("%s=%s", key, url.QueryEscape(value))
-	if len(query) == 0 {
-		return newQuery
-	} else {
-		return fmt.Sprintf("%s&%s", query, newQuery)
+func addQuery(rawQuery string, key, value string) string {
+	v, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		newPart := key + "=" + url.QueryEscape(value)
+		if rawQuery == "" {
+			return newPart
+		}
+		return rawQuery + "&" + newPart
 	}
+	v.Add(key, value)
+	return v.Encode()
 }
