@@ -1,6 +1,7 @@
 package share
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/url"
 	"testing"
@@ -18,19 +19,16 @@ func buildHy2Outbound(t *testing.T, auth string, host string, port uint16, strea
 	}
 	settingsJSON, err := json.Marshal(settings)
 	require.NoError(t, err)
-	raw := json.RawMessage(settingsJSON)
-
 	return conf.OutboundDetourConfig{
 		Protocol:      "hysteria",
-		Settings:      &raw,
+		Settings:      new(json.RawMessage(settingsJSON)),
 		StreamSetting: streamSetting,
 	}
 }
 
 func buildHy2StreamSettings(auth string, tls *conf.TLSConfig, finalMask *conf.FinalMask) *conf.StreamConfig {
-	network := conf.TransportProtocol("hysteria")
 	ss := &conf.StreamConfig{
-		Network:  &network,
+		Network:  new(conf.TransportProtocol("hysteria")),
 		Security: "tls",
 	}
 	ss.TLSSettings = tls
@@ -85,8 +83,7 @@ func TestGenerate_Hy2_WithSalamanderBandwidthPortHopping(t *testing.T) {
 	salamander := &conf.Salamander{Password: "secret"}
 	salJSON, err := json.Marshal(salamander)
 	require.NoError(t, err)
-	salRaw := json.RawMessage(salJSON)
-	fm.Udp = []conf.Mask{{Type: "salamander", Settings: &salRaw}}
+	fm.Udp = []conf.Mask{{Type: "salamander", Settings: new(json.RawMessage(salJSON))}}
 
 	ss := buildHy2StreamSettings("auth", tls, fm)
 	outbound := buildHy2Outbound(t, "auth", "host", 443, ss)
@@ -149,4 +146,51 @@ func TestGenerate_Hy2_RoundTrip(t *testing.T) {
 	assert.Equal(t, origQ.Get("hop-interval"), genQ.Get("hop-interval"))
 	assert.Equal(t, origQ.Get("obfs"), genQ.Get("obfs"))
 	assert.Equal(t, origQ.Get("obfs-password"), genQ.Get("obfs-password"))
+}
+
+func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
+	cases := []string{
+		"vless://" + testShareUUID + "@r1.example:443?encryption=none&security=tls&sni=r1.example&type=ws&path=%2Fr&host=h.r1",
+		"trojan://trpass@r2.example:443?sni=r2.example",
+		"ss://" + ssUserB64("aes-128-gcm", "pw") + "@r3.example:8389",
+		"vmess://" + testShareUUID + "@r4.example:443?encryption=none&type=tcp",
+		"socks://" + base64.StdEncoding.EncodeToString([]byte("u:p")) + "@127.0.0.1:1090",
+	}
+	for _, link := range cases {
+		t.Run(link[:12], func(t *testing.T) {
+			cfg, err := ConvertShareLinksToXrayJson(link)
+			require.NoError(t, err)
+			out, err := json.Marshal(cfg)
+			require.NoError(t, err)
+			text, err := ConvertXrayJsonToShareLinks(out)
+			require.NoError(t, err)
+			assert.NotEmpty(t, text)
+			again, err := ConvertShareLinksToXrayJson(text)
+			require.NoError(t, err)
+			require.Len(t, again.OutboundConfigs, 1)
+			assert.Equal(t, cfg.OutboundConfigs[0].Protocol, again.OutboundConfigs[0].Protocol)
+		})
+	}
+}
+
+func TestConvertXrayJsonToShareLinks_Errors(t *testing.T) {
+	_, err := ConvertXrayJsonToShareLinks([]byte(`{"outbounds":[]}`))
+	require.Error(t, err)
+
+	_, err = ConvertXrayJsonToShareLinks([]byte(`{`))
+	require.Error(t, err)
+}
+
+func TestConvertXrayJsonToShareLinks_PrefersTagWhenSendThroughEmpty(t *testing.T) {
+	cfg, err := ConvertShareLinksToXrayJson(`trojan://pw@tag.example:443`)
+	require.NoError(t, err)
+	ob := cfg.OutboundConfigs[0]
+	empty := ""
+	ob.SendThrough = &empty
+	ob.Tag = "named-by-tag"
+	out, err := json.Marshal(&conf.Config{OutboundConfigs: []conf.OutboundDetourConfig{ob}})
+	require.NoError(t, err)
+	links, err := ConvertXrayJsonToShareLinks(out)
+	require.NoError(t, err)
+	assert.Contains(t, links, "#named-by-tag")
 }
