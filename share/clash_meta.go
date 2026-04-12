@@ -132,32 +132,23 @@ type ClashProxyXhttpOptsDownloadSettings struct {
 }
 
 func tryToParseClashYaml(text string) (*conf.Config, error) {
-	clashBytes := []byte(text)
-	clash := ClashYaml{}
-
-	err := yaml.Unmarshal(clashBytes, &clash)
-	if err != nil {
+	var clash ClashYaml
+	if err := yaml.Unmarshal([]byte(text), &clash); err != nil {
 		return nil, err
 	}
-
-	xray := clash.xrayConfig()
-	return xray, nil
+	return clash.toXrayConfig(), nil
 }
 
-func (clash ClashYaml) xrayConfig() *conf.Config {
-	xray := &conf.Config{}
-
-	var outbounds []conf.OutboundDetourConfig
+func (clash ClashYaml) toXrayConfig() *conf.Config {
+	outbounds := make([]conf.OutboundDetourConfig, 0, len(clash.Proxies))
 	for _, proxy := range clash.Proxies {
-		if outbound, err := proxy.outbound(); err == nil {
-			outbounds = append(outbounds, *outbound)
-		} else {
-			fmt.Println(err)
+		outbound, err := proxy.outbound()
+		if err != nil {
+			continue
 		}
+		outbounds = append(outbounds, *outbound)
 	}
-	xray.OutboundConfigs = outbounds
-
-	return xray
+	return &conf.Config{OutboundConfigs: outbounds}
 }
 
 func (proxy ClashProxy) outbound() (*conf.OutboundDetourConfig, error) {
@@ -202,7 +193,7 @@ func (proxy ClashProxy) outbound() (*conf.OutboundDetourConfig, error) {
 		}
 		return outbound, nil
 	}
-	return nil, fmt.Errorf("unsupport proxy type: %s", proxy.Type)
+	return nil, fmt.Errorf("unsupported proxy type: %s", proxy.Type)
 }
 
 func (proxy ClashProxy) shadowsocksOutbound() (*conf.OutboundDetourConfig, error) {
@@ -236,8 +227,7 @@ func (proxy ClashProxy) shadowsocksOutbound() (*conf.OutboundDetourConfig, error
 			return nil, fmt.Errorf("unsupport ss plugin-opts mode: %s", proxy.PluginOpts.Mode)
 		}
 		streamSetting := &conf.StreamConfig{}
-		network := conf.TransportProtocol("websocket")
-		streamSetting.Network = &network
+		streamSetting.Network = new(conf.TransportProtocol("websocket"))
 
 		wsSettings := &conf.WebSocketConfig{}
 		if len(proxy.PluginOpts.Host) > 0 {
@@ -308,6 +298,8 @@ func (proxy ClashProxy) vlessOutbound() (*conf.OutboundDetourConfig, error) {
 	settings.Flow = proxy.Flow
 	if len(proxy.Encryption) > 0 {
 		settings.Encryption = proxy.Encryption
+	} else {
+		settings.Encryption = "none"
 	}
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
@@ -418,7 +410,7 @@ func (proxy ClashProxy) streamSettings(outbound conf.OutboundDetourConfig) (*con
 	// fix hysteria network
 	if proxy.Type == "hysteria2" {
 		network = "hysteria"
-		transportProtocol = conf.TransportProtocol("hysteria")
+		transportProtocol = "hysteria"
 		streamSettings.Network = &transportProtocol
 	}
 
@@ -452,54 +444,15 @@ func (proxy ClashProxy) streamSettings(outbound conf.OutboundDetourConfig) (*con
 		hysteriaSettings.Auth = proxy.Password
 		streamSettings.HysteriaSettings = hysteriaSettings
 
-		// Build QuicParams from bandwidth and port-hopping params
-		var quicParams *conf.QuicParamsConfig
-		if len(proxy.Up) > 0 || len(proxy.Down) > 0 || len(proxy.Ports) > 0 {
-			quicParams = &conf.QuicParamsConfig{}
-			if len(proxy.Up) > 0 || len(proxy.Down) > 0 {
-				quicParams.Congestion = "brutal"
-			}
-			if len(proxy.Up) > 0 {
-				quicParams.BrutalUp = conf.Bandwidth(proxy.Up)
-			}
-			if len(proxy.Down) > 0 {
-				quicParams.BrutalDown = conf.Bandwidth(proxy.Down)
-			}
-			if len(proxy.Ports) > 0 {
-				udpHop := conf.UdpHop{}
-				portListRawMessage, err := convertJsonToRawMessage(proxy.Ports)
-				if err != nil {
-					return nil, err
-				}
-				udpHop.PortList = portListRawMessage
-				if proxy.HopInterval > 0 {
-					udpHop.Interval = &conf.Int32Range{Left: proxy.HopInterval, Right: proxy.HopInterval, From: proxy.HopInterval, To: proxy.HopInterval}
-				}
-				quicParams.UdpHop = udpHop
-			}
+		var hopPtr *int32
+		if proxy.HopInterval > 0 {
+			hopPtr = new(proxy.HopInterval)
 		}
-
-		// Build Salamander UDP masks
-		var udpMasks []conf.Mask
-		if proxy.Obfs == "salamander" && len(proxy.ObfsPassword) > 0 {
-			obfs := conf.Mask{}
-			obfs.Type = "salamander"
-
-			settings := &conf.Salamander{}
-			settings.Password = proxy.ObfsPassword
-
-			settingsRawMessage, err := convertJsonToRawMessage(settings)
-			if err != nil {
-				return nil, err
-			}
-			obfs.Settings = &settingsRawMessage
-			udpMasks = []conf.Mask{obfs}
+		fm, err := buildHy2FinalMask(proxy.Up, proxy.Down, proxy.Ports, hopPtr, proxy.Obfs, proxy.ObfsPassword)
+		if err != nil {
+			return nil, err
 		}
-
-		// Compose FinalMask from QuicParams + Salamander
-		if quicParams != nil || len(udpMasks) > 0 {
-			streamSettings.FinalMask = &conf.FinalMask{QuicParams: quicParams, Udp: udpMasks}
-		}
+		streamSettings.FinalMask = fm
 	}
 	proxy.parseSecurity(streamSettings, outbound)
 	return streamSettings, nil
@@ -533,8 +486,7 @@ func (proxy ClashProxy) parseSecurity(streamSettings *conf.StreamConfig, outboun
 		realitySettings.ServerName = proxy.Sni
 	}
 	if len(proxy.Alpn) > 0 {
-		alpn := conf.StringList(proxy.Alpn)
-		tlsSettings.ALPN = &alpn
+		tlsSettings.ALPN = new(conf.StringList(proxy.Alpn))
 	}
 	if len(proxy.Fingerprint) > 0 {
 		tlsSettings.Fingerprint = proxy.Fingerprint
@@ -666,8 +618,7 @@ func parseXHTTPDownloadSettings(downloadSettings *ClashProxyXhttpOptsDownloadSet
 	streamSettings.Address = parseAddress(downloadSettings.Server)
 	streamSettings.Port = downloadSettings.Port
 
-	network := conf.TransportProtocol("xhttp")
-	streamSettings.Network = &network
+	streamSettings.Network = new(conf.TransportProtocol("xhttp"))
 
 	xhttpSettings := &conf.SplitHTTPConfig{}
 	xhttpSettings.Path = downloadSettings.Path
@@ -730,8 +681,7 @@ func parseXHTTPDownloadSettingsSecurity(streamSettings *conf.StreamConfig, proxy
 		realitySettings.ServerName = proxy.Servername
 	}
 	if len(proxy.Alpn) > 0 {
-		alpn := conf.StringList(proxy.Alpn)
-		tlsSettings.ALPN = &alpn
+		tlsSettings.ALPN = new(conf.StringList(proxy.Alpn))
 	}
 	if len(proxy.Fingerprint) > 0 {
 		tlsSettings.Fingerprint = proxy.Fingerprint

@@ -101,6 +101,12 @@ func base64EncodeRequest(request interface{}) (string, error) {
 	return base64.StdEncoding.EncodeToString(requestBytes), nil
 }
 
+// testVmessPayloadBase64 is standard base64 of a minimal VMess JSON (add, port, id, aid, scy) for tests.
+func testVmessPayloadBase64() string {
+	const vmessJSON = `{"add":"127.0.0.1","port":1080,"id":"00000000-0000-0000-0000-000000000000","aid":0,"scy":"auto"}`
+	return base64.StdEncoding.EncodeToString([]byte(vmessJSON))
+}
+
 // handleTestResponse decodes and checks the response from Xray
 func handleTestResponse(response string, t *testing.T) {
 	// Decode the base64 response
@@ -125,8 +131,7 @@ func handleTestResponse(response string, t *testing.T) {
 
 // TestRunXrayWithVmess tests running Xray with VMess configuration
 func TestRunXrayWithVmess(t *testing.T) {
-	// Example VMess configuration (base64 encoded)
-	vmess := `xxx`
+	vmess := testVmessPayloadBase64()
 
 	// Decode and parse the VMess configuration
 	vmessConfig, err := decodeVmessConfig(vmess)
@@ -169,8 +174,7 @@ func TestRunXrayWithVmess(t *testing.T) {
 
 // TestRunXray tests running Xray with a VMess configuration for real-world usage
 func TestRunXray(t *testing.T) {
-	// Example VMess configuration (same as in the previous test)
-	vmess := `xxx`
+	vmess := testVmessPayloadBase64()
 
 	// Decode and parse the VMess configuration
 	vmessConfig, err := decodeVmessConfig(vmess)
