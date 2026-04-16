@@ -9,8 +9,6 @@ import (
 )
 
 type runXrayConfig struct {
-	// tun / proxy
-	Mode string `json:"mode,omitempty"`
 	// tun
 	TunName     string `json:"tunName,omitempty"`
 	TunPriority int    `json:"tunPriority,omitempty"`
@@ -38,13 +36,11 @@ func runXray(configPath string) error {
 	if err != nil {
 		return err
 	}
-	if config.Mode == "tun" {
-		err = initIpRoute(config.TunName, config.TunPriority)
-		if err != nil {
-			return err
-		}
-		dns.InitDns(config.Dns, config.BindInterface)
+	err = initIpRoute(config.TunName, config.TunPriority)
+	if err != nil {
+		return err
 	}
+	dns.InitDns(config.Dns, config.BindInterface)
 	return nil
 }
 
