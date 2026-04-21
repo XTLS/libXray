@@ -19,7 +19,15 @@ class AndroidBuilder(Builder):
         os.chdir(self.lib_dir)
         # keep same with flutter
         ret = subprocess.run(
-            ["gomobile", "bind", "-target", "android", "-androidapi", "21"]
+            [
+                "gomobile",
+                "bind",
+                "-target",
+                "android",
+                "-androidapi",
+                "21",
+                "-ldflags=-extldflags=-Wl,-z,max-page-size=16384",
+            ]
         )
         if ret.returncode != 0:
             raise Exception("build failed")
