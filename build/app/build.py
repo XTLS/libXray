@@ -35,6 +35,10 @@ class Builder(object):
         if ret.returncode != 0:
             raise Exception("go mod init failed")
 
+        # apply go mod replace to use local xray-core
+        with open("go.mod", "a") as f:
+            f.write("\nreplace github.com/xtls/xray-core => ../Xray-core\n")
+
         ret = subprocess.run(
             [
                 "go",
@@ -149,6 +153,7 @@ class Builder(object):
             raise Exception(f"build_desktop_bin failed")
 
     def revert_go_env(self):
+        return
         os.chdir(self.lib_dir)
         self.clean_lib_files(["go.mod", "go.sum"])
         ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
