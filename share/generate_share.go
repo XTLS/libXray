@@ -251,6 +251,9 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 				}
 			}
 			if qp.UdpHop.Interval.From >= 5 {
+				query = addQuery(query, "ports", qp.UdpHop.PortList.String())
+			}
+			if qp.UdpHop.Interval.From != 0 || qp.UdpHop.Interval.To != 0 {
 				query = addQuery(query, "hop-interval", strconv.FormatInt(int64(qp.UdpHop.Interval.From), 10))
 			}
 		}

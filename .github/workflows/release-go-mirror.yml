@@ -1,0 +1,71 @@
+name: Go module mirror tag
+
+# Background
+#
+# libXray uses CalVer tags vYY.M.D (e.g. v26.3.27 = 2026-03-27). Per the Go
+# modules spec, modules with major version >= 2 must encode the major in their
+# import path (github.com/xtls/libxray/vN). Bumping the import path every year
+# would force every Go consumer to rewrite imports each January, so this
+# repository keeps its module path bare and instead publishes a SemVer-shaped
+# mirror tag on the same commit:
+#
+#   CalVer  v26.3.27   →  Go-import  v1.260327.0
+#
+# Pattern matches xray-core's own scheme (v1.YYMMDD.N) and keeps Go consumers
+# on a stable major. The CalVer tag remains the human-readable canonical
+# release; the v1.* tag is purely for `go get`.
+#
+# This workflow listens for CalVer pushes and creates the matching v1.* tag.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+jobs:
+  mirror:
+    name: Mirror CalVer tag to v1.YYMMDD.N
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (full history + tags)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Compute and push mirror tag
+        env:
+          GH_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          CAL="${GH_REF#refs/tags/}"
+          # Skip if this push is itself a v1.* tag (avoid recursion).
+          case "$CAL" in
+            v1.*) echo "skip: $CAL is already a Go-import tag"; exit 0 ;;
+          esac
+
+          # Parse vYY.M.D. Reject anything that is not three numeric parts
+          # in plausible CalVer ranges (YY >= 20, M 1-12, D 1-31).
+          IFS=. read -r Y M D <<<"${CAL#v}"
+          if ! [[ "$Y" =~ ^[0-9]+$ && "$M" =~ ^[0-9]+$ && "$D" =~ ^[0-9]+$ ]]; then
+            echo "skip: $CAL is not numeric vYY.M.D"; exit 0
+          fi
+          if [ "$Y" -lt 20 ] || [ "$M" -lt 1 ] || [ "$M" -gt 12 ] || [ "$D" -lt 1 ] || [ "$D" -gt 31 ]; then
+            echo "skip: $CAL is outside CalVer range (legacy semver tag?)"; exit 0
+          fi
+
+          MMDD=$(printf '%02d%02d' "$M" "$D")
+          BASE="v1.${Y}${MMDD}"
+          PATCH=0
+          while git rev-parse -q --verify "refs/tags/${BASE}.${PATCH}" >/dev/null; do
+            PATCH=$((PATCH+1))
+          done
+          SEMVER="${BASE}.${PATCH}"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$SEMVER" "$CAL" -m "Go-modules mirror of $CAL"
+          git push origin "$SEMVER"
+          echo "mapped $CAL → $SEMVER"

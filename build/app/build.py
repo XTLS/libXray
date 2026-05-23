@@ -30,10 +30,10 @@ class Builder(object):
 
     def init_go_env(self):
         os.chdir(self.lib_dir)
-        self.clean_lib_files(["go.mod", "go.sum"])
-        ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
-        if ret.returncode != 0:
-            raise Exception("go mod init failed")
+        if not os.path.exists(os.path.join(self.lib_dir, "go.mod")):
+            ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
+            if ret.returncode != 0:
+                raise Exception("go mod init failed")
 
         ret = subprocess.run(
             [
@@ -150,11 +150,6 @@ class Builder(object):
 
     def revert_go_env(self):
         os.chdir(self.lib_dir)
-        self.clean_lib_files(["go.mod", "go.sum"])
-        ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
-        if ret.returncode != 0:
-            raise Exception("go mod init failed")
-
         ret = subprocess.run(
             [
                 "go",

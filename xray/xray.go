@@ -1,6 +1,7 @@
 package xray
 
 import (
+	"errors"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -9,8 +10,6 @@ import (
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/common/platform"
 	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/infra/conf/serial"
-	"github.com/xtls/xray-core/main/commands/base"
 	_ "github.com/xtls/xray-core/main/distro/all"
 )
 
@@ -55,10 +54,6 @@ func SetTunFd(fd int32) {
 func InitEnv(datDir string, mphCachePath string) {
 	os.Setenv(platform.AssetLocation, datDir)
 	os.Setenv(platform.CertLocation, datDir)
-
-	if mphCachePath != "" {
-		os.Setenv(platform.MphCachePath, mphCachePath)
-	}
 }
 
 // Run Xray instance.
@@ -119,24 +114,6 @@ func XrayVersion() string {
 	return core.Version()
 }
 
-// https://github.com/XTLS/Xray-core/blob/main/main/commands/all/buildmphcache.go
 func BuildMphCache(datDir string, mphCachePath string, configPath string) error {
-	InitEnv(datDir, "")
-	cf, err := os.Open(configPath)
-	if err != nil {
-		base.Fatalf("failed to open config file: %v", err)
-	}
-	defer cf.Close()
-
-	config, err := serial.DecodeJSONConfig(cf)
-	if err != nil {
-		base.Fatalf("failed to decode config file: %v", err)
-		return err
-	}
-
-	if err := config.BuildMPHCache(&mphCachePath); err != nil {
-		base.Fatalf("failed to build MPH cache: %v", err)
-		return err
-	}
-	return nil
+	return errors.New("MPH cache building is not supported by xray-core v26.5.9")
 }
