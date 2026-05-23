@@ -21,11 +21,13 @@ func buildHy2FinalMask(up, down, ports string, hopInterval *int32, obfsType, obf
 			quicParams.BrutalDown = conf.Bandwidth(down)
 		}
 		if ports != "" {
+			var portList conf.PortList
 			udpHop := conf.UdpHop{}
-			portListJSON, err := json.Marshal(ports)
+			err := json.Unmarshal([]byte(ports), &portList)
 			if err != nil {
 				return nil, err
 			}
+			udpHop.PortList = portList
 			if err := json.Unmarshal(portListJSON, &udpHop.PortList); err != nil {
 				return nil, err
 			}
