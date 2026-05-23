@@ -16,14 +16,22 @@
 
 依赖 git 和 go。
 
+默认情况下，编译脚本会将 [Xray-core](https://github.com/XTLS/Xray-core) clone 到 `../Xray-core-libXray`，并 checkout `v26.5.9`。
+传入可选参数 `local` 时，会跳过 clone，改用已有的本地仓库 `../Xray-core`。
+
 ### 使用方式
 
 ```shell
 python3 build/main.py android
+python3 build/main.py android local
 python3 build/main.py apple gomobile
 python3 build/main.py apple go
+python3 build/main.py apple gomobile local
+python3 build/main.py apple go local
 python3 build/main.py linux
+python3 build/main.py linux local
 python3 build/main.py windows
+python3 build/main.py windows local
 ```
 
 ### Android

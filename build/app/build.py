@@ -11,7 +11,7 @@ from app.cmd import (
 
 LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 XRAY_CORE_REPO = "https://github.com/XTLS/Xray-core.git"
-DEFAULT_XRAY_CORE_TAG = "v26.3.7"
+DEFAULT_XRAY_CORE_TAG = "v26.5.9"
 CLONED_XRAY_CORE_DIR_NAME = "Xray-core-libXray"
 LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
@@ -84,16 +84,21 @@ class Builder(object):
 
     def init_go_env(self):
         os.chdir(self.lib_dir)
-        self.clean_lib_files(["go.mod", "go.sum"])
-        ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
-        if ret.returncode != 0:
-            raise Exception("go mod init failed")
+        if not os.path.exists(os.path.join(self.lib_dir, "go.mod")):
+            ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
+            if ret.returncode != 0:
+                raise Exception("go mod init failed")
 
-        # apply go mod replace to use prepared xray-core
-        with open("go.mod", "a") as f:
-            f.write(
-                f"\nreplace github.com/xtls/xray-core => {self.xray_core_replace_path}\n"
-            )
+        ret = subprocess.run(
+            [
+                "go",
+                "mod",
+                "edit",
+                f"-replace=github.com/xtls/xray-core={self.xray_core_replace_path}",
+            ]
+        )
+        if ret.returncode != 0:
+            raise Exception("go mod edit replace failed")
 
         ret = subprocess.run(
             [
@@ -212,11 +217,6 @@ class Builder(object):
     def revert_go_env(self):
         return
         os.chdir(self.lib_dir)
-        self.clean_lib_files(["go.mod", "go.sum"])
-        ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
-        if ret.returncode != 0:
-            raise Exception("go mod init failed")
-
         ret = subprocess.run(
             [
                 "go",

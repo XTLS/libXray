@@ -40,21 +40,29 @@ Compile script. It is recommended to always use this script to compile libXray. 
 
 depends on git and go.
 
+By default, the build script clones [Xray-core](https://github.com/XTLS/Xray-core) to `../Xray-core-libXray` and checks out `v26.5.9`.
+Pass the optional `local` argument to use an existing local checkout at `../Xray-core` instead of cloning.
+
 ### Usage
 
 ```shell
 # Android (min Android API level is 21)
 python3 build/main.py android
+python3 build/main.py android local
 
 # Apple (gomobile or go)
 python3 build/main.py apple gomobile
 python3 build/main.py apple go
+python3 build/main.py apple gomobile local
+python3 build/main.py apple go local
 
 # Linux
 python3 build/main.py linux
+python3 build/main.py linux local
 
 # Windows
 python3 build/main.py windows
+python3 build/main.py windows local
 
 ```
 
