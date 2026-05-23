@@ -190,14 +190,19 @@ class Builder(object):
             raise Exception(f"build_desktop_bin failed")
 
     def revert_go_env(self):
-        return
         os.chdir(self.lib_dir)
         ret = subprocess.run(
-            [
-                "go",
-                "mod",
-                "tidy",
-            ]
+            ["go", "mod", "edit", f"-dropreplace={XRAY_CORE_MOD_NAME}"]
         )
+        if ret.returncode != 0:
+            raise Exception("go mod edit dropreplace failed")
+
+        ret = subprocess.run(
+            ["go", "get", f"{XRAY_CORE_MOD_NAME}@{DEFAULT_XRAY_CORE_VERSION}"]
+        )
+        if ret.returncode != 0:
+            raise Exception("go get xray-core failed")
+
+        ret = subprocess.run(["go", "mod", "tidy"])
         if ret.returncode != 0:
             raise Exception("go mod tidy failed")
