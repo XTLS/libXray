@@ -23,8 +23,8 @@ class AppleTarget(object):
 
 
 class AppleGoBuilder(Builder):
-    def __init__(self, build_dir: str):
-        super().__init__(build_dir)
+    def __init__(self, build_dir: str, use_local_xray_core: bool = False):
+        super().__init__(build_dir, use_local_xray_core)
         self.framework_dir = os.path.join(self.lib_dir, "apple_xcframework")
         delete_dir_if_exists(self.framework_dir)
         create_dir_if_not_exists(self.framework_dir)

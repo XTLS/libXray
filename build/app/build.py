@@ -10,13 +10,27 @@ from app.cmd import (
 )
 
 LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
+XRAY_CORE_REPO = "https://github.com/XTLS/Xray-core.git"
+DEFAULT_XRAY_CORE_TAG = "v26.3.7"
+CLONED_XRAY_CORE_DIR_NAME = "Xray-core-libXray"
+LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
 class Builder(object):
-    def __init__(self, build_dir: str):
+    def __init__(self, build_dir: str, use_local_xray_core: bool = False):
         self.build_dir = build_dir
-        self.lib_dir = os.path.join(self.build_dir, "..")
+        self.lib_dir = os.path.abspath(os.path.join(self.build_dir, ".."))
         self.bin_file = "xray"
+        self.use_local_xray_core = use_local_xray_core
+        xray_core_dir_name = (
+            LOCAL_XRAY_CORE_DIR_NAME
+            if self.use_local_xray_core
+            else CLONED_XRAY_CORE_DIR_NAME
+        )
+        self.xray_core_replace_path = f"../{xray_core_dir_name}"
+        self.xray_core_dir = os.path.abspath(
+            os.path.join(self.lib_dir, self.xray_core_replace_path)
+        )
 
     def clean_lib_files(self, files: list[str]):
         for file in files:
@@ -28,6 +42,46 @@ class Builder(object):
             dir_path = os.path.join(self.lib_dir, dir_name)
             delete_dir_if_exists(dir_path)
 
+    def prepare_xray_core(self):
+        if self.use_local_xray_core:
+            if not os.path.isdir(self.xray_core_dir):
+                raise Exception(f"local Xray-core dir not found: {self.xray_core_dir}")
+            return
+
+        if not os.path.exists(self.xray_core_dir):
+            ret = subprocess.run(
+                [
+                    "git",
+                    "clone",
+                    "--branch",
+                    DEFAULT_XRAY_CORE_TAG,
+                    "--depth",
+                    "1",
+                    XRAY_CORE_REPO,
+                    self.xray_core_dir,
+                ]
+            )
+            if ret.returncode != 0:
+                raise Exception("clone Xray-core failed")
+            return
+
+        if not os.path.isdir(self.xray_core_dir):
+            raise Exception(f"Xray-core path is not a dir: {self.xray_core_dir}")
+
+        git_dir = os.path.join(self.xray_core_dir, ".git")
+        if not os.path.isdir(git_dir):
+            raise Exception(f"Xray-core path is not a git repo: {self.xray_core_dir}")
+
+        ret = subprocess.run(["git", "-C", self.xray_core_dir, "fetch", "--tags"])
+        if ret.returncode != 0:
+            raise Exception("fetch Xray-core tags failed")
+
+        ret = subprocess.run(
+            ["git", "-C", self.xray_core_dir, "checkout", DEFAULT_XRAY_CORE_TAG]
+        )
+        if ret.returncode != 0:
+            raise Exception(f"checkout Xray-core tag {DEFAULT_XRAY_CORE_TAG} failed")
+
     def init_go_env(self):
         os.chdir(self.lib_dir)
         self.clean_lib_files(["go.mod", "go.sum"])
@@ -35,9 +89,11 @@ class Builder(object):
         if ret.returncode != 0:
             raise Exception("go mod init failed")
 
-        # apply go mod replace to use local xray-core
+        # apply go mod replace to use prepared xray-core
         with open("go.mod", "a") as f:
-            f.write("\nreplace github.com/xtls/xray-core => ../Xray-core\n")
+            f.write(
+                f"\nreplace github.com/xtls/xray-core => {self.xray_core_replace_path}\n"
+            )
 
         ret = subprocess.run(
             [
@@ -101,6 +157,7 @@ class Builder(object):
             f.writelines(new_lines)
 
     def before_build(self):
+        self.prepare_xray_core()
         self.init_go_env()
         self.download_geo()
 
