@@ -1,7 +1,6 @@
 package xray
 
 import (
-	"errors"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -51,17 +50,16 @@ func SetTunFd(fd int32) {
 	os.Setenv(platform.TunFdKey, strconv.Itoa(int(fd)))
 }
 
-func InitEnv(datDir string, mphCachePath string) {
+func InitEnv(datDir string) {
 	os.Setenv(platform.AssetLocation, datDir)
 	os.Setenv(platform.CertLocation, datDir)
 }
 
 // Run Xray instance.
 // datDir means the dir which geosite.dat and geoip.dat are in.
-// mphCachePath means the path of mph cache file. leave it empty if you don't use mph cache.
 // configPath means the config.json file path.
-func RunXray(datDir string, mphCachePath string, configPath string) (err error) {
-	InitEnv(datDir, mphCachePath)
+func RunXray(datDir, configPath string) (err error) {
+	InitEnv(datDir)
 	memory.InitForceFree()
 	coreServer, err = StartXray(configPath)
 	if err != nil {
@@ -78,10 +76,9 @@ func RunXray(datDir string, mphCachePath string, configPath string) (err error) 
 
 // Run Xray instance with JSON configuration string.
 // datDir means the dir which geosite.dat and geoip.dat are in.
-// mphCachePath means the path of mph cache file. leave it empty if you don't use mph cache.
 // configJSON means the JSON configuration string.
-func RunXrayFromJSON(datDir string, mphCachePath string, configJSON string) (err error) {
-	InitEnv(datDir, mphCachePath)
+func RunXrayFromJSON(datDir, configJSON string) (err error) {
+	InitEnv(datDir)
 	memory.InitForceFree()
 	coreServer, err = StartXrayFromJSON(configJSON)
 	if err != nil {
@@ -112,8 +109,4 @@ func StopXray() error {
 // Xray's version
 func XrayVersion() string {
 	return core.Version()
-}
-
-func BuildMphCache(datDir string, mphCachePath string, configPath string) error {
-	return errors.New("MPH cache building is not supported by xray-core v26.5.9")
 }

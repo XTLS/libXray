@@ -23,14 +23,14 @@ func buildHy2FinalMask(up, down, ports string, hopInterval *int32, obfsType, obf
 		if ports != "" {
 			var portList conf.PortList
 			udpHop := conf.UdpHop{}
-			err := json.Unmarshal([]byte(ports), &portList)
+			portListJSON, err := json.Marshal(ports)
 			if err != nil {
 				return nil, err
 			}
-			udpHop.PortList = portList
-			if err := json.Unmarshal(portListJSON, &udpHop.PortList); err != nil {
+			if err := json.Unmarshal(portListJSON, &portList); err != nil {
 				return nil, err
 			}
+			udpHop.PortList = portList
 			if hopInterval != nil {
 				i := *hopInterval
 				udpHop.Interval = conf.Int32Range{Left: i, Right: i, From: i, To: i}
