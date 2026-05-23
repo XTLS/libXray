@@ -2,12 +2,10 @@ module github.com/xtls/libxray
 
 go 1.26.3
 
-replace github.com/xtls/xray-core => ../Xray-core-libXray
-
 require (
 	github.com/stretchr/testify v1.11.1
 	github.com/vishvananda/netlink v1.3.1
-	github.com/xtls/xray-core v0.0.0-00010101000000-000000000000
+	github.com/xtls/xray-core v1.260327.1-0.20260509173629-1bdb488c9ec0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )

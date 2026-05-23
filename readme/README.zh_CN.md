@@ -16,8 +16,8 @@
 
 依赖 git 和 go。
 
-默认情况下，编译脚本会将 [Xray-core](https://github.com/XTLS/Xray-core) clone 到 `../Xray-core-libXray`，并 checkout `v26.5.9`。
-传入可选参数 `local` 时，会跳过 clone，改用已有的本地仓库 `../Xray-core`。
+默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 将 Xray-core 固定到 tag `v26.5.9`（Go 会记录为对应的 pseudo-version）。
+传入可选参数 `local` 时，会通过 Go module `replace` 改用已有的本地仓库 `../Xray-core`。
 
 ### 使用方式
 
