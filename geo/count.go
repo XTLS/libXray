@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/xtls/libxray/nodep"
-	"github.com/xtls/xray-core/app/router"
+	"github.com/xtls/xray-core/common/geodata"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -56,7 +56,7 @@ func countGeoSite(datDir string, name string) error {
 	if err != nil {
 		return err
 	}
-	var geositeList router.GeoSiteList
+	var geositeList geodata.GeoSiteList
 	if err := proto.Unmarshal(geositeBytes, &geositeList); err != nil {
 		return err
 	}
@@ -66,13 +66,13 @@ func countGeoSite(datDir string, name string) error {
 	var codes []*geoCountryCode
 	for _, site := range geositeList.Entry {
 		var siteCode geoCountryCode
-		siteCode.Code = site.CountryCode
+		siteCode.Code = site.Code
 		siteCode.RuleCount = len(site.Domain)
 		codes = append(codes, &siteCode)
 		list.RuleCount += siteCode.RuleCount
 		for _, domain := range site.Domain {
 			for _, attribute := range domain.Attribute {
-				attr := fmt.Sprintf("%s@%s", site.CountryCode, attribute.Key)
+				attr := fmt.Sprintf("%s@%s", site.Code, attribute.Key)
 				attrCode := findAttrCode(codes, attr)
 				if attrCode == nil {
 					var newCode geoCountryCode
@@ -108,7 +108,7 @@ func countGeoIP(datDir string, name string) error {
 	if err != nil {
 		return err
 	}
-	var geoipList router.GeoIPList
+	var geoipList geodata.GeoIPList
 	if err := proto.Unmarshal(geoipBytes, &geoipList); err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func countGeoIP(datDir string, name string) error {
 	var codes []*geoCountryCode
 	for _, geoip := range geoipList.Entry {
 		var code geoCountryCode
-		code.Code = geoip.CountryCode
+		code.Code = geoip.Code
 		code.RuleCount = len(geoip.Cidr)
 		codes = append(codes, &code)
 		list.RuleCount += code.RuleCount

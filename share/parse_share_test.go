@@ -100,10 +100,7 @@ func TestHysteria2_WithEverything(t *testing.T) {
 	assert.Equal(t, conf.Bandwidth("100 mbps"), qp.BrutalDown)
 
 	// UdpHop
-	var portList string
-	require.NoError(t, json.Unmarshal(qp.UdpHop.PortList, &portList))
-	assert.Equal(t, "20000-40000", portList)
-	require.NotNil(t, qp.UdpHop.Interval)
+	assert.Equal(t, "20000-40000", qp.UdpHop.PortList.String())
 	assert.Equal(t, int32(30), qp.UdpHop.Interval.From)
 	assert.Equal(t, int32(30), qp.UdpHop.Interval.To)
 
@@ -140,10 +137,7 @@ func TestHysteria2_PortsOnlyNoCongestion(t *testing.T) {
 	assert.Empty(t, string(qp.BrutalDown))
 
 	// UdpHop is set
-	var portList string
-	require.NoError(t, json.Unmarshal(qp.UdpHop.PortList, &portList))
-	assert.Equal(t, "20000-40000", portList)
-	require.NotNil(t, qp.UdpHop.Interval)
+	assert.Equal(t, "20000-40000", qp.UdpHop.PortList.String())
 	assert.Equal(t, int32(10), qp.UdpHop.Interval.From)
 	assert.Equal(t, int32(10), qp.UdpHop.Interval.To)
 }

@@ -245,13 +245,10 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			if len(qp.BrutalDown) > 0 {
 				query = addQuery(query, "down", string(qp.BrutalDown))
 			}
-			if qp.UdpHop.PortList != nil {
-				var portList string
-				if json.Unmarshal(qp.UdpHop.PortList, &portList) == nil && len(portList) > 0 {
-					query = addQuery(query, "ports", portList)
-				}
+			if len(qp.UdpHop.PortList.Range) > 0 {
+				query = addQuery(query, "ports", qp.UdpHop.PortList.String())
 			}
-			if qp.UdpHop.Interval != nil {
+			if qp.UdpHop.Interval.From != 0 || qp.UdpHop.Interval.To != 0 {
 				query = addQuery(query, "hop-interval", strconv.FormatInt(int64(qp.UdpHop.Interval.From), 10))
 			}
 		}

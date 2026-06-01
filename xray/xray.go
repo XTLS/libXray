@@ -9,8 +9,6 @@ import (
 	"github.com/xtls/xray-core/common/cmdarg"
 	"github.com/xtls/xray-core/common/platform"
 	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/infra/conf/serial"
-	"github.com/xtls/xray-core/main/commands/base"
 	_ "github.com/xtls/xray-core/main/distro/all"
 )
 
@@ -52,21 +50,16 @@ func SetTunFd(fd int32) {
 	os.Setenv(platform.TunFdKey, strconv.Itoa(int(fd)))
 }
 
-func InitEnv(datDir string, mphCachePath string) {
+func InitEnv(datDir string) {
 	os.Setenv(platform.AssetLocation, datDir)
 	os.Setenv(platform.CertLocation, datDir)
-
-	if mphCachePath != "" {
-		os.Setenv(platform.MphCachePath, mphCachePath)
-	}
 }
 
 // Run Xray instance.
 // datDir means the dir which geosite.dat and geoip.dat are in.
-// mphCachePath means the path of mph cache file. leave it empty if you don't use mph cache.
 // configPath means the config.json file path.
-func RunXray(datDir string, mphCachePath string, configPath string) (err error) {
-	InitEnv(datDir, mphCachePath)
+func RunXray(datDir, configPath string) (err error) {
+	InitEnv(datDir)
 	memory.InitForceFree()
 	coreServer, err = StartXray(configPath)
 	if err != nil {
@@ -83,10 +76,9 @@ func RunXray(datDir string, mphCachePath string, configPath string) (err error) 
 
 // Run Xray instance with JSON configuration string.
 // datDir means the dir which geosite.dat and geoip.dat are in.
-// mphCachePath means the path of mph cache file. leave it empty if you don't use mph cache.
 // configJSON means the JSON configuration string.
-func RunXrayFromJSON(datDir string, mphCachePath string, configJSON string) (err error) {
-	InitEnv(datDir, mphCachePath)
+func RunXrayFromJSON(datDir, configJSON string) (err error) {
+	InitEnv(datDir)
 	memory.InitForceFree()
 	coreServer, err = StartXrayFromJSON(configJSON)
 	if err != nil {
@@ -117,26 +109,4 @@ func StopXray() error {
 // Xray's version
 func XrayVersion() string {
 	return core.Version()
-}
-
-// https://github.com/XTLS/Xray-core/blob/main/main/commands/all/buildmphcache.go
-func BuildMphCache(datDir string, mphCachePath string, configPath string) error {
-	InitEnv(datDir, "")
-	cf, err := os.Open(configPath)
-	if err != nil {
-		base.Fatalf("failed to open config file: %v", err)
-	}
-	defer cf.Close()
-
-	config, err := serial.DecodeJSONConfig(cf)
-	if err != nil {
-		base.Fatalf("failed to decode config file: %v", err)
-		return err
-	}
-
-	if err := config.BuildMPHCache(&mphCachePath); err != nil {
-		base.Fatalf("failed to build MPH cache: %v", err)
-		return err
-	}
-	return nil
 }

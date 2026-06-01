@@ -65,8 +65,8 @@ func TestGenerate_Hy2_WithBandwidth(t *testing.T) {
 func TestGenerate_Hy2_WithSalamanderBandwidthPortHopping(t *testing.T) {
 	tls := &conf.TLSConfig{ServerName: "example.com"}
 
-	portListJSON, err := json.Marshal("20000-40000")
-	require.NoError(t, err)
+	var portList conf.PortList
+	require.NoError(t, json.Unmarshal([]byte(`"20000-40000"`), &portList))
 
 	fm := &conf.FinalMask{
 		QuicParams: &conf.QuicParamsConfig{
@@ -74,8 +74,8 @@ func TestGenerate_Hy2_WithSalamanderBandwidthPortHopping(t *testing.T) {
 			BrutalUp:   conf.Bandwidth("50 mbps"),
 			BrutalDown: conf.Bandwidth("100 mbps"),
 			UdpHop: conf.UdpHop{
-				PortList: portListJSON,
-				Interval: &conf.Int32Range{Left: 30, Right: 30, From: 30, To: 30},
+				PortList: portList,
+				Interval: conf.Int32Range{Left: 30, Right: 30, From: 30, To: 30},
 			},
 		},
 	}
