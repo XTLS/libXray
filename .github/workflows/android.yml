@@ -64,15 +64,19 @@ jobs:
           for SO_FILE in $(find aar_check/jni -name "*.so"); do
             echo "Checking: $SO_FILE"
             $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -l "$SO_FILE" | grep LOAD
-
-            if $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -l "$SO_FILE" | grep -q "0x4000"; then
-              echo "OK 16KB: $SO_FILE"
+      
+            if echo "$SO_FILE" | grep -q "arm64-v8a\|x86_64"; then
+              if $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -l "$SO_FILE" | grep -q "0x4000"; then
+                echo "OK 16KB: $SO_FILE"
+              else
+                echo "FAILED 16KB: $SO_FILE"
+                FAILED=1
+              fi
             else
-              echo "FAILED 16KB: $SO_FILE"
-              FAILED=1
+              echo "SKIP 16KB check for 32-bit ABI: $SO_FILE"
             fi
           done
-
+      
           exit $FAILED
 
       - name: Upload AAR
