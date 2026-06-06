@@ -18,7 +18,7 @@ major in its import path, every CalVer release is mirrored onto a Go-friendly
 SemVer tag on the same commit:
 
 | CalVer tag | Go-import tag |
-|------------|---------------|
+| ---------- | ------------- |
 | `v26.3.27` | `v1.260327.0` |
 
 Go consumers should pin against the SemVer mirror:
@@ -40,7 +40,7 @@ Compile script. It is recommended to always use this script to compile libXray. 
 
 depends on git and go.
 
-By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to tag `v26.5.9` (recorded by Go as the matching pseudo-version).
+By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to tag `v26.6.1` (recorded by Go as the matching pseudo-version).
 Pass the optional `local` argument to use an existing local checkout at `../Xray-core` through a Go module `replace`.
 
 ### Usage
