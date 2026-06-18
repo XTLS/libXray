@@ -10,10 +10,10 @@ import (
 )
 
 // sudo ip addr add 198.18.0.1/15 dev tun0
-// sudo ip -6 addr add fc00::1/64 dev tun0
 // sudo ip route add default via 198.18.0.2 dev tun0 metric 20
+// sudo ip -6 addr add fc00::1/64 dev tun0
 // sudo ip -6 route add default via fc00::2 dev tun0 metric 20
-func initIpRoute(tunName string, tunPriority int) error {
+func initIpRoute(tunName string, tunPriority int, enableIPv6 bool) error {
 	var link netlink.Link
 	err := retryRouteInitStep("find tun device "+tunName, func() error {
 		var err error
@@ -34,19 +34,21 @@ func initIpRoute(tunName string, tunPriority int) error {
 		return err
 	}
 
-	err = addAddress(link, defaultTunIPv6Address)
-	if err != nil {
-		return err
-	}
-
 	err = addRoute(link.Attrs().Index, defaultIPv4Route, defaultTunIPv4Gateway, netlink.FAMILY_V4, tunPriority)
 	if err != nil {
 		return err
 	}
 
-	err = addRoute(link.Attrs().Index, defaultIPv6Route, defaultTunIPv6Gateway, netlink.FAMILY_V6, tunPriority)
-	if err != nil {
-		return err
+	if enableIPv6 {
+		err = addAddress(link, defaultTunIPv6Address)
+		if err != nil {
+			return err
+		}
+
+		err = addRoute(link.Attrs().Index, defaultIPv6Route, defaultTunIPv6Gateway, netlink.FAMILY_V6, tunPriority)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

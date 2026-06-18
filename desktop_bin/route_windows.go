@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-func initIpRoute(tunName string, tunPriority int) error {
+func initIpRoute(tunName string, tunPriority int, enableIPv6 bool) error {
 	err := retryRouteInitStep("find tun device "+tunName, func() error {
 		var err error
 		_, err = net.InterfaceByName(tunName)
@@ -24,19 +24,21 @@ func initIpRoute(tunName string, tunPriority int) error {
 		return err
 	}
 
-	err = addAddress(tunName, "ipv6", defaultTunIPv6Address)
-	if err != nil {
-		return err
-	}
-
 	err = addRoute(tunName, "ipv4", defaultIPv4Route, defaultTunIPv4Gateway, tunPriority)
 	if err != nil {
 		return err
 	}
 
-	err = addRoute(tunName, "ipv6", defaultIPv6Route, defaultTunIPv6Gateway, tunPriority)
-	if err != nil {
-		return err
+	if enableIPv6 {
+		err = addAddress(tunName, "ipv6", defaultTunIPv6Address)
+		if err != nil {
+			return err
+		}
+
+		err = addRoute(tunName, "ipv6", defaultIPv6Route, defaultTunIPv6Gateway, tunPriority)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

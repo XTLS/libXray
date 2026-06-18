@@ -12,6 +12,7 @@ type runXrayConfig struct {
 	// tun
 	TunName     string `json:"tunName,omitempty"`
 	TunPriority int    `json:"tunPriority,omitempty"`
+	EnableIPv6  bool   `json:"enableIPv6,omitempty"`
 	// dns
 	Dns           string `json:"dns,omitempty"`
 	BindInterface string `json:"bindInterface,omitempty"`
@@ -35,7 +36,7 @@ func runXray(configPath string) error {
 	if err != nil {
 		return err
 	}
-	err = initIpRoute(config.TunName, config.TunPriority)
+	err = initIpRoute(config.TunName, config.TunPriority, config.EnableIPv6)
 	if err != nil {
 		return err
 	}
