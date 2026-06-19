@@ -81,21 +81,6 @@ func Ping(base64Text string) string {
 	return response.EncodeToBase64(delay, err)
 }
 
-// query inbound and outbound stats.
-func QueryStats(base64Text string) string {
-	var response nodep.CallResponse[string]
-	server, err := base64.StdEncoding.DecodeString(base64Text)
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-
-	stats, err := xray.QueryStats(string(server))
-	if err != nil {
-		return response.EncodeToBase64("", err)
-	}
-	return response.EncodeToBase64(stats, nil)
-}
-
 // Test Xray Config.
 func TestXray(base64Text string) string {
 	var response nodep.CallResponse[string]

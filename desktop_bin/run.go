@@ -19,6 +19,8 @@ type runXrayConfig struct {
 	// xray
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
+	// metrics
+	MetricsPort string `json:"metricsPort,omitempty"`
 }
 
 func runXray(configPath string) error {

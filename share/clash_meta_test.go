@@ -166,8 +166,7 @@ func TestClashShadowsocks_Plain(t *testing.T) {
     port: 8388
     cipher: aes-128-gcm
     password: secret
-    udp: true
-    udp-over-tcp: true`
+    udp: true`
 	cfg := parseClashYAML(t, yaml)
 	require.Len(t, cfg.OutboundConfigs, 1)
 	ob := cfg.OutboundConfigs[0]
@@ -176,7 +175,6 @@ func TestClashShadowsocks_Plain(t *testing.T) {
 	require.NoError(t, json.Unmarshal(*ob.Settings, &s))
 	assert.Equal(t, "aes-128-gcm", s.Cipher)
 	assert.Equal(t, "secret", s.Password)
-	assert.True(t, s.UoT)
 	assert.Nil(t, ob.StreamSetting)
 }
 

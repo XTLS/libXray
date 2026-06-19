@@ -208,7 +208,6 @@ func (proxy ClashProxy) shadowsocksOutbound() (*conf.OutboundDetourConfig, error
 
 	settings.Cipher = proxy.Cipher
 	settings.Password = proxy.Password
-	settings.UoT = proxy.UdpOverTcp
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
