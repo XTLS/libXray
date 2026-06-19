@@ -92,7 +92,8 @@ This works well when you use ffi for integration. For example, integration with 
 
 Support iOS, iOSSimulator, macOS, tvOS.
 
-Note: The product `LibXray.xcframework` does not contain **module.modulemap**. When using swift, you need to create a bridge file.
+The product `LibXray.xcframework` contains **module.modulemap**. When using
+Swift, import it as module `LibXray`.
 
 ### Linux
 

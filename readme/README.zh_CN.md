@@ -60,7 +60,8 @@ python3 build/main.py windows local
 
 支持 iOS，iOSSimulator，macOS，tvOS。
 
-注意：产物 `LibXray.xcframework` 不包含 **module.modulemap**。当使用 swift 时，你需要创建一个桥接文件。
+产物 `LibXray.xcframework` 包含 **module.modulemap**。当使用 Swift 时，
+可通过 `LibXray` 模块导入。
 
 ### Linux
 

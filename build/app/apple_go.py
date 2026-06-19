@@ -30,6 +30,7 @@ class AppleGoBuilder(Builder):
         create_dir_if_not_exists(self.framework_dir)
         self.lib_file = "libXray.a"
         self.lib_header_file = "libXray.h"
+        self.module_map_file = "module.modulemap"
 
         self.ios_targets = [
             AppleTarget(
@@ -267,6 +268,13 @@ class AppleGoBuilder(Builder):
             self.lib_header_file,
         )
         shutil.copy(header_file, include_dir)
+
+        module_map_file = os.path.join(
+            self.build_dir,
+            "template",
+            self.module_map_file,
+        )
+        shutil.copy(module_map_file, include_dir)
 
     def create_framework(self):
         libs = [
