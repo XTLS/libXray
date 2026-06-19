@@ -9,17 +9,6 @@ func CGoSetTunFd(fd C.int) {
 	SetTunFd(int32(fd))
 }
 
-//export CGoInitDns
-func CGoInitDns(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(InitDns(text))
-}
-
-//export CGoResetDns
-func CGoResetDns() *C.char {
-	return C.CString(ResetDns())
-}
-
 //export CGoRunXrayFromJSON
 func CGoRunXrayFromJSON(base64Text *C.char) *C.char {
 	text := C.GoString(base64Text)

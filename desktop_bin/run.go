@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/xtls/libxray/dns"
 	"github.com/xtls/libxray/xray"
 )
 
@@ -13,9 +12,6 @@ type runXrayConfig struct {
 	TunName     string `json:"tunName,omitempty"`
 	TunPriority int    `json:"tunPriority,omitempty"`
 	EnableIPv6  bool   `json:"enableIPv6,omitempty"`
-	// dns
-	Dns           string `json:"dns,omitempty"`
-	BindInterface string `json:"bindInterface,omitempty"`
 	// xray
 	DatDir     string `json:"datDir,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
@@ -42,7 +38,6 @@ func runXray(configPath string) error {
 	if err != nil {
 		return err
 	}
-	dns.InitDns(config.Dns, config.BindInterface)
 	return nil
 }
 
