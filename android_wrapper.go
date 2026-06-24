@@ -2,10 +2,7 @@
 
 package libXray
 
-import (
-	c "github.com/xtls/libxray/controller"
-	"github.com/xtls/libxray/dns"
-)
+import c "github.com/xtls/libxray/controller"
 
 type DialerController interface {
 	ProtectFd(int) bool
@@ -24,16 +21,6 @@ type ProcessFinder interface {
 	// destPort: Destination port
 	// Returns the UID of the owning process, or -1 if not found.
 	FindProcessByConnection(network, srcIP string, srcPort int, destIP string, destPort int) int
-}
-
-func InitDns(controller DialerController, server string) {
-	dns.InitDns(server, func(fd uintptr) {
-		controller.ProtectFd(int(fd))
-	})
-}
-
-func ResetDns() {
-	dns.ResetDns()
 }
 
 func RegisterDialerController(controller DialerController) {

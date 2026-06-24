@@ -114,10 +114,6 @@ winget install BrechtSanders.WinLibs.POSIX.UCRT
 
 Used to solve the socket protect problem on Android.
 
-## dns
-
-Used to solve server address resolution issues on Android, Linux, and Windows. If not handled, the DNS traffic will be resent to the tun device, resulting in failure to initiate a connection.
-
 ## geo
 
 ### count
