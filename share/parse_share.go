@@ -92,50 +92,69 @@ var shareSchemes = []string{
 }
 
 func hasShareSchemeLine(text string) bool {
-	for _, raw := range strings.Split(text, "\n") {
+	found := false
+	forEachLine(text, func(raw string) bool {
 		line := strings.TrimSpace(raw)
 		for _, p := range shareSchemes {
 			if strings.HasPrefix(line, p) {
-				return true
+				found = true
+				return false
 			}
 		}
-	}
-	return false
+		return true
+	})
+	return found
 }
 
 func hasTopLevelClashProxiesKey(text string) bool {
-	for _, raw := range strings.Split(text, "\n") {
+	found := false
+	forEachLine(text, func(raw string) bool {
 		line := strings.TrimRight(raw, " \t")
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || trimmed == "---" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		if strings.HasPrefix(line, "proxies:") {
 			return true
 		}
+		if strings.HasPrefix(line, "proxies:") {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func forEachLine(text string, visit func(string) bool) {
+	for {
+		line, rest, ok := strings.Cut(text, "\n")
+		if !visit(line) {
+			return
+		}
+		if !ok {
+			return
+		}
+		text = rest
 	}
-	return false
 }
 
 func parsePlainShareLines(text string) (*conf.Config, error) {
-	lines := strings.Split(text, "\n")
-	outbounds := make([]conf.OutboundDetourConfig, 0, len(lines))
-	for _, raw := range lines {
+	outbounds := make([]conf.OutboundDetourConfig, 0)
+	forEachLine(text, func(raw string) bool {
 		line := strings.TrimSpace(raw)
 		if line == "" {
-			continue
+			return true
 		}
 		u, err := url.Parse(line)
 		if err != nil {
-			continue
+			return true
 		}
 		sl := xrayShareLink{link: u, rawText: line}
 		ob, err := sl.outbound()
 		if err != nil {
-			continue
+			return true
 		}
 		outbounds = append(outbounds, *ob)
-	}
+		return true
+	})
 	if len(outbounds) == 0 {
 		return nil, fmt.Errorf("no valid outbound found")
 	}
