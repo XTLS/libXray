@@ -46,18 +46,33 @@ func decodeBase64Text(text string) (string, error) {
 // ConvertShareLinksToXrayJson parses:
 //   - a single Xray JSON object (starts with '{')
 //   - plain v2rayN-style lines (vless/vmess/ss/socks/trojan/hy2…)
-//   - one base64 blob that decodes to such lines
+//   - one base64 blob that decodes to Xray JSON, share lines, or Clash YAML
 //   - Clash / Clash.Meta YAML (proxies:)
 func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
-	text := strings.TrimSpace(links)
+	return convertShareLinksToXrayJson(links, true)
+}
+
+func convertShareLinksToXrayJson(links string, allowBase64 bool) (*conf.Config, error) {
+	text := strings.TrimSpace(FixWindowsReturn(links))
+	if text == "" {
+		return nil, fmt.Errorf("unsupported share format")
+	}
 	if strings.HasPrefix(text, "{") {
 		return parseXrayJSONConfig(text)
 	}
-	text = FixWindowsReturn(text)
-	if leadingLineHasShareScheme(text) {
+	if hasShareSchemeLine(text) {
 		return parsePlainShareLines(text)
 	}
-	return tryParseEncodedOrClash(text)
+	if allowBase64 {
+		decoded, err := decodeBase64Text(text)
+		if err == nil {
+			return convertShareLinksToXrayJson(decoded, false)
+		}
+	}
+	if hasTopLevelClashProxiesKey(text) {
+		return tryToParseClashYaml(text)
+	}
+	return nil, fmt.Errorf("unsupported share format")
 }
 
 func parseXrayJSONConfig(text string) (*conf.Config, error) {
@@ -76,51 +91,74 @@ var shareSchemes = []string{
 	"hysteria2://", "hy2://",
 }
 
-func leadingLineHasShareScheme(text string) bool {
-	first := text
-	if i := strings.IndexByte(text, '\n'); i >= 0 {
-		first = text[:i]
-	}
-	first = strings.TrimSpace(first)
-	for _, p := range shareSchemes {
-		if strings.HasPrefix(first, p) {
+func hasShareSchemeLine(text string) bool {
+	found := false
+	forEachLine(text, func(raw string) bool {
+		line := strings.TrimSpace(raw)
+		for _, p := range shareSchemes {
+			if strings.HasPrefix(line, p) {
+				found = true
+				return false
+			}
+		}
+		return true
+	})
+	return found
+}
+
+func hasTopLevelClashProxiesKey(text string) bool {
+	found := false
+	forEachLine(text, func(raw string) bool {
+		line := strings.TrimRight(raw, " \t")
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || trimmed == "---" || strings.HasPrefix(trimmed, "#") {
 			return true
 		}
+		if strings.HasPrefix(line, "proxies:") {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func forEachLine(text string, visit func(string) bool) {
+	for {
+		line, rest, ok := strings.Cut(text, "\n")
+		if !visit(line) {
+			return
+		}
+		if !ok {
+			return
+		}
+		text = rest
 	}
-	return false
 }
 
 func parsePlainShareLines(text string) (*conf.Config, error) {
-	lines := strings.Split(text, "\n")
-	outbounds := make([]conf.OutboundDetourConfig, 0, len(lines))
-	for _, raw := range lines {
+	outbounds := make([]conf.OutboundDetourConfig, 0)
+	forEachLine(text, func(raw string) bool {
 		line := strings.TrimSpace(raw)
 		if line == "" {
-			continue
+			return true
 		}
 		u, err := url.Parse(line)
 		if err != nil {
-			continue
+			return true
 		}
 		sl := xrayShareLink{link: u, rawText: line}
 		ob, err := sl.outbound()
 		if err != nil {
-			continue
+			return true
 		}
 		outbounds = append(outbounds, *ob)
-	}
+		return true
+	})
 	if len(outbounds) == 0 {
 		return nil, fmt.Errorf("no valid outbound found")
 	}
 	return &conf.Config{OutboundConfigs: outbounds}, nil
-}
-
-func tryParseEncodedOrClash(text string) (*conf.Config, error) {
-	decoded, err := decodeBase64Text(text)
-	if err == nil {
-		return parsePlainShareLines(FixWindowsReturn(decoded))
-	}
-	return tryToParseClashYaml(text)
 }
 
 type xrayShareLink struct {

@@ -136,7 +136,11 @@ func tryToParseClashYaml(text string) (*conf.Config, error) {
 	if err := yaml.Unmarshal([]byte(text), &clash); err != nil {
 		return nil, err
 	}
-	return clash.toXrayConfig(), nil
+	config := clash.toXrayConfig()
+	if len(config.OutboundConfigs) == 0 {
+		return nil, fmt.Errorf("no valid outbound found")
+	}
+	return config, nil
 }
 
 func (clash ClashYaml) toXrayConfig() *conf.Config {
