@@ -11,10 +11,10 @@ from app.cmd import (
 
 LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 XRAY_CORE_MOD_NAME = "github.com/xtls/xray-core"
-DEFAULT_XRAY_CORE_TAG = "v26.6.1"
+DEFAULT_XRAY_CORE_TAG = "v26.6.27"
 # Xray-core CalVer tags cannot be used directly as Go module versions because
 # its module path does not include /v26. This pseudo-version points to the tag above.
-DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260601021109-94ffd50060f1"
+DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260627131803-45cf2898ab12"
 LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
