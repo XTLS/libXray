@@ -1,0 +1,185 @@
+name: Build libXray
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+          - os: ubuntu-latest
+            target: android
+          - os: windows-latest
+            target: windows
+          - os: macos-latest
+            target: apple
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      CGO_ENABLED: "1"
+
+    steps:
+      # =========================
+      # Checkout
+      # =========================
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # =========================
+      # Python (build scripts)
+      # =========================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+
+      # =========================
+      # Go setup
+      # =========================
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Download Go modules
+        run: go mod download
+
+      # =========================
+      # Android toolchain
+      # =========================
+      - name: Setup Java (Android)
+        if: matrix.target == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        if: matrix.target == 'android'
+        uses: android-actions/setup-android@v3
+
+      - name: Install gomobile (Android)
+        if: matrix.target == 'android'
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+      # =========================
+      # Windows toolchain
+      # =========================
+      - name: Setup MSYS2 (Windows GCC)
+        if: matrix.target == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-toolchain
+
+      # =========================
+      # Apple toolchain
+      # =========================
+      - name: Setup gomobile (Apple)
+        if: matrix.target == 'apple'
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+      # =========================
+      # Build steps
+      # =========================
+
+      - name: Build Linux
+        if: matrix.target == 'linux'
+        run: |
+          python3 build/main.py linux
+
+      - name: Build Android
+        if: matrix.target == 'android'
+        run: |
+          python3 build/main.py android
+
+      - name: Build Windows
+        if: matrix.target == 'windows'
+        run: |
+          python build/main.py windows
+
+      - name: Build Apple (macOS/iOS)
+        if: matrix.target == 'apple'
+        run: |
+          python3 build/main.py apple go
+
+      # =========================
+      # Collect artifacts
+      # =========================
+      - name: Package artifacts
+        shell: bash
+        run: |
+          set -e
+
+          # ---------------- Linux ----------------
+          mkdir -p dist/linux
+          cp linux_so/libXray.so dist/linux/ || true
+          cp linux_so/libXray.h dist/linux/ || true
+          cp bin/xray dist/linux/ || true
+
+          # ---------------- Windows ----------------
+          mkdir -p dist/windows
+          cp windows_dll/libXRay.dll dist/windows/ || true
+          cp windows_dll/libXRay.h dist/windows/ || true
+          cp bin/xray.exe dist/windows/ || true
+
+          # ---------------- Android ----------------
+          mkdir -p dist/android
+          cp ./libXray.aar dist/android/ || true
+          cp ./libXray-sources.jar dist/android/ || true
+
+          # ---------------- Apple ----------------
+          mkdir -p dist/apple
+          cp -r LibXray.xcframework dist/apple/ || true
+
+      # =========================
+      # Upload artifacts
+      # =========================
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libxray-${{ matrix.target }}
+          path: dist/${{ matrix.target }}/
+
+  release:
+      needs: build
+      runs-on: ubuntu-latest
+      steps:
+        - name: Download all artifacts
+          uses: actions/download-artifact@v4
+          with:
+            pattern: libxray-*
+            path: dist/
+            merge-multiple: false
+
+        - name: Zip each platform
+          run: |
+            cd dist
+            for d in */ ; do
+              zip -r "${d%/}.zip" "$d"
+            done
+
+        - name: Create GitHub Release
+          uses: softprops/action-gh-release@v2
+          with:
+            name: libXRay ${{ github.ref_name }}
+            tag_name: ${{ github.ref_name }}
+            files: dist/*.zip
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
