@@ -1,9 +1,20 @@
 name: Build libXray
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
+
+concurrency:
+  group: build-libxray-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: "stable"
+  XCODE_VERSION: "latest-stable"
+  PYTHON_VERSION: "3.12"
+  NDK_VERSION: r29
 
 jobs:
   build:
@@ -11,16 +22,34 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - runner: ubuntu-24.04
             target: linux
-          - os: ubuntu-latest
+            arch: x64
+            artifact: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: linux
+            arch: arm64
+            artifact: linux-arm64
+          - runner: ubuntu-24.04
             target: android
-          - os: windows-latest
+            artifact: android
+          - runner: windows-2022
             target: windows
-          - os: macos-latest
+            arch: x64
+            artifact: windows-x64
+          - runner: macos-26
             target: apple
+            apple_tool: go
+            artifact: apple-cgo
+          - runner: macos-26
+            target: apple
+            apple_tool: gomobile
+            artifact: apple-gomobile
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
 
     env:
       CGO_ENABLED: "1"
@@ -30,15 +59,15 @@ jobs:
       # Checkout
       # =========================
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # =========================
       # Python (build scripts)
       # =========================
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Python deps
         run: |
@@ -48,26 +77,43 @@ jobs:
       # Go setup
       # =========================
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: "1.22"
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
 
       - name: Download Go modules
         run: go mod download
+
+      # =========================
+      # Apple toolchain
+      # =========================
+      - name: Select latest stable Xcode
+        if: matrix.target == 'apple'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
 
       # =========================
       # Android toolchain
       # =========================
       - name: Setup Java (Android)
         if: matrix.target == 'android'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Setup Android SDK
         if: matrix.target == 'android'
         uses: android-actions/setup-android@v3
+
+      - name: Setup Android NDK
+        if: matrix.target == 'android'
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: true
 
       - name: Install gomobile (Android)
         if: matrix.target == 'android'
@@ -90,7 +136,7 @@ jobs:
       # Apple toolchain
       # =========================
       - name: Setup gomobile (Apple)
-        if: matrix.target == 'apple'
+        if: matrix.target == 'apple' && matrix.apple_tool == 'gomobile'
         run: |
           go install golang.org/x/mobile/cmd/gomobile@latest
           gomobile init
@@ -117,7 +163,7 @@ jobs:
       - name: Build Apple (macOS/iOS)
         if: matrix.target == 'apple'
         run: |
-          python3 build/main.py apple go
+          python3 build/main.py apple ${{ matrix.apple_tool }}
 
       # =========================
       # Collect artifacts
@@ -127,59 +173,65 @@ jobs:
         run: |
           set -e
 
-          # ---------------- Linux ----------------
-          mkdir -p dist/linux
-          cp linux_so/libXray.so dist/linux/ || true
-          cp linux_so/libXray.h dist/linux/ || true
-          cp bin/xray dist/linux/ || true
-
-          # ---------------- Windows ----------------
-          mkdir -p dist/windows
-          cp windows_dll/libXRay.dll dist/windows/ || true
-          cp windows_dll/libXRay.h dist/windows/ || true
-          cp bin/xray.exe dist/windows/ || true
-
-          # ---------------- Android ----------------
-          mkdir -p dist/android
-          cp ./libXray.aar dist/android/ || true
-          cp ./libXray-sources.jar dist/android/ || true
-
-          # ---------------- Apple ----------------
-          mkdir -p dist/apple
-          cp -r LibXray.xcframework dist/apple/ || true
+          case "${{ matrix.target }}" in
+            linux)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp linux_so/libXray.so "dist/${{ matrix.artifact }}/"
+              cp linux_so/libXray.h "dist/${{ matrix.artifact }}/"
+              cp bin/xray "dist/${{ matrix.artifact }}/"
+              ;;
+            windows)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp windows_dll/libXray.dll "dist/${{ matrix.artifact }}/"
+              cp windows_dll/libXray.h "dist/${{ matrix.artifact }}/"
+              cp bin/xray.exe "dist/${{ matrix.artifact }}/"
+              ;;
+            android)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp libXray.aar "dist/${{ matrix.artifact }}/"
+              cp libXray-sources.jar "dist/${{ matrix.artifact }}/"
+              ;;
+            apple)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp -R LibXray.xcframework "dist/${{ matrix.artifact }}/"
+              ;;
+          esac
 
       # =========================
       # Upload artifacts
       # =========================
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: libxray-${{ matrix.target }}
-          path: dist/${{ matrix.target }}/
+          name: libxray-${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}/
+          if-no-files-found: error
 
   release:
-      needs: build
-      runs-on: ubuntu-latest
-      steps:
-        - name: Download all artifacts
-          uses: actions/download-artifact@v4
-          with:
-            pattern: libxray-*
-            path: dist/
-            merge-multiple: false
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: libxray-*
+          path: dist/
+          merge-multiple: false
 
-        - name: Zip each platform
-          run: |
-            cd dist
-            for d in */ ; do
-              zip -r "${d%/}.zip" "$d"
-            done
+      - name: Zip each platform
+        run: |
+          cd dist
+          for d in */ ; do
+            zip -r "${d%/}.zip" "$d"
+          done
 
-        - name: Create GitHub Release
-          uses: softprops/action-gh-release@v2
-          with:
-            name: libXRay ${{ github.ref_name }}
-            tag_name: ${{ github.ref_name }}
-            files: dist/*.zip
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: libXray ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          files: dist/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
