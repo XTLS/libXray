@@ -4,7 +4,6 @@ import shutil
 import subprocess
 
 from app.cmd import (
-    create_dir_if_not_exists,
     delete_file_if_exists,
     delete_dir_if_exists,
 )
@@ -142,28 +141,6 @@ class Builder(object):
 
     def build(self):
         pass
-
-    def build_desktop_bin(self, bin_file: str):
-        bin_dir = os.path.join(self.lib_dir, "bin")
-        create_dir_if_not_exists(bin_dir)
-        output_file = os.path.join(bin_dir, bin_file)
-        run_env = os.environ.copy()
-        run_env["CGO_ENABLED"] = "0"
-
-        cmd = [
-            "go",
-            "build",
-            "-trimpath",
-            "-ldflags",
-            "-s -w",
-            f"-o={output_file}",
-            "./desktop_bin",
-        ]
-        os.chdir(self.lib_dir)
-        print(cmd)
-        ret = subprocess.run(cmd, env=run_env)
-        if ret.returncode != 0:
-            raise Exception("build_desktop_bin failed")
 
     def after_build(self):
         pass
