@@ -178,13 +178,11 @@ jobs:
               mkdir -p "dist/${{ matrix.artifact }}"
               cp linux_so/libXray.so "dist/${{ matrix.artifact }}/"
               cp linux_so/libXray.h "dist/${{ matrix.artifact }}/"
-              cp bin/xray "dist/${{ matrix.artifact }}/"
               ;;
             windows)
               mkdir -p "dist/${{ matrix.artifact }}"
               cp windows_dll/libXray.dll "dist/${{ matrix.artifact }}/"
               cp windows_dll/libXray.h "dist/${{ matrix.artifact }}/"
-              cp bin/xray.exe "dist/${{ matrix.artifact }}/"
               ;;
             android)
               mkdir -p "dist/${{ matrix.artifact }}"

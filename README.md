@@ -42,6 +42,7 @@ depends on git and go.
 
 By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to tag `v26.6.27` (recorded by Go as the matching pseudo-version).
 Pass the optional `local` argument to use an existing local checkout at `../Xray-core` through a Go module `replace`.
+Linux and Windows builds only produce the libXray shared library. Applications that need a standalone Xray executable should use official Xray-core release binaries.
 
 ### Usage
 
