@@ -13,6 +13,7 @@ class LinuxBuilder(Builder):
         create_dir_if_not_exists(self.framework_dir)
         self.lib_file = "libXray.so"
         self.lib_header_file = "libXray.h"
+        self.bin_file = "xray"
 
     def before_build(self):
         super().before_build()
@@ -22,6 +23,7 @@ class LinuxBuilder(Builder):
         self.before_build()
         self.build_linux()
         self.after_build()
+        self.build_desktop_bin(self.bin_file)
         self.revert_go_env()
 
     def build_linux(self):
