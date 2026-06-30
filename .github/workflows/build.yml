@@ -39,12 +39,7 @@ jobs:
             artifact: windows-x64
           - runner: macos-26
             target: apple
-            apple_tool: go
             artifact: apple-cgo
-          - runner: macos-26
-            target: apple
-            apple_tool: gomobile
-            artifact: apple-gomobile
 
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
@@ -115,32 +110,6 @@ jobs:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
 
-      - name: Install gomobile (Android)
-        if: matrix.target == 'android'
-        run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          gomobile init
-
-      # =========================
-      # Windows toolchain
-      # =========================
-      - name: Setup MSYS2 (Windows GCC)
-        if: matrix.target == 'windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-toolchain
-
-      # =========================
-      # Apple toolchain
-      # =========================
-      - name: Setup gomobile (Apple)
-        if: matrix.target == 'apple' && matrix.apple_tool == 'gomobile'
-        run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          gomobile init
-
       # =========================
       # Build steps
       # =========================
@@ -163,7 +132,7 @@ jobs:
       - name: Build Apple (macOS/iOS)
         if: matrix.target == 'apple'
         run: |
-          python3 build/main.py apple ${{ matrix.apple_tool }}
+          python3 build/main.py apple go
 
       # =========================
       # Collect artifacts
@@ -178,13 +147,11 @@ jobs:
               mkdir -p "dist/${{ matrix.artifact }}"
               cp linux_so/libXray.so "dist/${{ matrix.artifact }}/"
               cp linux_so/libXray.h "dist/${{ matrix.artifact }}/"
-              cp bin/xray "dist/${{ matrix.artifact }}/"
               ;;
             windows)
               mkdir -p "dist/${{ matrix.artifact }}"
               cp windows_dll/libXray.dll "dist/${{ matrix.artifact }}/"
               cp windows_dll/libXray.h "dist/${{ matrix.artifact }}/"
-              cp bin/xray.exe "dist/${{ matrix.artifact }}/"
               ;;
             android)
               mkdir -p "dist/${{ matrix.artifact }}"
@@ -208,6 +175,7 @@ jobs:
           if-no-files-found: error
 
   release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -232,6 +200,7 @@ jobs:
         with:
           name: libXray ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
+          prerelease: true
           files: dist/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

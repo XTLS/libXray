@@ -18,6 +18,7 @@
 
 默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 将 Xray-core 固定到 tag `v26.6.27`（Go 会记录为对应的 pseudo-version）。
 传入可选参数 `local` 时，会通过 Go module `replace` 改用已有的本地仓库 `../Xray-core`。
+Linux 和 Windows 构建只输出 libXray 动态库。需要独立 Xray 可执行文件的应用应使用 Xray-core 官方发布的二进制。
 
 ### 使用方式
 
@@ -69,13 +70,97 @@ python3 build/main.py windows local
 
 ### Windows
 
-依赖 MinGW 。
+依赖 LLVM MinGW 。
 
-你可使用 winget 安装 [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw) 或 [WinLibs](https://github.com/brechtsanders/winlibs_mingw) 。
+你可使用 winget 安装 [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw)。
 
 ```shell
 winget install MartinStorsjo.LLVM-MinGW.UCRT
-winget install BrechtSanders.WinLibs.POSIX.UCRT
+```
+
+## API
+
+libXray 只暴露一个结构化入口：
+
+```go
+func Invoke(requestJSON string) string
+```
+
+C 导出为：
+
+```c
+char* CGoInvoke(char* requestJSON);
+```
+
+请求是 JSON 对象：
+
+```json
+{
+  "apiVersion": 1,
+  "method": "runXray",
+  "env": {
+    "xray.location.config": "/path/to/config.json",
+    "xray.location.asset": "/path/to/dat",
+    "xray.location.cert": "/path/to/dat",
+    "xray.tun.fd": "123"
+  },
+  "payload": {
+    "configPath": "/path/to/config.json"
+  }
+}
+```
+
+响应是 JSON 对象：
+
+```json
+{
+  "success": true,
+  "data": {},
+  "error": ""
+}
+```
+
+`env` 是可选字段，只支持 libXray 显式建模的 Xray-core 环境变量：
+
+| JSON key | 含义 |
+| --- | --- |
+| `xray.location.config` | Xray 配置文件路径 |
+| `xray.location.confdir` | Xray 配置目录路径 |
+| `xray.location.asset` | 保存 `geosite.dat`、`geoip.dat` 和自定义 GeoData 的目录 |
+| `xray.location.cert` | Xray-core 使用的证书目录 |
+| `xray.buf.readv` | Xray-core readv buffer 开关 |
+| `xray.buf.splice` | Xray-core splice buffer 开关 |
+| `xray.vmess.padding` | VMess padding 开关 |
+| `xray.cone.disabled` | Cone 行为开关 |
+| `xray.json.strict` | 严格 JSON 解析开关 |
+| `xray.ray.buffer.size` | Ray buffer size |
+| `xray.browser.dialer` | Browser dialer 地址 |
+| `xray.xudp.show` | XUDP 日志显示开关 |
+| `xray.xudp.basekey` | XUDP base key |
+| `xray.tun.fd` | Android、iOS、macOS Packet Tunnel 使用的 TUN 文件描述符 |
+
+设计决定：
+
+1. `env` 在 Go 和 Dart 侧都是固定字段 model，不是自由 map。
+2. 未知 `env` key 会被忽略，不会写入进程环境变量。
+3. `env` 只设置已建模的非空字段，缺失字段不会 unset。
+4. libXray 不会在 method 结束后 restore 旧环境变量。调用方必须在每次依赖环境变量的请求中显式传入对应字段。这样可以避免并发调用时，一个请求恢复旧值覆盖另一个请求的新值。
+5. `SetTunFd` 已删除。请在 `runXray` 请求的 `env` 对象中传入 `xray.tun.fd`。
+
+支持的 method：
+
+```text
+getFreePorts
+convertShareLinksToXrayJson
+convertXrayJsonToShareLinks
+countGeoData
+ping
+testXray
+runXray
+runXrayFromJson
+stopXray
+xrayVersion
+getXrayState
 ```
 
 ## controller
@@ -87,10 +172,6 @@ winget install BrechtSanders.WinLibs.POSIX.UCRT
 ### count
 
 读取 geo 文件，并对分类和规则进行计数。
-
-### read
-
-读取 Xray Json 配置，提取使用到的 geo 文件名。
 
 ## main
 
@@ -109,10 +190,6 @@ winget install BrechtSanders.WinLibs.POSIX.UCRT
 ### measure
 
 对 Xray 配置进行测速。
-
-### model
-
-包装接口的响应体。
 
 ### port
 
@@ -192,15 +269,6 @@ http://localhost:49227/debug/vars
 ### xray
 
 启动和停止 Xray 实例。
-
-
-## nodep_wrapper
-
-导出 nodep 。
-
-### xray_wrapper
-
-导出 xray 。
 
 # 致谢
 

@@ -22,8 +22,6 @@ class LinuxBuilder(Builder):
         self.before_build()
         self.build_linux()
         self.after_build()
-
-        self.build_desktop_bin()
         self.revert_go_env()
 
     def build_linux(self):
