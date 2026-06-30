@@ -54,6 +54,22 @@ func requireNoDataObject(t *testing.T, response testResponse) {
 	}
 }
 
+func decodeDataObject[T any](t *testing.T, response testResponse) T {
+	t.Helper()
+	if !json.Valid(response.Data) {
+		t.Fatalf("data is not valid JSON: %s", response.Data)
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(response.Data, &object); err != nil {
+		t.Fatalf("data is not an object: %s", response.Data)
+	}
+	var value T
+	if err := json.Unmarshal(response.Data, &value); err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
 func writeConfigToFile(t *testing.T, config any, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
@@ -187,12 +203,44 @@ func TestInvokeXrayVersion(t *testing.T) {
 	if !response.Success {
 		t.Fatalf("XrayVersion failed: %s", response.Err)
 	}
-	var version string
-	if err := json.Unmarshal(response.Data, &version); err != nil {
+	version := decodeDataObject[XrayVersionResponse](t, response)
+	if version.Version == "" {
+		t.Fatal("Xray version should not be empty")
+	}
+}
+
+func TestInvokeMapResponseShape(t *testing.T) {
+	response := invokeForTest(t, LibXrayMethodGetFreePorts, nil, GetFreePortsRequest{Count: 1})
+	if !response.Success {
+		t.Fatalf("GetFreePorts failed: %s", response.Err)
+	}
+	ports := decodeDataObject[GetFreePortsResponse](t, response)
+	if len(ports.Ports) != 1 {
+		t.Fatalf("ports = %v", ports.Ports)
+	}
+
+	response = invokeForTest(t, LibXrayMethodGetXrayState, nil, nil)
+	if !response.Success {
+		t.Fatalf("GetXrayState failed: %s", response.Err)
+	}
+	_ = decodeDataObject[GetXrayStateResponse](t, response)
+
+	rawConfig, err := json.Marshal(testXrayConfig(t))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if version == "" {
-		t.Fatal("Xray version should not be empty")
+	response = invokeForTest(
+		t,
+		LibXrayMethodConvertXrayJsonToShareLinks,
+		nil,
+		ConvertXrayJsonToShareLinksRequest{XrayJson: string(rawConfig)},
+	)
+	if !response.Success {
+		t.Fatalf("ConvertXrayJsonToShareLinks failed: %s", response.Err)
+	}
+	links := decodeDataObject[ConvertXrayJsonToShareLinksResponse](t, response)
+	if links.Links == "" {
+		t.Fatal("links should not be empty")
 	}
 }
 
