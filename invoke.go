@@ -23,6 +23,9 @@ func Invoke(requestJSON string) string {
 	if err := json.Unmarshal([]byte(requestJSON), &request); err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
+	if err := validateAPIVersion(request.APIVersion); err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
 	applyEnv(request.Env)
 
 	switch request.Method {
@@ -43,7 +46,7 @@ func Invoke(requestJSON string) string {
 	case LibXrayMethodRunXrayFromJson:
 		return invokeRunXrayFromJSON(request.Payload)
 	case LibXrayMethodStopXray:
-		return encodeInvokeResponse("", xray.StopXray())
+		return encodeInvokeNoDataResponse(xray.StopXray())
 	case LibXrayMethodXrayVersion:
 		return encodeInvokeResponse(xray.XrayVersion(), nil)
 	case LibXrayMethodGetXrayState:
@@ -51,6 +54,13 @@ func Invoke(requestJSON string) string {
 	default:
 		return encodeInvokeResponse(nil, errors.New("unknown method"))
 	}
+}
+
+func validateAPIVersion(version int) error {
+	if version == 0 || version == 1 {
+		return nil
+	}
+	return errors.New("unsupported apiVersion")
 }
 
 func applyEnv(env *LibXrayEnvJson) {
@@ -103,6 +113,13 @@ func encodeInvokeResponse(data any, err error) string {
 	return string(raw)
 }
 
+func encodeInvokeNoDataResponse(err error) string {
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	return encodeInvokeResponse(struct{}{}, nil)
+}
+
 func invokeGetFreePorts(payload json.RawMessage) string {
 	request, err := decodePayload[GetFreePortsRequest](payload)
 	if err != nil {
@@ -136,14 +153,14 @@ func invokeConvertXrayJsonToShareLinks(payload json.RawMessage) string {
 func invokeCountGeoData(payload json.RawMessage) string {
 	request, err := decodePayload[CountGeoDataRequest](payload)
 	if err != nil {
-		return encodeInvokeResponse("", err)
+		return encodeInvokeNoDataResponse(err)
 	}
 	datDir := platform.NewEnvFlag(platform.AssetLocation).GetValue(func() string { return "" })
 	if datDir == "" {
-		return encodeInvokeResponse("", errors.New("missing xray.location.asset"))
+		return encodeInvokeNoDataResponse(errors.New("missing xray.location.asset"))
 	}
 	err = geo.CountGeoData(datDir, request.Name, request.GeoType)
-	return encodeInvokeResponse("", err)
+	return encodeInvokeNoDataResponse(err)
 }
 
 func invokePing(payload json.RawMessage) string {
@@ -158,26 +175,26 @@ func invokePing(payload json.RawMessage) string {
 func invokeTestXray(payload json.RawMessage) string {
 	request, err := decodePayload[RunXrayRequest](payload)
 	if err != nil {
-		return encodeInvokeResponse("", err)
+		return encodeInvokeNoDataResponse(err)
 	}
 	err = xray.TestXray(request.ConfigPath)
-	return encodeInvokeResponse("", err)
+	return encodeInvokeNoDataResponse(err)
 }
 
 func invokeRunXray(payload json.RawMessage) string {
 	request, err := decodePayload[RunXrayRequest](payload)
 	if err != nil {
-		return encodeInvokeResponse("", err)
+		return encodeInvokeNoDataResponse(err)
 	}
 	err = xray.RunXray(request.ConfigPath)
-	return encodeInvokeResponse("", err)
+	return encodeInvokeNoDataResponse(err)
 }
 
 func invokeRunXrayFromJSON(payload json.RawMessage) string {
 	request, err := decodePayload[RunXrayFromJSONRequest](payload)
 	if err != nil {
-		return encodeInvokeResponse("", err)
+		return encodeInvokeNoDataResponse(err)
 	}
 	err = xray.RunXrayFromJSON(request.ConfigJSON)
-	return encodeInvokeResponse("", err)
+	return encodeInvokeNoDataResponse(err)
 }

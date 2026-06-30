@@ -38,6 +38,22 @@ func invokeForTest(t *testing.T, method LibXrayMethod, env *LibXrayEnvJson, payl
 	return response
 }
 
+func invokeRawForTest(t *testing.T, requestJSON string) testResponse {
+	t.Helper()
+	var response testResponse
+	if err := json.Unmarshal([]byte(Invoke(requestJSON)), &response); err != nil {
+		t.Fatal(err)
+	}
+	return response
+}
+
+func requireNoDataObject(t *testing.T, response testResponse) {
+	t.Helper()
+	if got := string(response.Data); got != "{}" {
+		t.Fatalf("data = %s, want {}", got)
+	}
+}
+
 func writeConfigToFile(t *testing.T, config any, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
@@ -145,6 +161,7 @@ func TestInvokeTestXray(t *testing.T) {
 	if !response.Success {
 		t.Fatalf("TestXray failed: %s", response.Err)
 	}
+	requireNoDataObject(t, response)
 }
 
 func TestInvokeRunXray(t *testing.T) {
@@ -162,6 +179,7 @@ func TestInvokeRunXray(t *testing.T) {
 	if !response.Success {
 		t.Fatalf("RunXray failed: %s", response.Err)
 	}
+	requireNoDataObject(t, response)
 }
 
 func TestInvokeXrayVersion(t *testing.T) {
@@ -241,6 +259,41 @@ func TestInvokeUnknownMethod(t *testing.T) {
 	response := invokeForTest(t, LibXrayMethod("unknown"), nil, nil)
 	if response.Success {
 		t.Fatal("unknown method should fail")
+	}
+}
+
+func TestInvokeAPIVersion(t *testing.T) {
+	response := invokeRawForTest(t, `{"method":"xrayVersion"}`)
+	if !response.Success {
+		t.Fatalf("omitted apiVersion should default to v1: %s", response.Err)
+	}
+
+	t.Setenv(platform.AssetLocation, "initial-asset")
+	response = invokeRawForTest(t, `{"apiVersion":2,"method":"xrayVersion","env":{"xray.location.asset":"updated-asset"}}`)
+	if response.Success {
+		t.Fatal("unsupported apiVersion should fail")
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
+	}
+	if got := os.Getenv(platform.AssetLocation); got != "initial-asset" {
+		t.Fatalf("asset env = %q", got)
+	}
+}
+
+func TestInvokeNoDataResponseShape(t *testing.T) {
+	response := invokeForTest(t, LibXrayMethodStopXray, nil, nil)
+	if !response.Success {
+		t.Fatalf("StopXray failed: %s", response.Err)
+	}
+	requireNoDataObject(t, response)
+
+	response = invokeRawForTest(t, `{"apiVersion":1,"method":"runXray","payload":"invalid"}`)
+	if response.Success {
+		t.Fatal("invalid runXray payload should fail")
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
 	}
 }
 
