@@ -39,12 +39,7 @@ jobs:
             artifact: windows-x64
           - runner: macos-26
             target: apple
-            apple_tool: go
             artifact: apple-cgo
-          - runner: macos-26
-            target: apple
-            apple_tool: gomobile
-            artifact: apple-gomobile
 
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
@@ -115,32 +110,6 @@ jobs:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
 
-      - name: Install gomobile (Android)
-        if: matrix.target == 'android'
-        run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          gomobile init
-
-      # =========================
-      # Windows toolchain
-      # =========================
-      - name: Setup MSYS2 (Windows GCC)
-        if: matrix.target == 'windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-toolchain
-
-      # =========================
-      # Apple toolchain
-      # =========================
-      - name: Setup gomobile (Apple)
-        if: matrix.target == 'apple' && matrix.apple_tool == 'gomobile'
-        run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          gomobile init
-
       # =========================
       # Build steps
       # =========================
@@ -163,7 +132,7 @@ jobs:
       - name: Build Apple (macOS/iOS)
         if: matrix.target == 'apple'
         run: |
-          python3 build/main.py apple ${{ matrix.apple_tool }}
+          python3 build/main.py apple go
 
       # =========================
       # Collect artifacts
