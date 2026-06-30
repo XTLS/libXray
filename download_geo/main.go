@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +13,11 @@ import (
 	libXray "github.com/xtls/libxray"
 	"github.com/xtls/libxray/nodep"
 )
+
+type invokeResponseEnvelope struct {
+	Success bool   `json:"success"`
+	Err     string `json:"error,omitempty"`
+}
 
 func ensureDir(dir string) error {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -52,27 +56,34 @@ func saveTimestamp(datDir string, fileName string) error {
 	return nodep.WriteText(tsText, tsPath)
 }
 
-func parseCallResponse(text string) (nodep.CallResponse[string], error) {
-	var response nodep.CallResponse[string]
-	decoded, err := base64.StdEncoding.DecodeString(text)
-	if err != nil {
-		return response, err
-	}
-	err = json.Unmarshal(decoded, &response)
+func parseInvokeResponse(text string) (invokeResponseEnvelope, error) {
+	var response invokeResponseEnvelope
+	err := json.Unmarshal([]byte(text), &response)
 	return response, err
 }
 
 func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string, error) {
-	var request libXray.CountGeoDataRequest
-	request.DatDir = datDir
-	request.Name = name
-	request.GeoType = geoType
-
+	payload, err := json.Marshal(&libXray.CountGeoDataRequest{
+		Name:    name,
+		GeoType: geoType,
+	})
+	if err != nil {
+		return "", err
+	}
+	request := libXray.LibXrayInvokeRequest{
+		APIVersion: 1,
+		Method:     libXray.LibXrayMethodCountGeoData,
+		Env: &libXray.LibXrayEnvJson{
+			AssetLocation: datDir,
+			CertLocation:  datDir,
+		},
+		Payload: payload,
+	}
 	data, err := json.Marshal(&request)
 	if err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(data), nil
+	return string(data), nil
 }
 
 func downloadDat(url string, datDir string, fileName string, geoType string) {
@@ -89,8 +100,8 @@ func downloadDat(url string, datDir string, fileName string, geoType string) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	res := libXray.CountGeoData(geoReq)
-	resp, err := parseCallResponse(res)
+	res := libXray.Invoke(geoReq)
+	resp, err := parseInvokeResponse(res)
 	if err != nil || !resp.Success {
 		fmt.Println("Failed to load geosite:", url, res, resp.Err)
 		os.Exit(1)

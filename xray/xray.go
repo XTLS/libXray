@@ -1,13 +1,10 @@
 package xray
 
 import (
-	"os"
 	"runtime/debug"
-	"strconv"
 
 	"github.com/xtls/libxray/memory"
 	"github.com/xtls/xray-core/common/cmdarg"
-	"github.com/xtls/xray-core/common/platform"
 	"github.com/xtls/xray-core/core"
 	_ "github.com/xtls/xray-core/main/distro/all"
 )
@@ -44,22 +41,9 @@ func StartXrayFromJSON(configJSON string) (*core.Instance, error) {
 	return server, nil
 }
 
-// SetTunFd sets the TUN file descriptor.
-// Call this BEFORE RunXray/RunXrayFromJSON.
-func SetTunFd(fd int32) {
-	os.Setenv(platform.TunFdKey, strconv.Itoa(int(fd)))
-}
-
-func InitEnv(datDir string) {
-	os.Setenv(platform.AssetLocation, datDir)
-	os.Setenv(platform.CertLocation, datDir)
-}
-
 // Run Xray instance.
-// datDir means the dir which geosite.dat and geoip.dat are in.
 // configPath means the config.json file path.
-func RunXray(datDir, configPath string) (err error) {
-	InitEnv(datDir)
+func RunXray(configPath string) (err error) {
 	memory.InitForceFree()
 	coreServer, err = StartXray(configPath)
 	if err != nil {
@@ -75,10 +59,8 @@ func RunXray(datDir, configPath string) (err error) {
 }
 
 // Run Xray instance with JSON configuration string.
-// datDir means the dir which geosite.dat and geoip.dat are in.
 // configJSON means the JSON configuration string.
-func RunXrayFromJSON(datDir, configJSON string) (err error) {
-	InitEnv(datDir)
+func RunXrayFromJSON(configJSON string) (err error) {
 	memory.InitForceFree()
 	coreServer, err = StartXrayFromJSON(configJSON)
 	if err != nil {

@@ -4,70 +4,8 @@ import "C"
 
 func main() {}
 
-//export CGoSetTunFd
-func CGoSetTunFd(fd C.int) {
-	SetTunFd(int32(fd))
-}
-
-//export CGoRunXrayFromJSON
-func CGoRunXrayFromJSON(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(RunXrayFromJSON(text))
-}
-
-//export CGoGetFreePorts
-func CGoGetFreePorts(count int) *C.char {
-	return C.CString(GetFreePorts(count))
-}
-
-//export CGoConvertShareLinksToXrayJson
-func CGoConvertShareLinksToXrayJson(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(ConvertShareLinksToXrayJson(text))
-}
-
-//export CGOConvertXrayJsonToShareLinks
-func CGOConvertXrayJsonToShareLinks(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(ConvertXrayJsonToShareLinks(text))
-}
-
-//export CGoCountGeoData
-func CGoCountGeoData(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(CountGeoData(text))
-}
-
-//export CGoReadGeoFiles
-func CGoReadGeoFiles(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(ReadGeoFiles(text))
-}
-
-//export CGoPing
-func CGoPing(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(Ping(text))
-}
-
-//export CGoTestXray
-func CGoTestXray(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(TestXray(text))
-}
-
-//export CGoRunXray
-func CGoRunXray(base64Text *C.char) *C.char {
-	text := C.GoString(base64Text)
-	return C.CString(RunXray(text))
-}
-
-//export CGoStopXray
-func CGoStopXray() *C.char {
-	return C.CString(StopXray())
-}
-
-//export CGoXrayVersion
-func CGoXrayVersion() *C.char {
-	return C.CString(XrayVersion())
+//export CGoInvoke
+func CGoInvoke(requestJSON *C.char) *C.char {
+	text := C.GoString(requestJSON)
+	return C.CString(Invoke(text))
 }
