@@ -48,9 +48,9 @@ func Invoke(requestJSON string) string {
 	case LibXrayMethodStopXray:
 		return encodeInvokeNoDataResponse(xray.StopXray())
 	case LibXrayMethodXrayVersion:
-		return encodeInvokeResponse(xray.XrayVersion(), nil)
+		return encodeInvokeResponse(&XrayVersionResponse{Version: xray.XrayVersion()}, nil)
 	case LibXrayMethodGetXrayState:
-		return encodeInvokeResponse(xray.GetXrayState(), nil)
+		return encodeInvokeResponse(&GetXrayStateResponse{Running: xray.GetXrayState()}, nil)
 	default:
 		return encodeInvokeResponse(nil, errors.New("unknown method"))
 	}
@@ -129,7 +129,7 @@ func invokeGetFreePorts(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
-	return encodeInvokeResponse(&getFreePortsResponse{Ports: ports}, nil)
+	return encodeInvokeResponse(&GetFreePortsResponse{Ports: ports}, nil)
 }
 
 func invokeConvertShareLinksToXrayJson(payload json.RawMessage) string {
@@ -144,10 +144,13 @@ func invokeConvertShareLinksToXrayJson(payload json.RawMessage) string {
 func invokeConvertXrayJsonToShareLinks(payload json.RawMessage) string {
 	request, err := decodePayload[ConvertXrayJsonToShareLinksRequest](payload)
 	if err != nil {
-		return encodeInvokeResponse("", err)
+		return encodeInvokeResponse(nil, err)
 	}
 	links, err := share.ConvertXrayJsonToShareLinks([]byte(request.XrayJson))
-	return encodeInvokeResponse(links, err)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	return encodeInvokeResponse(&ConvertXrayJsonToShareLinksResponse{Links: links}, nil)
 }
 
 func invokeCountGeoData(payload json.RawMessage) string {
@@ -166,10 +169,13 @@ func invokeCountGeoData(payload json.RawMessage) string {
 func invokePing(payload json.RawMessage) string {
 	request, err := decodePayload[PingRequest](payload)
 	if err != nil {
-		return encodeInvokeResponse(nodep.PingDelayError, err)
+		return encodeInvokeResponse(nil, err)
 	}
 	delay, err := xray.Ping(request.ConfigPath, request.Timeout, request.URL, request.Proxy)
-	return encodeInvokeResponse(delay, err)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	return encodeInvokeResponse(&PingResponse{Delay: delay}, nil)
 }
 
 func invokeTestXray(payload json.RawMessage) string {

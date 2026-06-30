@@ -47,7 +47,7 @@ type GetFreePortsRequest struct {
 	Count int `json:"count,omitempty"`
 }
 
-type getFreePortsResponse struct {
+type GetFreePortsResponse struct {
 	Ports []int `json:"ports,omitempty"`
 }
 
@@ -57,6 +57,10 @@ type ConvertShareLinksToXrayJsonRequest struct {
 
 type ConvertXrayJsonToShareLinksRequest struct {
 	XrayJson string `json:"xrayJson,omitempty"`
+}
+
+type ConvertXrayJsonToShareLinksResponse struct {
+	Links string `json:"links,omitempty"`
 }
 
 type CountGeoDataRequest struct {
@@ -71,10 +75,22 @@ type PingRequest struct {
 	Proxy      string `json:"proxy,omitempty"`
 }
 
+type PingResponse struct {
+	Delay int64 `json:"delay,omitempty"`
+}
+
 type RunXrayRequest struct {
 	ConfigPath string `json:"configPath,omitempty"`
 }
 
 type RunXrayFromJSONRequest struct {
 	ConfigJSON string `json:"configJSON,omitempty"`
+}
+
+type XrayVersionResponse struct {
+	Version string `json:"version,omitempty"`
+}
+
+type GetXrayStateResponse struct {
+	Running bool `json:"running"`
 }
