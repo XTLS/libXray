@@ -120,7 +120,10 @@ char* CGoInvoke(char* requestJSON);
 }
 ```
 
-`env` 是可选字段，只支持 libXray 显式建模的 Xray-core 环境变量：
+`env` 是可选字段，只支持 libXray 显式建模的 Xray-core 环境变量。传入 `env`
+会写入进程环境变量，并在 method 继续执行前 reload Xray-core 的进程全局 env-backed settings。
+它主要用于加载前 key，以及生成 Xray JSON 时还不知道的运行时值。可 reload 的运行时 key
+也可以写在 Xray 配置根 `env` 对象中；配置根 `env` 会在 config build 阶段应用，并覆盖同名外部值。
 
 | JSON key | 含义 |
 | --- | --- |
@@ -145,7 +148,10 @@ char* CGoInvoke(char* requestJSON);
 2. 未知 `env` key 会被忽略，不会写入进程环境变量。
 3. `env` 只设置已建模的非空字段，缺失字段不会 unset。
 4. libXray 不会在 method 结束后 restore 旧环境变量。调用方必须在每次依赖环境变量的请求中显式传入对应字段。这样可以避免并发调用时，一个请求恢复旧值覆盖另一个请求的新值。
-5. `SetTunFd` 已删除。请在 `runXray` 请求的 `env` 对象中传入 `xray.tun.fd`。
+5. `xray.json.strict`、`xray.location.config`、`xray.location.confdir` 属于加载前 key，必须保留在 Xray JSON 配置外部。
+6. Xray 配置根 `env` 不接受上述三个加载前 key；其他可 reload key 写在配置根 `env` 时会覆盖 `Invoke.env` 中的同名值。
+7. `env` reload 的是 Xray-core 进程全局 env-backed settings，不提供 per-instance 环境隔离。
+8. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在 `runXray` 请求的 `env` 对象中传入 `xray.tun.fd`。
 
 支持的 method：
 

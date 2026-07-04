@@ -1,6 +1,7 @@
 package libXray
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/xtls/xray-core/common/platform"
+	"github.com/xtls/xray-core/infra/conf/serial"
 )
 
 type testResponse struct {
@@ -282,7 +284,7 @@ func TestInvokeSetsAllSupportedEnvFields(t *testing.T) {
 		{"buffer size", platform.BufferSize, "buffer-size-value"},
 		{"browser dialer", platform.BrowserDialerAddress, "browser-dialer-value"},
 		{"xudp log", platform.XUDPLog, "xudp-log-value"},
-		{"xudp base key", platform.XUDPBaseKey, "xudp-base-key-value"},
+		{"xudp base key", platform.XUDPBaseKey, base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))},
 		{"tun fd", platform.TunFdKey, "123"},
 	}
 	for _, tt := range tests {
@@ -300,6 +302,37 @@ func TestInvokeSetsAllSupportedEnvFields(t *testing.T) {
 				t.Fatalf("%s = %q", tt.key, got)
 			}
 		})
+	}
+}
+
+func TestInvokeEnvReloadsXrayCoreSettings(t *testing.T) {
+	original, existed := os.LookupEnv(platform.UseStrictJSON)
+	_ = os.Setenv(platform.UseStrictJSON, "false")
+	platform.ReloadEnvSettings()
+	t.Cleanup(func() {
+		if existed {
+			_ = os.Setenv(platform.UseStrictJSON, original)
+		} else {
+			_ = os.Unsetenv(platform.UseStrictJSON)
+		}
+		platform.ReloadEnvSettings()
+	})
+
+	if serial.IsStrictJSONEnabled() {
+		t.Fatal("strict JSON should start disabled")
+	}
+
+	response := invokeForTest(
+		t,
+		LibXrayMethodXrayVersion,
+		&LibXrayEnvJson{UseStrictJSON: "true"},
+		nil,
+	)
+	if !response.Success {
+		t.Fatalf("XrayVersion failed: %s", response.Err)
+	}
+	if !serial.IsStrictJSONEnabled() {
+		t.Fatal("Invoke.env did not reload strict JSON setting")
 	}
 }
 

@@ -153,7 +153,12 @@ The response is a JSON object:
 ```
 
 `env` is optional and only supports Xray-core environment variables that are
-explicitly modeled by libXray:
+explicitly modeled by libXray. Passing `env` sets process environment variables
+and reloads Xray-core's process-global env-backed settings before the method
+continues. It is primarily used for load-stage keys and runtime values that are
+not known when the Xray JSON is generated. Reloadable runtime keys can also be
+declared in the Xray config root `env` object, which is applied during config
+build and overrides same-name external values.
 
 | JSON key | Meaning |
 | --- | --- |
@@ -178,7 +183,10 @@ Design notes:
 2. Unknown `env` keys are ignored and are not written to the process environment.
 3. `env` only sets modeled, non-empty fields. Missing fields are not unset.
 4. libXray does not restore previous environment values after a method returns. Callers must pass the required env fields on every request that depends on them. This avoids concurrent calls restoring stale values over newer values.
-5. `SetTunFd` has been removed. Pass `xray.tun.fd` in the `env` object of the `runXray` request.
+5. `xray.json.strict`, `xray.location.config`, and `xray.location.confdir` are load-stage keys and must stay outside the Xray JSON config.
+6. Xray config root `env` does not accept those three load-stage keys. Other reloadable keys declared there override same-name values from `Invoke.env`.
+7. `env` reloads Xray-core process-global env-backed settings. It does not provide per-instance environment isolation.
+8. `SetTunFd` has been removed. Pass `xray.tun.fd` in the `env` object of the `runXray` request when the fd is only known at runtime.
 
 Supported methods:
 

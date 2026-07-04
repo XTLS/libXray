@@ -26,7 +26,9 @@ func Invoke(requestJSON string) string {
 	if err := validateAPIVersion(request.APIVersion); err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
-	applyEnv(request.Env)
+	if err := applyEnv(request.Env); err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
 
 	switch request.Method {
 	case LibXrayMethodGetFreePorts:
@@ -63,9 +65,9 @@ func validateAPIVersion(version int) error {
 	return errors.New("unsupported apiVersion")
 }
 
-func applyEnv(env *LibXrayEnvJson) {
+func applyEnv(env *LibXrayEnvJson) error {
 	if env == nil {
-		return
+		return nil
 	}
 	setEnvIfNotEmpty(platform.ConfigLocation, env.ConfigLocation)
 	setEnvIfNotEmpty(platform.ConfdirLocation, env.ConfdirLocation)
@@ -81,6 +83,7 @@ func applyEnv(env *LibXrayEnvJson) {
 	setEnvIfNotEmpty(platform.XUDPLog, env.XUDPLog)
 	setEnvIfNotEmpty(platform.XUDPBaseKey, env.XUDPBaseKey)
 	setEnvIfNotEmpty(platform.TunFdKey, env.TunFd)
+	return platform.ReloadEnvSettings()
 }
 
 func setEnvIfNotEmpty(key string, value string) {
