@@ -22,25 +22,7 @@ const (
 type LibXrayInvokeRequest struct {
 	APIVersion int             `json:"apiVersion,omitempty"`
 	Method     LibXrayMethod   `json:"method,omitempty"`
-	Env        *LibXrayEnvJson `json:"env,omitempty"`
 	Payload    json.RawMessage `json:"payload,omitempty"`
-}
-
-type LibXrayEnvJson struct {
-	ConfigLocation       string `json:"xray.location.config,omitempty"`
-	ConfdirLocation      string `json:"xray.location.confdir,omitempty"`
-	AssetLocation        string `json:"xray.location.asset,omitempty"`
-	CertLocation         string `json:"xray.location.cert,omitempty"`
-	UseReadV             string `json:"xray.buf.readv,omitempty"`
-	UseFreedomSplice     string `json:"xray.buf.splice,omitempty"`
-	UseVmessPadding      string `json:"xray.vmess.padding,omitempty"`
-	UseCone              string `json:"xray.cone.disabled,omitempty"`
-	UseStrictJSON        string `json:"xray.json.strict,omitempty"`
-	BufferSize           string `json:"xray.ray.buffer.size,omitempty"`
-	BrowserDialerAddress string `json:"xray.browser.dialer,omitempty"`
-	XUDPLog              string `json:"xray.xudp.show,omitempty"`
-	XUDPBaseKey          string `json:"xray.xudp.basekey,omitempty"`
-	TunFd                string `json:"xray.tun.fd,omitempty"`
 }
 
 type GetFreePortsRequest struct {
@@ -66,6 +48,7 @@ type ConvertXrayJsonToShareLinksResponse struct {
 type CountGeoDataRequest struct {
 	Name    string `json:"name,omitempty"`
 	GeoType string `json:"geoType,omitempty"`
+	DatDir  string `json:"datDir,omitempty"`
 }
 
 type PingRequest struct {

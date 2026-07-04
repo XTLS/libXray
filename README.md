@@ -130,12 +130,6 @@ The request is a JSON object:
 {
   "apiVersion": 1,
   "method": "runXray",
-  "env": {
-    "xray.location.config": "/path/to/config.json",
-    "xray.location.asset": "/path/to/dat",
-    "xray.location.cert": "/path/to/dat",
-    "xray.tun.fd": "123"
-  },
   "payload": {
     "configPath": "/path/to/config.json"
   }
@@ -152,41 +146,17 @@ The response is a JSON object:
 }
 ```
 
-`env` is optional and only supports Xray-core environment variables that are
-explicitly modeled by libXray. Passing `env` sets process environment variables
-and reloads Xray-core's process-global env-backed settings before the method
-continues. It is primarily used for load-stage keys and runtime values that are
-not known when the Xray JSON is generated. Reloadable runtime keys can also be
-declared in the Xray config root `env` object, which is applied during config
-build and overrides same-name external values.
-
-| JSON key | Meaning |
-| --- | --- |
-| `xray.location.config` | Xray config file location |
-| `xray.location.confdir` | Xray config directory location |
-| `xray.location.asset` | Directory containing `geosite.dat`, `geoip.dat`, and custom GeoData files |
-| `xray.location.cert` | Certificate directory used by Xray-core |
-| `xray.buf.readv` | Xray-core readv buffer switch |
-| `xray.buf.splice` | Xray-core splice buffer switch |
-| `xray.vmess.padding` | VMess padding switch |
-| `xray.cone.disabled` | Cone behavior switch |
-| `xray.json.strict` | Strict JSON parsing switch |
-| `xray.ray.buffer.size` | Ray buffer size |
-| `xray.browser.dialer` | Browser dialer address |
-| `xray.xudp.show` | XUDP log display switch |
-| `xray.xudp.basekey` | XUDP base key |
-| `xray.tun.fd` | TUN file descriptor for Android, iOS, and macOS packet tunnel integrations |
-
 Design notes:
 
-1. `env` is modeled as fixed fields in Go and Dart. It is not a free-form map.
-2. Unknown `env` keys are ignored and are not written to the process environment.
-3. `env` only sets modeled, non-empty fields. Missing fields are not unset.
-4. libXray does not restore previous environment values after a method returns. Callers must pass the required env fields on every request that depends on them. This avoids concurrent calls restoring stale values over newer values.
-5. `xray.json.strict`, `xray.location.config`, and `xray.location.confdir` are load-stage keys and must stay outside the Xray JSON config.
-6. Xray config root `env` does not accept those three load-stage keys. Other reloadable keys declared there override same-name values from `Invoke.env`.
-7. `env` reloads Xray-core process-global env-backed settings. It does not provide per-instance environment isolation.
-8. `SetTunFd` has been removed. Pass `xray.tun.fd` in the `env` object of the `runXray` request when the fd is only known at runtime.
+1. `Invoke` does not accept an `env` field. Runtime Xray-core environment
+   settings must be written into the Xray config root `env` object.
+2. `xray.json.strict`, `xray.location.config`, and `xray.location.confdir` are
+   load-stage process environment variables and cannot be supplied through
+   `Invoke`.
+3. `SetTunFd` has been removed. Write `xray.tun.fd` into the Xray config root
+   `env` object before calling `runXray` when the fd is only known at runtime.
+4. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
+   the method payload.
 
 Supported methods:
 

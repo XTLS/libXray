@@ -3,13 +3,11 @@ package libXray
 import (
 	"encoding/json"
 	"errors"
-	"os"
 
 	"github.com/xtls/libxray/geo"
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/libxray/share"
 	"github.com/xtls/libxray/xray"
-	"github.com/xtls/xray-core/common/platform"
 )
 
 type invokeResponse struct {
@@ -24,9 +22,6 @@ func Invoke(requestJSON string) string {
 		return encodeInvokeResponse(nil, err)
 	}
 	if err := validateAPIVersion(request.APIVersion); err != nil {
-		return encodeInvokeResponse(nil, err)
-	}
-	if err := applyEnv(request.Env); err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
 
@@ -63,33 +58,6 @@ func validateAPIVersion(version int) error {
 		return nil
 	}
 	return errors.New("unsupported apiVersion")
-}
-
-func applyEnv(env *LibXrayEnvJson) error {
-	if env == nil {
-		return nil
-	}
-	setEnvIfNotEmpty(platform.ConfigLocation, env.ConfigLocation)
-	setEnvIfNotEmpty(platform.ConfdirLocation, env.ConfdirLocation)
-	setEnvIfNotEmpty(platform.AssetLocation, env.AssetLocation)
-	setEnvIfNotEmpty(platform.CertLocation, env.CertLocation)
-	setEnvIfNotEmpty(platform.UseReadV, env.UseReadV)
-	setEnvIfNotEmpty(platform.UseFreedomSplice, env.UseFreedomSplice)
-	setEnvIfNotEmpty(platform.UseVmessPadding, env.UseVmessPadding)
-	setEnvIfNotEmpty(platform.UseCone, env.UseCone)
-	setEnvIfNotEmpty(platform.UseStrictJSON, env.UseStrictJSON)
-	setEnvIfNotEmpty(platform.BufferSize, env.BufferSize)
-	setEnvIfNotEmpty(platform.BrowserDialerAddress, env.BrowserDialerAddress)
-	setEnvIfNotEmpty(platform.XUDPLog, env.XUDPLog)
-	setEnvIfNotEmpty(platform.XUDPBaseKey, env.XUDPBaseKey)
-	setEnvIfNotEmpty(platform.TunFdKey, env.TunFd)
-	return platform.ReloadEnvSettings()
-}
-
-func setEnvIfNotEmpty(key string, value string) {
-	if value != "" {
-		_ = os.Setenv(key, value)
-	}
 }
 
 func decodePayload[T any](payload json.RawMessage) (T, error) {
@@ -161,11 +129,10 @@ func invokeCountGeoData(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeNoDataResponse(err)
 	}
-	datDir := platform.NewEnvFlag(platform.AssetLocation).GetValue(func() string { return "" })
-	if datDir == "" {
-		return encodeInvokeNoDataResponse(errors.New("missing xray.location.asset"))
+	if request.DatDir == "" {
+		return encodeInvokeNoDataResponse(errors.New("missing datDir"))
 	}
-	err = geo.CountGeoData(datDir, request.Name, request.GeoType)
+	err = geo.CountGeoData(request.DatDir, request.Name, request.GeoType)
 	return encodeInvokeNoDataResponse(err)
 }
 
