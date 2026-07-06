@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/xtls/libxray/nodep"
 )
 
 type testResponse struct {
@@ -249,6 +251,28 @@ func TestInvokeMapResponseShape(t *testing.T) {
 	links := decodeDataObject[ConvertXrayJsonToShareLinksResponse](t, response)
 	if links.Links == "" {
 		t.Fatal("links should not be empty")
+	}
+}
+
+func TestInvokePingReturnsDelaySentinelOnXrayError(t *testing.T) {
+	response := invokeForTest(
+		t,
+		LibXrayMethodPing,
+		PingRequest{
+			ConfigPath: filepath.Join(t.TempDir(), "missing.json"),
+			Timeout:    1,
+			URL:        "https://example.com",
+		},
+	)
+	if response.Success {
+		t.Fatal("Ping should keep failure success state on Xray error")
+	}
+	if response.Err == "" {
+		t.Fatal("Ping failure should keep error text")
+	}
+	ping := decodeDataObject[PingResponse](t, response)
+	if ping.Delay != nodep.PingDelayError {
+		t.Fatalf("delay = %d, want %d", ping.Delay, nodep.PingDelayError)
 	}
 }
 

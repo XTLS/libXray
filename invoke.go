@@ -143,6 +143,9 @@ func invokePing(payload json.RawMessage) string {
 	}
 	delay, err := xray.Ping(request.ConfigPath, request.Timeout, request.URL, request.Proxy)
 	if err != nil {
+		if delay == nodep.PingDelayError || delay == nodep.PingDelayTimeout {
+			return encodeInvokeResponse(&PingResponse{Delay: delay}, err)
+		}
 		return encodeInvokeResponse(nil, err)
 	}
 	return encodeInvokeResponse(&PingResponse{Delay: delay}, nil)
