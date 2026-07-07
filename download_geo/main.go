@@ -66,6 +66,7 @@ func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string,
 	payload, err := json.Marshal(&libXray.CountGeoDataRequest{
 		Name:    name,
 		GeoType: geoType,
+		DatDir:  datDir,
 	})
 	if err != nil {
 		return "", err
@@ -73,11 +74,7 @@ func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string,
 	request := libXray.LibXrayInvokeRequest{
 		APIVersion: 1,
 		Method:     libXray.LibXrayMethodCountGeoData,
-		Env: &libXray.LibXrayEnvJson{
-			AssetLocation: datDir,
-			CertLocation:  datDir,
-		},
-		Payload: payload,
+		Payload:    payload,
 	}
 	data, err := json.Marshal(&request)
 	if err != nil {

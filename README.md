@@ -42,7 +42,9 @@ depends on git and go.
 
 By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to tag `v26.6.27` (recorded by Go as the matching pseudo-version).
 Pass the optional `local` argument to use an existing local checkout at `../Xray-core` through a Go module `replace`.
-Linux and Windows builds only produce the libXray shared library. Applications that need a standalone Xray executable should use official Xray-core release binaries.
+Linux and Windows builds also produce a small desktop wrapper executable:
+`bin/xray` or `bin/xray.exe`. The wrapper accepts `-configPath` pointing to a
+`LibXrayInvokeRequest` JSON file whose method is `runXray`.
 
 ### Usage
 
@@ -131,7 +133,6 @@ The request is a JSON object:
   "apiVersion": 1,
   "method": "runXray",
   "env": {
-    "xray.location.config": "/path/to/config.json",
     "xray.location.asset": "/path/to/dat",
     "xray.location.cert": "/path/to/dat",
     "xray.tun.fd": "123"
@@ -152,33 +153,19 @@ The response is a JSON object:
 }
 ```
 
-`env` is optional and only supports Xray-core environment variables that are
-explicitly modeled by libXray:
-
-| JSON key | Meaning |
-| --- | --- |
-| `xray.location.config` | Xray config file location |
-| `xray.location.confdir` | Xray config directory location |
-| `xray.location.asset` | Directory containing `geosite.dat`, `geoip.dat`, and custom GeoData files |
-| `xray.location.cert` | Certificate directory used by Xray-core |
-| `xray.buf.readv` | Xray-core readv buffer switch |
-| `xray.buf.splice` | Xray-core splice buffer switch |
-| `xray.vmess.padding` | VMess padding switch |
-| `xray.cone.disabled` | Cone behavior switch |
-| `xray.json.strict` | Strict JSON parsing switch |
-| `xray.ray.buffer.size` | Ray buffer size |
-| `xray.browser.dialer` | Browser dialer address |
-| `xray.xudp.show` | XUDP log display switch |
-| `xray.xudp.basekey` | XUDP base key |
-| `xray.tun.fd` | TUN file descriptor for Android, iOS, and macOS packet tunnel integrations |
-
 Design notes:
 
-1. `env` is modeled as fixed fields in Go and Dart. It is not a free-form map.
-2. Unknown `env` keys are ignored and are not written to the process environment.
-3. `env` only sets modeled, non-empty fields. Missing fields are not unset.
-4. libXray does not restore previous environment values after a method returns. Callers must pass the required env fields on every request that depends on them. This avoids concurrent calls restoring stale values over newer values.
-5. `SetTunFd` has been removed. Pass `xray.tun.fd` in the `env` object of the `runXray` request.
+1. `Invoke.env` supports only fixed Xray-core runtime environment keys:
+   `xray.location.asset`, `xray.location.cert`, and `xray.tun.fd`.
+2. Non-empty `env` fields are set on the process before the method runs.
+   Missing fields are not unset and old values are not restored.
+3. `xray.json.strict`, `xray.location.config`, and `xray.location.confdir` are
+   load-stage process environment variables and cannot be supplied through
+   `Invoke.env`.
+4. `SetTunFd` has been removed. Set the `"xray.tun.fd"` key in the request
+   `env` object when the fd is only known at runtime.
+5. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
+   the method payload.
 
 Supported methods:
 

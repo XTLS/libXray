@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/xtls/libxray/nodep"
+	"github.com/xtls/xray-core/common/geodata"
 	"github.com/xtls/xray-core/common/platform"
+	"google.golang.org/protobuf/proto"
 )
 
 type testResponse struct {
@@ -16,7 +19,7 @@ type testResponse struct {
 	Err     string          `json:"error,omitempty"`
 }
 
-func invokeForTest(t *testing.T, method LibXrayMethod, env *LibXrayEnvJson, payload any) testResponse {
+func invokeForTest(t *testing.T, method LibXrayMethod, payload any) testResponse {
 	t.Helper()
 	rawPayload, err := json.Marshal(payload)
 	if err != nil {
@@ -25,7 +28,6 @@ func invokeForTest(t *testing.T, method LibXrayMethod, env *LibXrayEnvJson, payl
 	rawRequest, err := json.Marshal(&LibXrayInvokeRequest{
 		APIVersion: 1,
 		Method:     method,
-		Env:        env,
 		Payload:    rawPayload,
 	})
 	if err != nil {
@@ -81,6 +83,40 @@ func writeConfigToFile(t *testing.T, config any, path string) {
 	}
 	defer file.Close()
 	if err := json.NewEncoder(file).Encode(config); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeGeoSiteDatForTest(t *testing.T, path string) {
+	t.Helper()
+	data, err := proto.Marshal(&geodata.GeoSiteList{
+		Entry: []*geodata.GeoSite{
+			{
+				Code: "TEST",
+				Domain: []*geodata.Domain{
+					{
+						Type:  geodata.Domain_Domain,
+						Value: "example.com",
+						Attribute: []*geodata.Domain_Attribute{
+							{
+								Key: "ads",
+								TypedValue: &geodata.Domain_Attribute_BoolValue{
+									BoolValue: true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -171,7 +207,6 @@ func TestInvokeTestXray(t *testing.T) {
 	response := invokeForTest(
 		t,
 		LibXrayMethodTestXray,
-		&LibXrayEnvJson{AssetLocation: filepath.Join(projectRoot, "dat"), CertLocation: filepath.Join(projectRoot, "dat")},
 		RunXrayRequest{ConfigPath: configPath},
 	)
 	if !response.Success {
@@ -188,7 +223,6 @@ func TestInvokeRunXray(t *testing.T) {
 	response := invokeForTest(
 		t,
 		LibXrayMethodRunXray,
-		&LibXrayEnvJson{AssetLocation: filepath.Join(projectRoot, "dat"), CertLocation: filepath.Join(projectRoot, "dat")},
 		RunXrayRequest{ConfigPath: configPath},
 	)
 	defer xrayStopForTest(t)
@@ -199,7 +233,7 @@ func TestInvokeRunXray(t *testing.T) {
 }
 
 func TestInvokeXrayVersion(t *testing.T) {
-	response := invokeForTest(t, LibXrayMethodXrayVersion, nil, nil)
+	response := invokeForTest(t, LibXrayMethodXrayVersion, nil)
 	if !response.Success {
 		t.Fatalf("XrayVersion failed: %s", response.Err)
 	}
@@ -210,7 +244,7 @@ func TestInvokeXrayVersion(t *testing.T) {
 }
 
 func TestInvokeMapResponseShape(t *testing.T) {
-	response := invokeForTest(t, LibXrayMethodGetFreePorts, nil, GetFreePortsRequest{Count: 1})
+	response := invokeForTest(t, LibXrayMethodGetFreePorts, GetFreePortsRequest{Count: 1})
 	if !response.Success {
 		t.Fatalf("GetFreePorts failed: %s", response.Err)
 	}
@@ -219,7 +253,7 @@ func TestInvokeMapResponseShape(t *testing.T) {
 		t.Fatalf("ports = %v", ports.Ports)
 	}
 
-	response = invokeForTest(t, LibXrayMethodGetXrayState, nil, nil)
+	response = invokeForTest(t, LibXrayMethodGetXrayState, nil)
 	if !response.Success {
 		t.Fatalf("GetXrayState failed: %s", response.Err)
 	}
@@ -232,7 +266,6 @@ func TestInvokeMapResponseShape(t *testing.T) {
 	response = invokeForTest(
 		t,
 		LibXrayMethodConvertXrayJsonToShareLinks,
-		nil,
 		ConvertXrayJsonToShareLinksRequest{XrayJson: string(rawConfig)},
 	)
 	if !response.Success {
@@ -244,67 +277,66 @@ func TestInvokeMapResponseShape(t *testing.T) {
 	}
 }
 
-func TestInvokeEnvOnlySetsProvidedFields(t *testing.T) {
-	t.Setenv(platform.AssetLocation, "initial-asset")
-	t.Setenv(platform.CertLocation, "initial-cert")
+func TestInvokePingReturnsDelaySentinelOnXrayError(t *testing.T) {
 	response := invokeForTest(
 		t,
-		LibXrayMethodXrayVersion,
-		&LibXrayEnvJson{AssetLocation: "updated-asset"},
-		nil,
+		LibXrayMethodPing,
+		PingRequest{
+			ConfigPath: filepath.Join(t.TempDir(), "missing.json"),
+			Timeout:    1,
+			URL:        "https://example.com",
+		},
 	)
-	if !response.Success {
-		t.Fatalf("XrayVersion failed: %s", response.Err)
+	if response.Success {
+		t.Fatal("Ping should keep failure success state on Xray error")
 	}
-	if got := os.Getenv(platform.AssetLocation); got != "updated-asset" {
-		t.Fatalf("asset env = %q", got)
+	if response.Err == "" {
+		t.Fatal("Ping failure should keep error text")
 	}
-	if got := os.Getenv(platform.CertLocation); got != "initial-cert" {
-		t.Fatalf("cert env = %q", got)
+	ping := decodeDataObject[PingResponse](t, response)
+	if ping.Delay != nodep.PingDelayError {
+		t.Fatalf("delay = %d, want %d", ping.Delay, nodep.PingDelayError)
 	}
 }
 
-func TestInvokeSetsAllSupportedEnvFields(t *testing.T) {
-	tests := []struct {
-		name  string
-		key   string
-		value string
-	}{
-		{"config", platform.ConfigLocation, "config-value"},
-		{"confdir", platform.ConfdirLocation, "confdir-value"},
-		{"asset", platform.AssetLocation, "asset-value"},
-		{"cert", platform.CertLocation, "cert-value"},
-		{"readv", platform.UseReadV, "readv-value"},
-		{"splice", platform.UseFreedomSplice, "splice-value"},
-		{"vmess padding", platform.UseVmessPadding, "vmess-padding-value"},
-		{"cone", platform.UseCone, "cone-value"},
-		{"strict json", platform.UseStrictJSON, "strict-json-value"},
-		{"buffer size", platform.BufferSize, "buffer-size-value"},
-		{"browser dialer", platform.BrowserDialerAddress, "browser-dialer-value"},
-		{"xudp log", platform.XUDPLog, "xudp-log-value"},
-		{"xudp base key", platform.XUDPBaseKey, "xudp-base-key-value"},
-		{"tun fd", platform.TunFdKey, "123"},
+func TestInvokeCountGeoDataUsesPayloadDatDir(t *testing.T) {
+	datDir := t.TempDir()
+	writeGeoSiteDatForTest(t, filepath.Join(datDir, "geosite.dat"))
+
+	response := invokeForTest(
+		t,
+		LibXrayMethodCountGeoData,
+		CountGeoDataRequest{
+			Name:    "geosite",
+			GeoType: "domain",
+			DatDir:  datDir,
+		},
+	)
+	if !response.Success {
+		t.Fatalf("CountGeoData failed: %s", response.Err)
 	}
-	for _, tt := range tests {
-		t.Setenv(tt.key, "")
-		t.Run(tt.name, func(t *testing.T) {
-			requestJSON := `{"apiVersion":1,"method":"xrayVersion","env":{"` + tt.key + `":"` + tt.value + `"}}`
-			var response testResponse
-			if err := json.Unmarshal([]byte(Invoke(requestJSON)), &response); err != nil {
-				t.Fatal(err)
-			}
-			if !response.Success {
-				t.Fatalf("XrayVersion failed: %s", response.Err)
-			}
-			if got := os.Getenv(tt.key); got != tt.value {
-				t.Fatalf("%s = %q", tt.key, got)
-			}
-		})
+	requireNoDataObject(t, response)
+	output, err := os.ReadFile(filepath.Join(datDir, "geosite.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !json.Valid(output) {
+		t.Fatalf("geosite.json is not valid JSON: %s", output)
+	}
+	var list struct {
+		CategoryCount int `json:"categoryCount,omitempty"`
+		RuleCount     int `json:"ruleCount,omitempty"`
+	}
+	if err := json.Unmarshal(output, &list); err != nil {
+		t.Fatal(err)
+	}
+	if list.CategoryCount != 1 || list.RuleCount != 1 {
+		t.Fatalf("unexpected geosite counts: %+v", list)
 	}
 }
 
 func TestInvokeUnknownMethod(t *testing.T) {
-	response := invokeForTest(t, LibXrayMethod("unknown"), nil, nil)
+	response := invokeForTest(t, LibXrayMethod("unknown"), nil)
 	if response.Success {
 		t.Fatal("unknown method should fail")
 	}
@@ -316,7 +348,6 @@ func TestInvokeAPIVersion(t *testing.T) {
 		t.Fatalf("omitted apiVersion should default to v1: %s", response.Err)
 	}
 
-	t.Setenv(platform.AssetLocation, "initial-asset")
 	response = invokeRawForTest(t, `{"apiVersion":2,"method":"xrayVersion","env":{"xray.location.asset":"updated-asset"}}`)
 	if response.Success {
 		t.Fatal("unsupported apiVersion should fail")
@@ -324,13 +355,10 @@ func TestInvokeAPIVersion(t *testing.T) {
 	if got := string(response.Data); got != "null" {
 		t.Fatalf("data = %s, want null", got)
 	}
-	if got := os.Getenv(platform.AssetLocation); got != "initial-asset" {
-		t.Fatalf("asset env = %q", got)
-	}
 }
 
 func TestInvokeNoDataResponseShape(t *testing.T) {
-	response := invokeForTest(t, LibXrayMethodStopXray, nil, nil)
+	response := invokeForTest(t, LibXrayMethodStopXray, nil)
 	if !response.Success {
 		t.Fatalf("StopXray failed: %s", response.Err)
 	}
@@ -345,7 +373,28 @@ func TestInvokeNoDataResponseShape(t *testing.T) {
 	}
 }
 
-func TestInvokeIgnoresUnknownEnvField(t *testing.T) {
+func TestInvokeAppliesSupportedEnv(t *testing.T) {
+	restoreEnv(t, platform.AssetLocation)
+	restoreEnv(t, platform.CertLocation)
+	restoreEnv(t, platform.TunFdKey)
+
+	requestJSON := `{"apiVersion":1,"method":"xrayVersion","env":{"xray.location.asset":"/tmp/assets","xray.location.cert":"/tmp/certs","xray.tun.fd":"123"}}`
+	response := invokeRawForTest(t, requestJSON)
+	if !response.Success {
+		t.Fatalf("xrayVersion failed: %s", response.Err)
+	}
+	if got := os.Getenv(platform.AssetLocation); got != "/tmp/assets" {
+		t.Fatalf("%s = %q", platform.AssetLocation, got)
+	}
+	if got := os.Getenv(platform.CertLocation); got != "/tmp/certs" {
+		t.Fatalf("%s = %q", platform.CertLocation, got)
+	}
+	if got := os.Getenv(platform.TunFdKey); got != "123" {
+		t.Fatalf("%s = %q", platform.TunFdKey, got)
+	}
+}
+
+func TestInvokeIgnoresUnknownEnvKeys(t *testing.T) {
 	const key = "XRAY_LIBXRAY_UNKNOWN_ENV_TEST"
 	_ = os.Unsetenv(key)
 	t.Cleanup(func() { _ = os.Unsetenv(key) })
@@ -355,16 +404,29 @@ func TestInvokeIgnoresUnknownEnvField(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !response.Success {
-		t.Fatalf("unknown env field should be ignored: %s", response.Err)
+		t.Fatalf("unknown env should be ignored: %s", response.Err)
 	}
 	if _, found := os.LookupEnv(key); found {
-		t.Fatal("unknown env field should not be set")
+		t.Fatal("unknown env should not be set")
 	}
+}
+
+func restoreEnv(t *testing.T, key string) {
+	t.Helper()
+	oldValue, found := os.LookupEnv(key)
+	_ = os.Unsetenv(key)
+	t.Cleanup(func() {
+		if found {
+			_ = os.Setenv(key, oldValue)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	})
 }
 
 func xrayStopForTest(t *testing.T) {
 	t.Helper()
-	response := invokeForTest(t, LibXrayMethodStopXray, nil, nil)
+	response := invokeForTest(t, LibXrayMethodStopXray, nil)
 	if !response.Success {
 		t.Fatalf("StopXray failed: %s", response.Err)
 	}

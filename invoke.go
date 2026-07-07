@@ -56,37 +56,27 @@ func Invoke(requestJSON string) string {
 	}
 }
 
+func applyEnv(env *LibXrayEnvJson) {
+	if env == nil {
+		return
+	}
+	setEnvIfNotEmpty(platform.AssetLocation, env.AssetLocation)
+	setEnvIfNotEmpty(platform.CertLocation, env.CertLocation)
+	setEnvIfNotEmpty(platform.TunFdKey, env.TunFd)
+}
+
+func setEnvIfNotEmpty(key string, value string) {
+	if value == "" {
+		return
+	}
+	_ = os.Setenv(key, value)
+}
+
 func validateAPIVersion(version int) error {
 	if version == 0 || version == 1 {
 		return nil
 	}
 	return errors.New("unsupported apiVersion")
-}
-
-func applyEnv(env *LibXrayEnvJson) {
-	if env == nil {
-		return
-	}
-	setEnvIfNotEmpty(platform.ConfigLocation, env.ConfigLocation)
-	setEnvIfNotEmpty(platform.ConfdirLocation, env.ConfdirLocation)
-	setEnvIfNotEmpty(platform.AssetLocation, env.AssetLocation)
-	setEnvIfNotEmpty(platform.CertLocation, env.CertLocation)
-	setEnvIfNotEmpty(platform.UseReadV, env.UseReadV)
-	setEnvIfNotEmpty(platform.UseFreedomSplice, env.UseFreedomSplice)
-	setEnvIfNotEmpty(platform.UseVmessPadding, env.UseVmessPadding)
-	setEnvIfNotEmpty(platform.UseCone, env.UseCone)
-	setEnvIfNotEmpty(platform.UseStrictJSON, env.UseStrictJSON)
-	setEnvIfNotEmpty(platform.BufferSize, env.BufferSize)
-	setEnvIfNotEmpty(platform.BrowserDialerAddress, env.BrowserDialerAddress)
-	setEnvIfNotEmpty(platform.XUDPLog, env.XUDPLog)
-	setEnvIfNotEmpty(platform.XUDPBaseKey, env.XUDPBaseKey)
-	setEnvIfNotEmpty(platform.TunFdKey, env.TunFd)
-}
-
-func setEnvIfNotEmpty(key string, value string) {
-	if value != "" {
-		_ = os.Setenv(key, value)
-	}
 }
 
 func decodePayload[T any](payload json.RawMessage) (T, error) {
@@ -158,11 +148,10 @@ func invokeCountGeoData(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeNoDataResponse(err)
 	}
-	datDir := platform.NewEnvFlag(platform.AssetLocation).GetValue(func() string { return "" })
-	if datDir == "" {
-		return encodeInvokeNoDataResponse(errors.New("missing xray.location.asset"))
+	if request.DatDir == "" {
+		return encodeInvokeNoDataResponse(errors.New("missing datDir"))
 	}
-	err = geo.CountGeoData(datDir, request.Name, request.GeoType)
+	err = geo.CountGeoData(request.DatDir, request.Name, request.GeoType)
 	return encodeInvokeNoDataResponse(err)
 }
 
@@ -173,6 +162,9 @@ func invokePing(payload json.RawMessage) string {
 	}
 	delay, err := xray.Ping(request.ConfigPath, request.Timeout, request.URL, request.Proxy)
 	if err != nil {
+		if delay == nodep.PingDelayError || delay == nodep.PingDelayTimeout {
+			return encodeInvokeResponse(&PingResponse{Delay: delay}, err)
+		}
 		return encodeInvokeResponse(nil, err)
 	}
 	return encodeInvokeResponse(&PingResponse{Delay: delay}, nil)

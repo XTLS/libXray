@@ -18,7 +18,9 @@
 
 默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 将 Xray-core 固定到 tag `v26.6.27`（Go 会记录为对应的 pseudo-version）。
 传入可选参数 `local` 时，会通过 Go module `replace` 改用已有的本地仓库 `../Xray-core`。
-Linux 和 Windows 构建只输出 libXray 动态库。需要独立 Xray 可执行文件的应用应使用 Xray-core 官方发布的二进制。
+Linux 和 Windows 构建还会输出一个 desktop wrapper 可执行文件：
+`bin/xray` 或 `bin/xray.exe`。wrapper 的 `-configPath` 参数指向一个
+`method` 为 `runXray` 的 `LibXrayInvokeRequest` JSON 文件。
 
 ### 使用方式
 
@@ -99,7 +101,6 @@ char* CGoInvoke(char* requestJSON);
   "apiVersion": 1,
   "method": "runXray",
   "env": {
-    "xray.location.config": "/path/to/config.json",
     "xray.location.asset": "/path/to/dat",
     "xray.location.cert": "/path/to/dat",
     "xray.tun.fd": "123"
@@ -120,32 +121,14 @@ char* CGoInvoke(char* requestJSON);
 }
 ```
 
-`env` 是可选字段，只支持 libXray 显式建模的 Xray-core 环境变量：
-
-| JSON key | 含义 |
-| --- | --- |
-| `xray.location.config` | Xray 配置文件路径 |
-| `xray.location.confdir` | Xray 配置目录路径 |
-| `xray.location.asset` | 保存 `geosite.dat`、`geoip.dat` 和自定义 GeoData 的目录 |
-| `xray.location.cert` | Xray-core 使用的证书目录 |
-| `xray.buf.readv` | Xray-core readv buffer 开关 |
-| `xray.buf.splice` | Xray-core splice buffer 开关 |
-| `xray.vmess.padding` | VMess padding 开关 |
-| `xray.cone.disabled` | Cone 行为开关 |
-| `xray.json.strict` | 严格 JSON 解析开关 |
-| `xray.ray.buffer.size` | Ray buffer size |
-| `xray.browser.dialer` | Browser dialer 地址 |
-| `xray.xudp.show` | XUDP 日志显示开关 |
-| `xray.xudp.basekey` | XUDP base key |
-| `xray.tun.fd` | Android、iOS、macOS Packet Tunnel 使用的 TUN 文件描述符 |
-
 设计决定：
 
-1. `env` 在 Go 和 Dart 侧都是固定字段 model，不是自由 map。
-2. 未知 `env` key 会被忽略，不会写入进程环境变量。
-3. `env` 只设置已建模的非空字段，缺失字段不会 unset。
-4. libXray 不会在 method 结束后 restore 旧环境变量。调用方必须在每次依赖环境变量的请求中显式传入对应字段。这样可以避免并发调用时，一个请求恢复旧值覆盖另一个请求的新值。
-5. `SetTunFd` 已删除。请在 `runXray` 请求的 `env` 对象中传入 `xray.tun.fd`。
+1. `Invoke.env` 只支持固定的 Xray-core runtime 环境项：
+   `xray.location.asset`、`xray.location.cert`、`xray.tun.fd`。
+2. 非空 `env` 字段会在 method 执行前写入进程环境变量。缺失字段不会 unset，也不会 restore 旧值。
+3. `xray.json.strict`、`xray.location.config`、`xray.location.confdir` 属于加载前进程环境变量，不能通过 `Invoke.env` 传入。
+4. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在请求的 `env` 对象中设置 `"xray.tun.fd"`。
+5. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 
 支持的 method：
 
