@@ -42,13 +42,24 @@ func runXray(configPath string) error {
 	return nil
 }
 
-func stopXray() {
+func stopXray() error {
 	requestBytes, err := json.Marshal(&libXray.LibXrayInvokeRequest{
 		APIVersion: 1,
 		Method:     libXray.LibXrayMethodStopXray,
 	})
 	if err != nil {
-		return
+		return err
 	}
-	_ = libXray.Invoke(string(requestBytes))
+	responseText := libXray.Invoke(string(requestBytes))
+	var response invokeResponse
+	if err := json.Unmarshal([]byte(responseText), &response); err != nil {
+		return err
+	}
+	if !response.Success {
+		if response.Err == "" {
+			response.Err = "stopXray failed"
+		}
+		return errors.New(response.Err)
+	}
+	return nil
 }
