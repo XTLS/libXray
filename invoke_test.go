@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/xtls/libxray/nodep"
+	"github.com/xtls/xray-core/common/geodata"
 	"github.com/xtls/xray-core/common/platform"
+	"google.golang.org/protobuf/proto"
 )
 
 type testResponse struct {
@@ -85,16 +87,36 @@ func writeConfigToFile(t *testing.T, config any, path string) {
 	}
 }
 
-func copyFileForTest(t *testing.T, src string, dst string) {
+func writeGeoSiteDatForTest(t *testing.T, path string) {
 	t.Helper()
-	data, err := os.ReadFile(src)
+	data, err := proto.Marshal(&geodata.GeoSiteList{
+		Entry: []*geodata.GeoSite{
+			{
+				Code: "TEST",
+				Domain: []*geodata.Domain{
+					{
+						Type:  geodata.Domain_Domain,
+						Value: "example.com",
+						Attribute: []*geodata.Domain_Attribute{
+							{
+								Key: "ads",
+								TypedValue: &geodata.Domain_Attribute_BoolValue{
+									BoolValue: true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(dst, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -278,9 +300,8 @@ func TestInvokePingReturnsDelaySentinelOnXrayError(t *testing.T) {
 }
 
 func TestInvokeCountGeoDataUsesPayloadDatDir(t *testing.T) {
-	projectRoot, _ := filepath.Abs(".")
 	datDir := t.TempDir()
-	copyFileForTest(t, filepath.Join(projectRoot, "dat", "geosite.dat"), filepath.Join(datDir, "geosite.dat"))
+	writeGeoSiteDatForTest(t, filepath.Join(datDir, "geosite.dat"))
 
 	response := invokeForTest(
 		t,
@@ -295,8 +316,22 @@ func TestInvokeCountGeoDataUsesPayloadDatDir(t *testing.T) {
 		t.Fatalf("CountGeoData failed: %s", response.Err)
 	}
 	requireNoDataObject(t, response)
-	if _, err := os.Stat(filepath.Join(datDir, "geosite.json")); err != nil {
+	output, err := os.ReadFile(filepath.Join(datDir, "geosite.json"))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !json.Valid(output) {
+		t.Fatalf("geosite.json is not valid JSON: %s", output)
+	}
+	var list struct {
+		CategoryCount int `json:"categoryCount,omitempty"`
+		RuleCount     int `json:"ruleCount,omitempty"`
+	}
+	if err := json.Unmarshal(output, &list); err != nil {
+		t.Fatal(err)
+	}
+	if list.CategoryCount != 1 || list.RuleCount != 1 {
+		t.Fatalf("unexpected geosite counts: %+v", list)
 	}
 }
 
