@@ -162,8 +162,8 @@ Design notes:
 3. `xray.json.strict`, `xray.location.config`, and `xray.location.confdir` are
    load-stage process environment variables and cannot be supplied through
    `Invoke.env`.
-4. `SetTunFd` has been removed. Use `Invoke.env["xray.tun.fd"]` when the fd is
-   only known at runtime.
+4. `SetTunFd` has been removed. Set the `"xray.tun.fd"` key in the request
+   `env` object when the fd is only known at runtime.
 5. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
    the method payload.
 

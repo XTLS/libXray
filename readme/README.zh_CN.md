@@ -127,7 +127,7 @@ char* CGoInvoke(char* requestJSON);
    `xray.location.asset`、`xray.location.cert`、`xray.tun.fd`。
 2. 非空 `env` 字段会在 method 执行前写入进程环境变量。缺失字段不会 unset，也不会 restore 旧值。
 3. `xray.json.strict`、`xray.location.config`、`xray.location.confdir` 属于加载前进程环境变量，不能通过 `Invoke.env` 传入。
-4. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请使用 `Invoke.env["xray.tun.fd"]`。
+4. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在请求的 `env` 对象中设置 `"xray.tun.fd"`。
 5. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 
 支持的 method：
