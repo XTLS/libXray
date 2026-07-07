@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/xtls/libxray/nodep"
+	"github.com/xtls/xray-core/common/platform"
 )
 
 type testResponse struct {
@@ -337,7 +338,28 @@ func TestInvokeNoDataResponseShape(t *testing.T) {
 	}
 }
 
-func TestInvokeIgnoresTopLevelEnv(t *testing.T) {
+func TestInvokeAppliesSupportedEnv(t *testing.T) {
+	restoreEnv(t, platform.AssetLocation)
+	restoreEnv(t, platform.CertLocation)
+	restoreEnv(t, platform.TunFdKey)
+
+	requestJSON := `{"apiVersion":1,"method":"xrayVersion","env":{"xray.location.asset":"/tmp/assets","xray.location.cert":"/tmp/certs","xray.tun.fd":"123"}}`
+	response := invokeRawForTest(t, requestJSON)
+	if !response.Success {
+		t.Fatalf("xrayVersion failed: %s", response.Err)
+	}
+	if got := os.Getenv(platform.AssetLocation); got != "/tmp/assets" {
+		t.Fatalf("%s = %q", platform.AssetLocation, got)
+	}
+	if got := os.Getenv(platform.CertLocation); got != "/tmp/certs" {
+		t.Fatalf("%s = %q", platform.CertLocation, got)
+	}
+	if got := os.Getenv(platform.TunFdKey); got != "123" {
+		t.Fatalf("%s = %q", platform.TunFdKey, got)
+	}
+}
+
+func TestInvokeIgnoresUnknownEnvKeys(t *testing.T) {
 	const key = "XRAY_LIBXRAY_UNKNOWN_ENV_TEST"
 	_ = os.Unsetenv(key)
 	t.Cleanup(func() { _ = os.Unsetenv(key) })
@@ -347,11 +369,24 @@ func TestInvokeIgnoresTopLevelEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !response.Success {
-		t.Fatalf("top-level env should be ignored: %s", response.Err)
+		t.Fatalf("unknown env should be ignored: %s", response.Err)
 	}
 	if _, found := os.LookupEnv(key); found {
-		t.Fatal("top-level env should not be set")
+		t.Fatal("unknown env should not be set")
 	}
+}
+
+func restoreEnv(t *testing.T, key string) {
+	t.Helper()
+	oldValue, found := os.LookupEnv(key)
+	_ = os.Unsetenv(key)
+	t.Cleanup(func() {
+		if found {
+			_ = os.Setenv(key, oldValue)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	})
 }
 
 func xrayStopForTest(t *testing.T) {

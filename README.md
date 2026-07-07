@@ -42,7 +42,9 @@ depends on git and go.
 
 By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to tag `v26.6.27` (recorded by Go as the matching pseudo-version).
 Pass the optional `local` argument to use an existing local checkout at `../Xray-core` through a Go module `replace`.
-Linux and Windows builds only produce the libXray shared library. Applications that need a standalone Xray executable should use official Xray-core release binaries.
+Linux and Windows builds also produce a small desktop wrapper executable:
+`bin/xray` or `bin/xray.exe`. The wrapper accepts `-configPath` pointing to a
+`LibXrayInvokeRequest` JSON file whose method is `runXray`.
 
 ### Usage
 
@@ -130,6 +132,11 @@ The request is a JSON object:
 {
   "apiVersion": 1,
   "method": "runXray",
+  "env": {
+    "xray.location.asset": "/path/to/dat",
+    "xray.location.cert": "/path/to/dat",
+    "xray.tun.fd": "123"
+  },
   "payload": {
     "configPath": "/path/to/config.json"
   }
@@ -148,14 +155,16 @@ The response is a JSON object:
 
 Design notes:
 
-1. `Invoke` does not accept an `env` field. Runtime Xray-core environment
-   settings must be written into the Xray config root `env` object.
-2. `xray.json.strict`, `xray.location.config`, and `xray.location.confdir` are
+1. `Invoke.env` supports only fixed Xray-core runtime environment keys:
+   `xray.location.asset`, `xray.location.cert`, and `xray.tun.fd`.
+2. Non-empty `env` fields are set on the process before the method runs.
+   Missing fields are not unset and old values are not restored.
+3. `xray.json.strict`, `xray.location.config`, and `xray.location.confdir` are
    load-stage process environment variables and cannot be supplied through
-   `Invoke`.
-3. `SetTunFd` has been removed. Write `xray.tun.fd` into the Xray config root
-   `env` object before calling `runXray` when the fd is only known at runtime.
-4. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
+   `Invoke.env`.
+4. `SetTunFd` has been removed. Use `Invoke.env["xray.tun.fd"]` when the fd is
+   only known at runtime.
+5. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
    the method payload.
 
 Supported methods:
