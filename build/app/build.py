@@ -10,7 +10,6 @@ LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 XRAY_CORE_MOD_NAME = "github.com/xtls/xray-core"
 # This pseudo-version pins the Xray-core main commit that added root env config.
 DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260710025649-d5bc58dc6b76"
-GOMOBILE_VERSION = "v0.0.0-20260611195102-4dd8f1dbf5d2"
 LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
@@ -115,11 +114,38 @@ class Builder(object):
             raise Exception("download_geo failed")
 
     def prepare_gomobile(self):
+        result = subprocess.run(
+            [
+                "go",
+                "list",
+                "-m",
+                "-f",
+                "{{.Version}}",
+                "golang.org/x/mobile@latest",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        version = result.stdout.strip()
+        if result.returncode != 0 or not version:
+            raise Exception("resolve latest gomobile version failed")
+
+        ret = subprocess.run(
+            [
+                "go",
+                "get",
+                "-tool",
+                f"golang.org/x/mobile/cmd/gobind@{version}",
+            ]
+        )
+        if ret.returncode != 0:
+            raise Exception("add gobind tool dependency failed")
+
         ret = subprocess.run(
             [
                 "go",
                 "install",
-                f"golang.org/x/mobile/cmd/gomobile@{GOMOBILE_VERSION}",
+                f"golang.org/x/mobile/cmd/gomobile@{version}",
             ]
         )
         if ret.returncode != 0:
