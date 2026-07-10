@@ -1,0 +1,48 @@
+name: Validate libXray
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: validate-libxray-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.26.5"
+
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test with race detector
+        run: go test -race ./... -count=1 -timeout 15m
+
+      - name: Build Linux C ABI
+        run: |
+          python3 build/main.py linux
+          grep -q 'CGoFree' linux_so/libXray.h
+          nm -D linux_so/libXray.so | grep -q ' CGoFree$'
+
+      - name: Verify source was restored
+        run: git diff --exit-code
+
+      - name: Check whitespace
+        run: git diff --check

@@ -1,6 +1,4 @@
 import os.path
-import re
-import shutil
 import subprocess
 
 from app.cmd import (
@@ -12,6 +10,7 @@ LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 XRAY_CORE_MOD_NAME = "github.com/xtls/xray-core"
 # This pseudo-version pins the Xray-core main commit that added root env config.
 DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260710025649-d5bc58dc6b76"
+GOMOBILE_VERSION = "v0.0.0-20260611195102-4dd8f1dbf5d2"
 LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
@@ -24,6 +23,33 @@ class Builder(object):
         self.xray_core_dir = os.path.abspath(
             os.path.join(self.lib_dir, self.xray_core_replace_path)
         )
+        self._go_env_snapshot = None
+
+    def snapshot_go_env(self):
+        paths = [
+            os.path.join(self.lib_dir, "go.mod"),
+            os.path.join(self.lib_dir, "go.sum"),
+        ]
+        snapshot = {}
+        for path in paths:
+            if not os.path.exists(path):
+                snapshot[path] = None
+                continue
+            with open(path, "rb") as file:
+                snapshot[path] = file.read()
+        self._go_env_snapshot = snapshot
+
+    def restore_go_env(self):
+        if self._go_env_snapshot is None:
+            return
+        snapshot = self._go_env_snapshot
+        for path, content in snapshot.items():
+            if content is None:
+                delete_file_if_exists(path)
+                continue
+            with open(path, "wb") as file:
+                file.write(content)
+        self._go_env_snapshot = None
 
     def clean_lib_files(self, files: list[str]):
         for file in files:
@@ -90,47 +116,25 @@ class Builder(object):
 
     def prepare_gomobile(self):
         ret = subprocess.run(
-            ["go", "install", "golang.org/x/mobile/cmd/gomobile@latest"]
+            [
+                "go",
+                "install",
+                f"golang.org/x/mobile/cmd/gomobile@{GOMOBILE_VERSION}",
+            ]
         )
         if ret.returncode != 0:
             raise Exception("go install gomobile failed")
         ret = subprocess.run(["gomobile", "init"])
         if ret.returncode != 0:
             raise Exception("gomobile init failed")
-        ret = subprocess.run(["go", "get", "golang.org/x/mobile/cmd/gomobile"])
-        if ret.returncode != 0:
-            raise Exception("gomobile update failed")
-        ret = subprocess.run(["go", "get", "google.golang.org/genproto"])
-        if ret.returncode != 0:
-            raise Exception("gomobile install genproto failed")
 
     def prepare_static_lib(self):
-        self.copy_template_file()
-        self.fix_package_name()
+        main_file = os.path.join(self.lib_dir, "cgo_bridge", "main.go")
+        if not os.path.isfile(main_file):
+            raise Exception("cgo bridge entrypoint is missing")
 
-    def copy_template_file(self):
-        src_file = os.path.join(self.build_dir, "template", "main.gotemplate")
-        dst_file = os.path.join(self.lib_dir, "main.go")
-        shutil.copy(src_file, dst_file)
-
-    def fix_package_name(self):
-        files = os.listdir(self.lib_dir)
-        for file in files:
-            if file.endswith(".go"):
-                self.replace_package_name(file)
-
-    def replace_package_name(self, file_name: str):
-        file_path = os.path.join(self.lib_dir, file_name)
-        new_lines = []
-        with open(file_path, "r") as f:
-            lines = f.readlines()
-            for line in lines:
-                new_line = line
-                if re.match(r"^package\s+libXray", line):
-                    new_line = "package main\n"
-                new_lines.append(new_line)
-        with open(file_path, "w") as f:
-            f.writelines(new_lines)
+    def main_package(self) -> str:
+        return "./cgo_bridge"
 
     def before_build(self):
         self.prepare_xray_core()
@@ -142,41 +146,3 @@ class Builder(object):
 
     def after_build(self):
         pass
-
-    def reset_files(self):
-        self.clean_lib_files(["main.go"])
-        files = os.listdir(self.lib_dir)
-        for file in files:
-            if file.endswith(".go"):
-                self.reset_package_name(file)
-
-    def reset_package_name(self, file_name: str):
-        file_path = os.path.join(self.lib_dir, file_name)
-        new_lines = []
-        with open(file_path, "r") as f:
-            lines = f.readlines()
-            for line in lines:
-                new_line = line
-                if re.match(r"^package\s+main", line):
-                    new_line = "package libXray\n"
-                new_lines.append(new_line)
-        with open(file_path, "w") as f:
-            f.writelines(new_lines)
-
-    def revert_go_env(self):
-        os.chdir(self.lib_dir)
-        ret = subprocess.run(
-            ["go", "mod", "edit", f"-dropreplace={XRAY_CORE_MOD_NAME}"]
-        )
-        if ret.returncode != 0:
-            raise Exception("go mod edit dropreplace failed")
-
-        ret = subprocess.run(
-            ["go", "get", f"{XRAY_CORE_MOD_NAME}@{DEFAULT_XRAY_CORE_VERSION}"]
-        )
-        if ret.returncode != 0:
-            raise Exception("go get xray-core failed")
-
-        ret = subprocess.run(["go", "mod", "tidy"])
-        if ret.returncode != 0:
-            raise Exception("go mod tidy failed")

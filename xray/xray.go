@@ -1,7 +1,9 @@
 package xray
 
 import (
+	"errors"
 	"runtime/debug"
+	"sync"
 
 	"github.com/xtls/libxray/memory"
 	"github.com/xtls/xray-core/common/cmdarg"
@@ -10,8 +12,11 @@ import (
 )
 
 var (
-	coreServer *core.Instance
+	coreServerMu sync.Mutex
+	coreServer   *core.Instance
 )
+
+var ErrAlreadyRunning = errors.New("xray is already running")
 
 func StartXray(configPath string) (*core.Instance, error) {
 	file := cmdarg.Arg{configPath}
@@ -44,15 +49,23 @@ func StartXrayFromJSON(configJSON string) (*core.Instance, error) {
 // Run Xray instance.
 // configPath means the config.json file path.
 func RunXray(configPath string) (err error) {
+	coreServerMu.Lock()
+	defer coreServerMu.Unlock()
+	if coreServer != nil {
+		return ErrAlreadyRunning
+	}
+
 	memory.InitForceFree()
-	coreServer, err = StartXray(configPath)
+	server, err := StartXray(configPath)
 	if err != nil {
 		return
 	}
 
-	if err = coreServer.Start(); err != nil {
+	if err = server.Start(); err != nil {
+		_ = server.Close()
 		return
 	}
+	coreServer = server
 
 	debug.FreeOSMemory()
 	return nil
@@ -61,11 +74,18 @@ func RunXray(configPath string) (err error) {
 // Run Xray instance with JSON configuration string.
 // configJSON means the JSON configuration string.
 func RunXrayFromJSON(configJSON string) (err error) {
+	coreServerMu.Lock()
+	defer coreServerMu.Unlock()
+	if coreServer != nil {
+		return ErrAlreadyRunning
+	}
+
 	memory.InitForceFree()
-	coreServer, err = StartXrayFromJSON(configJSON)
+	server, err := StartXrayFromJSON(configJSON)
 	if err != nil {
 		return
 	}
+	coreServer = server
 
 	debug.FreeOSMemory()
 	return nil
@@ -73,11 +93,15 @@ func RunXrayFromJSON(configJSON string) (err error) {
 
 // Get Xray State
 func GetXrayState() bool {
+	coreServerMu.Lock()
+	defer coreServerMu.Unlock()
 	return coreServer != nil && coreServer.IsRunning()
 }
 
 // Stop Xray instance.
 func StopXray() error {
+	coreServerMu.Lock()
+	defer coreServerMu.Unlock()
 	if coreServer != nil {
 		err := coreServer.Close()
 		coreServer = nil

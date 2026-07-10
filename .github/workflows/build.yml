@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GO_VERSION: "stable"
-  XCODE_VERSION: "latest-stable"
+  GO_VERSION: "1.26.5"
+  XCODE_VERSION: "26.6"
   PYTHON_VERSION: "3.12"
   NDK_VERSION: r29
 
