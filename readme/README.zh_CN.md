@@ -16,11 +16,8 @@
 
 依赖 git 和 go。
 
-默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 将 Xray-core 固定到 tag `v26.6.27`（Go 会记录为对应的 pseudo-version）。
+默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 的 pseudo-version 将 Xray-core 固定到 main 分支提交 `d5bc58dc`。
 传入可选参数 `local` 时，会通过 Go module `replace` 改用已有的本地仓库 `../Xray-core`。
-Linux 和 Windows 构建还会输出一个 desktop wrapper 可执行文件：
-`bin/xray` 或 `bin/xray.exe`。wrapper 的 `-configPath` 参数指向一个
-`method` 为 `runXray` 的 `LibXrayInvokeRequest` JSON 文件。
 
 ### 使用方式
 
@@ -100,11 +97,6 @@ char* CGoInvoke(char* requestJSON);
 {
   "apiVersion": 1,
   "method": "runXray",
-  "env": {
-    "xray.location.asset": "/path/to/dat",
-    "xray.location.cert": "/path/to/dat",
-    "xray.tun.fd": "123"
-  },
   "payload": {
     "configPath": "/path/to/config.json"
   }
@@ -123,12 +115,9 @@ char* CGoInvoke(char* requestJSON);
 
 设计决定：
 
-1. `Invoke.env` 只支持固定的 Xray-core runtime 环境项：
-   `xray.location.asset`、`xray.location.cert`、`xray.tun.fd`。
-2. 非空 `env` 字段会在 method 执行前写入进程环境变量。缺失字段不会 unset，也不会 restore 旧值。
-3. `xray.json.strict`、`xray.location.config`、`xray.location.confdir` 属于加载前进程环境变量，不能通过 `Invoke.env` 传入。
-4. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在请求的 `env` 对象中设置 `"xray.tun.fd"`。
-5. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
+1. `Invoke` 不接受 `env` 字段。Xray-core 运行时环境项应写入 Xray 配置根 `env` 对象。
+2. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
+3. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 
 支持的 method：
 

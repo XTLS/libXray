@@ -4,17 +4,14 @@ import shutil
 import subprocess
 
 from app.cmd import (
-    create_dir_if_not_exists,
     delete_file_if_exists,
     delete_dir_if_exists,
 )
 
 LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 XRAY_CORE_MOD_NAME = "github.com/xtls/xray-core"
-DEFAULT_XRAY_CORE_TAG = "v26.6.27"
-# Xray-core CalVer tags cannot be used directly as Go module versions because
-# its module path does not include /v26. This pseudo-version points to the tag above.
-DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260627131803-45cf2898ab12"
+# This pseudo-version pins the Xray-core main commit that added root env config.
+DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260710025649-d5bc58dc6b76"
 LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
@@ -142,28 +139,6 @@ class Builder(object):
 
     def build(self):
         pass
-
-    def build_desktop_bin(self, bin_file: str):
-        bin_dir = os.path.join(self.lib_dir, "bin")
-        create_dir_if_not_exists(bin_dir)
-        output_file = os.path.join(bin_dir, bin_file)
-        run_env = os.environ.copy()
-        run_env["CGO_ENABLED"] = "0"
-
-        cmd = [
-            "go",
-            "build",
-            "-trimpath",
-            "-ldflags",
-            "-s -w",
-            f"-o={output_file}",
-            "./desktop_bin",
-        ]
-        os.chdir(self.lib_dir)
-        print(cmd)
-        ret = subprocess.run(cmd, env=run_env)
-        if ret.returncode != 0:
-            raise Exception("build_desktop_bin failed")
 
     def after_build(self):
         pass

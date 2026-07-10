@@ -3,13 +3,11 @@ package libXray
 import (
 	"encoding/json"
 	"errors"
-	"os"
 
 	"github.com/xtls/libxray/geo"
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/libxray/share"
 	"github.com/xtls/libxray/xray"
-	"github.com/xtls/xray-core/common/platform"
 )
 
 type invokeResponse struct {
@@ -26,7 +24,6 @@ func Invoke(requestJSON string) string {
 	if err := validateAPIVersion(request.APIVersion); err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
-	applyEnv(request.Env)
 
 	switch request.Method {
 	case LibXrayMethodGetFreePorts:
@@ -55,23 +52,6 @@ func Invoke(requestJSON string) string {
 		return encodeInvokeResponse(nil, errors.New("unknown method"))
 	}
 }
-
-func applyEnv(env *LibXrayEnvJson) {
-	if env == nil {
-		return
-	}
-	setEnvIfNotEmpty(platform.AssetLocation, env.AssetLocation)
-	setEnvIfNotEmpty(platform.CertLocation, env.CertLocation)
-	setEnvIfNotEmpty(platform.TunFdKey, env.TunFd)
-}
-
-func setEnvIfNotEmpty(key string, value string) {
-	if value == "" {
-		return
-	}
-	_ = os.Setenv(key, value)
-}
-
 func validateAPIVersion(version int) error {
 	if version == 0 || version == 1 {
 		return nil
