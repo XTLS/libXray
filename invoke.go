@@ -3,13 +3,12 @@ package libXray
 import (
 	"encoding/json"
 	"errors"
-	"os"
+	"fmt"
 
 	"github.com/xtls/libxray/geo"
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/libxray/share"
 	"github.com/xtls/libxray/xray"
-	"github.com/xtls/xray-core/common/platform"
 )
 
 type invokeResponse struct {
@@ -18,7 +17,15 @@ type invokeResponse struct {
 	Err     string `json:"error"`
 }
 
+const (
+	maxInvokeJSONSizeMiB = 16
+	maxInvokeJSONBytes   = maxInvokeJSONSizeMiB * 1024 * 1024
+)
+
 func Invoke(requestJSON string) string {
+	if len(requestJSON) > maxInvokeJSONBytes {
+		return encodeInvokeResponse(nil, errors.New(invokeJSONSizeLimitMessage("request")))
+	}
 	var request LibXrayInvokeRequest
 	if err := json.Unmarshal([]byte(requestJSON), &request); err != nil {
 		return encodeInvokeResponse(nil, err)
@@ -26,7 +33,6 @@ func Invoke(requestJSON string) string {
 	if err := validateAPIVersion(request.APIVersion); err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
-	applyEnv(request.Env)
 
 	switch request.Method {
 	case LibXrayMethodGetFreePorts:
@@ -55,23 +61,6 @@ func Invoke(requestJSON string) string {
 		return encodeInvokeResponse(nil, errors.New("unknown method"))
 	}
 }
-
-func applyEnv(env *LibXrayEnvJson) {
-	if env == nil {
-		return
-	}
-	setEnvIfNotEmpty(platform.AssetLocation, env.AssetLocation)
-	setEnvIfNotEmpty(platform.CertLocation, env.CertLocation)
-	setEnvIfNotEmpty(platform.TunFdKey, env.TunFd)
-}
-
-func setEnvIfNotEmpty(key string, value string) {
-	if value == "" {
-		return
-	}
-	_ = os.Setenv(key, value)
-}
-
 func validateAPIVersion(version int) error {
 	if version == 0 || version == 1 {
 		return nil
@@ -98,7 +87,26 @@ func encodeInvokeResponse(data any, err error) string {
 	}
 	raw, err := json.Marshal(&response)
 	if err != nil {
-		return `{"success":false,"error":"failed to encode response"}`
+		return `{"success":false,"data":null,"error":"failed to encode response"}`
+	}
+	if len(raw) > maxInvokeJSONBytes {
+		return encodeInvokeFailure(invokeJSONSizeLimitMessage("response"))
+	}
+	return string(raw)
+}
+
+func invokeJSONSizeLimitMessage(kind string) string {
+	return fmt.Sprintf(
+		"invoke %s exceeds the %d MiB size limit",
+		kind,
+		maxInvokeJSONSizeMiB,
+	)
+}
+
+func encodeInvokeFailure(message string) string {
+	raw, err := json.Marshal(&invokeResponse{Err: message})
+	if err != nil {
+		return `{"success":false,"data":null,"error":"failed to encode response"}`
 	}
 	return string(raw)
 }

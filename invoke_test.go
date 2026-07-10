@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/geodata"
-	"github.com/xtls/xray-core/common/platform"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -232,6 +232,36 @@ func TestInvokeRunXray(t *testing.T) {
 	requireNoDataObject(t, response)
 }
 
+func TestInvokeRunXrayAppliesConfigEnv(t *testing.T) {
+	const key = "XRAY_LIBXRAY_CONFIG_ENV_TEST"
+	t.Setenv(key, "")
+
+	rawConfig, err := json.Marshal(testXrayConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err := json.Unmarshal(rawConfig, &config); err != nil {
+		t.Fatal(err)
+	}
+	config["env"] = map[string]string{key: "configured"}
+
+	configPath := filepath.Join(t.TempDir(), "xray.json")
+	writeConfigToFile(t, config, configPath)
+	response := invokeForTest(
+		t,
+		LibXrayMethodRunXray,
+		RunXrayRequest{ConfigPath: configPath},
+	)
+	defer xrayStopForTest(t)
+	if !response.Success {
+		t.Fatalf("RunXray failed: %s", response.Err)
+	}
+	if got := os.Getenv(key); got != "configured" {
+		t.Fatalf("config env = %q, want configured", got)
+	}
+}
+
 func TestInvokeXrayVersion(t *testing.T) {
 	response := invokeForTest(t, LibXrayMethodXrayVersion, nil)
 	if !response.Success {
@@ -342,6 +372,41 @@ func TestInvokeUnknownMethod(t *testing.T) {
 	}
 }
 
+func TestInvokeRejectsOversizedRequest(t *testing.T) {
+	response := invokeRawForTest(t, strings.Repeat(" ", maxInvokeJSONBytes+1))
+	if response.Success {
+		t.Fatal("oversized request should fail")
+	}
+	if response.Err != "invoke request exceeds the 16 MiB size limit" {
+		t.Fatalf("error = %q", response.Err)
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
+	}
+}
+
+func TestInvokeRejectsOversizedResponse(t *testing.T) {
+	responseText := encodeInvokeResponse(
+		struct {
+			Text string `json:"text"`
+		}{Text: strings.Repeat("x", maxInvokeJSONBytes)},
+		nil,
+	)
+	var response testResponse
+	if err := json.Unmarshal([]byte(responseText), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Success {
+		t.Fatal("oversized response should fail")
+	}
+	if response.Err != "invoke response exceeds the 16 MiB size limit" {
+		t.Fatalf("error = %q", response.Err)
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
+	}
+}
+
 func TestInvokeAPIVersion(t *testing.T) {
 	response := invokeRawForTest(t, `{"method":"xrayVersion"}`)
 	if !response.Success {
@@ -373,28 +438,7 @@ func TestInvokeNoDataResponseShape(t *testing.T) {
 	}
 }
 
-func TestInvokeAppliesSupportedEnv(t *testing.T) {
-	restoreEnv(t, platform.AssetLocation)
-	restoreEnv(t, platform.CertLocation)
-	restoreEnv(t, platform.TunFdKey)
-
-	requestJSON := `{"apiVersion":1,"method":"xrayVersion","env":{"xray.location.asset":"/tmp/assets","xray.location.cert":"/tmp/certs","xray.tun.fd":"123"}}`
-	response := invokeRawForTest(t, requestJSON)
-	if !response.Success {
-		t.Fatalf("xrayVersion failed: %s", response.Err)
-	}
-	if got := os.Getenv(platform.AssetLocation); got != "/tmp/assets" {
-		t.Fatalf("%s = %q", platform.AssetLocation, got)
-	}
-	if got := os.Getenv(platform.CertLocation); got != "/tmp/certs" {
-		t.Fatalf("%s = %q", platform.CertLocation, got)
-	}
-	if got := os.Getenv(platform.TunFdKey); got != "123" {
-		t.Fatalf("%s = %q", platform.TunFdKey, got)
-	}
-}
-
-func TestInvokeIgnoresUnknownEnvKeys(t *testing.T) {
+func TestInvokeIgnoresTopLevelEnv(t *testing.T) {
 	const key = "XRAY_LIBXRAY_UNKNOWN_ENV_TEST"
 	_ = os.Unsetenv(key)
 	t.Cleanup(func() { _ = os.Unsetenv(key) })
@@ -404,24 +448,11 @@ func TestInvokeIgnoresUnknownEnvKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !response.Success {
-		t.Fatalf("unknown env should be ignored: %s", response.Err)
+		t.Fatalf("top-level env should be ignored: %s", response.Err)
 	}
 	if _, found := os.LookupEnv(key); found {
-		t.Fatal("unknown env should not be set")
+		t.Fatal("top-level env should not be set")
 	}
-}
-
-func restoreEnv(t *testing.T, key string) {
-	t.Helper()
-	oldValue, found := os.LookupEnv(key)
-	_ = os.Unsetenv(key)
-	t.Cleanup(func() {
-		if found {
-			_ = os.Setenv(key, oldValue)
-		} else {
-			_ = os.Unsetenv(key)
-		}
-	})
 }
 
 func xrayStopForTest(t *testing.T) {

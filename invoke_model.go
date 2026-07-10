@@ -22,14 +22,7 @@ const (
 type LibXrayInvokeRequest struct {
 	APIVersion int             `json:"apiVersion,omitempty"`
 	Method     LibXrayMethod   `json:"method,omitempty"`
-	Env        *LibXrayEnvJson `json:"env,omitempty"`
 	Payload    json.RawMessage `json:"payload,omitempty"`
-}
-
-type LibXrayEnvJson struct {
-	AssetLocation string `json:"xray.location.asset,omitempty"`
-	CertLocation  string `json:"xray.location.cert,omitempty"`
-	TunFd         string `json:"xray.tun.fd,omitempty"`
 }
 
 type GetFreePortsRequest struct {
