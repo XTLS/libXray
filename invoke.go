@@ -16,7 +16,12 @@ type invokeResponse struct {
 	Err     string `json:"error"`
 }
 
+const maxInvokeJSONBytes = 16 * 1024 * 1024
+
 func Invoke(requestJSON string) string {
+	if len(requestJSON) > maxInvokeJSONBytes {
+		return encodeInvokeResponse(nil, errors.New("invoke request exceeds the size limit"))
+	}
 	var request LibXrayInvokeRequest
 	if err := json.Unmarshal([]byte(requestJSON), &request); err != nil {
 		return encodeInvokeResponse(nil, err)
@@ -78,7 +83,10 @@ func encodeInvokeResponse(data any, err error) string {
 	}
 	raw, err := json.Marshal(&response)
 	if err != nil {
-		return `{"success":false,"error":"failed to encode response"}`
+		return `{"success":false,"data":null,"error":"failed to encode response"}`
+	}
+	if len(raw) > maxInvokeJSONBytes {
+		return `{"success":false,"data":null,"error":"invoke response exceeds the size limit"}`
 	}
 	return string(raw)
 }

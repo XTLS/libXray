@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xtls/libxray/nodep"
@@ -368,6 +369,41 @@ func TestInvokeUnknownMethod(t *testing.T) {
 	response := invokeForTest(t, LibXrayMethod("unknown"), nil)
 	if response.Success {
 		t.Fatal("unknown method should fail")
+	}
+}
+
+func TestInvokeRejectsOversizedRequest(t *testing.T) {
+	response := invokeRawForTest(t, strings.Repeat(" ", maxInvokeJSONBytes+1))
+	if response.Success {
+		t.Fatal("oversized request should fail")
+	}
+	if response.Err != "invoke request exceeds the size limit" {
+		t.Fatalf("error = %q", response.Err)
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
+	}
+}
+
+func TestInvokeRejectsOversizedResponse(t *testing.T) {
+	responseText := encodeInvokeResponse(
+		struct {
+			Text string `json:"text"`
+		}{Text: strings.Repeat("x", maxInvokeJSONBytes)},
+		nil,
+	)
+	var response testResponse
+	if err := json.Unmarshal([]byte(responseText), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Success {
+		t.Fatal("oversized response should fail")
+	}
+	if response.Err != "invoke response exceeds the size limit" {
+		t.Fatalf("error = %q", response.Err)
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
 	}
 }
 
