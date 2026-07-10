@@ -154,6 +154,9 @@ Design notes:
    `runXray`.
 3. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
    the method payload.
+4. The complete UTF-8 encoded Invoke request and response JSON envelopes are
+   limited to 16 MiB. If either limit is exceeded, Invoke returns a failure
+   response with `success: false`, `data: null`, and a size-limit error.
 
 Supported methods:
 
