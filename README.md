@@ -147,8 +147,8 @@ The response is a JSON object:
 
 Design notes:
 
-1. `Invoke` does not accept an `env` field. Xray-core runtime environment
-   options belong in the root `env` object of the Xray config.
+1. A top-level `env` field is ignored and has no effect. Xray-core runtime
+   environment options belong in the root `env` object of the Xray config.
 2. `SetTunFd` has been removed. When the fd is only known at runtime, write
    `xray.tun.fd` into the Xray config root `env` object before calling
    `runXray`.

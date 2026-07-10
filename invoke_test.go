@@ -377,7 +377,7 @@ func TestInvokeRejectsOversizedRequest(t *testing.T) {
 	if response.Success {
 		t.Fatal("oversized request should fail")
 	}
-	if response.Err != "invoke request exceeds the size limit" {
+	if response.Err != "invoke request exceeds the 16 MiB size limit" {
 		t.Fatalf("error = %q", response.Err)
 	}
 	if got := string(response.Data); got != "null" {
@@ -399,7 +399,7 @@ func TestInvokeRejectsOversizedResponse(t *testing.T) {
 	if response.Success {
 		t.Fatal("oversized response should fail")
 	}
-	if response.Err != "invoke response exceeds the size limit" {
+	if response.Err != "invoke response exceeds the 16 MiB size limit" {
 		t.Fatalf("error = %q", response.Err)
 	}
 	if got := string(response.Data); got != "null" {
