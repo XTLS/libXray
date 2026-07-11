@@ -1,8 +1,6 @@
 import os.path
 import shutil
 import subprocess
-import random
-import time
 
 from app.build import Builder
 from app.cmd import create_dir_if_not_exists, delete_dir_if_exists
@@ -104,32 +102,34 @@ class AppleGoBuilder(Builder):
         self.prepare_static_lib()
 
     def build(self):
-        self.before_build()
-        # build ios
-        self.build_targets(self.ios_targets)
-        self.merge_static_lib(
-            self.ios_targets[1].sdk,
-            [self.ios_targets[1].apple_arch, self.ios_targets[2].apple_arch],
-        )
-        # build macos
-        self.build_targets(self.macos_targets)
-        self.merge_static_lib(
-            self.macos_targets[0].sdk,
-            [self.macos_targets[0].apple_arch, self.macos_targets[1].apple_arch],
-        )
-        # build tvos
-        self.build_targets(self.tvos_targets)
-        self.merge_static_lib(
-            self.tvos_targets[1].sdk,
-            [self.tvos_targets[1].apple_arch, self.tvos_targets[2].apple_arch],
-        )
-
-        self.after_build()
-
-        self.create_include_dir()
-        self.create_framework()
-
-        self.revert_go_env()
+        self.snapshot_go_env()
+        try:
+            self.before_build()
+            # build ios
+            self.build_targets(self.ios_targets)
+            self.merge_static_lib(
+                self.ios_targets[1].sdk,
+                [self.ios_targets[1].apple_arch, self.ios_targets[2].apple_arch],
+            )
+            # build macos
+            self.build_targets(self.macos_targets)
+            self.merge_static_lib(
+                self.macos_targets[0].sdk,
+                [self.macos_targets[0].apple_arch, self.macos_targets[1].apple_arch],
+            )
+            # build tvos
+            self.build_targets(self.tvos_targets)
+            self.merge_static_lib(
+                self.tvos_targets[1].sdk,
+                [self.tvos_targets[1].apple_arch, self.tvos_targets[2].apple_arch],
+            )
+            self.create_include_dir()
+            self.create_framework()
+        finally:
+            try:
+                self.after_build()
+            finally:
+                self.restore_go_env()
 
     def build_targets(self, targets: list[AppleTarget]):
         for target in targets:
@@ -162,51 +162,7 @@ class AppleGoBuilder(Builder):
         run_env["CGO_ENABLED"] = "1"
         run_env["DARWIN_SDK"] = sdk
 
-        # Enhanced obfuscation for uniqueness of each build
-        ldflags = "-s -w"  # Strip symbol table and DWARF debug info
-
-        # Add build timestamp with microseconds for greater uniqueness
-        build_timestamp = time.strftime("%Y%m%d%H%M%S") + str(
-            int(time.time() * 1000) % 1000
-        )
-        ldflags += f" -X 'main.buildTime={build_timestamp}'"
-
-        # Add random identifier for each build
-        random_id = "".join(
-            random.choices(
-                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=16
-            )
-        )
-        ldflags += f" -X 'main.buildID={random_id}'"
-
-        # Add git commit hash if available
-        try:
-            git_hash = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-                )
-                .decode()
-                .strip()
-            )
-            ldflags += f" -X 'main.buildVersion={git_hash}'"
-        except:
-            # If git is not available, use a random hash
-            fake_hash = "".join(random.choices("0123456789abcdef", k=7))
-            ldflags += f" -X 'main.buildVersion={fake_hash}'"
-
-        # Add random unused variables to change binary fingerprint
-        for i in range(5):
-            var_name = f"unusedVar{i}"
-            var_value = "".join(
-                random.choices(
-                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-                    k=8,
-                )
-            )
-            ldflags += f" -X 'main.{var_name}={var_value}'"
-
-        # Use compatible optimization flags
-        gcflags = "all=-l=4"  # Limit inlining but keep other optimizations
+        ldflags = "-s -w -buildid="
 
         cmd = [
             "go",
@@ -214,10 +170,9 @@ class AppleGoBuilder(Builder):
             "-trimpath",  # Remove all file system paths
             "-ldflags",
             ldflags,
-            "-gcflags",
-            gcflags,
             f"-o={output_file}",
             "-buildmode=c-archive",
+            self.main_package(),
         ]
         os.chdir(self.lib_dir)
         print(cmd)
@@ -298,27 +253,3 @@ class AppleGoBuilder(Builder):
         ret = subprocess.run(cmd)
         if ret.returncode != 0:
             raise Exception(f"create_framework failed")
-
-    def after_build(self):
-        super().after_build()
-        self.reset_files()
-
-        # Modify framework metadata for additional uniqueness
-        try:
-            framework_path = os.path.join(self.lib_dir, "LibXray.xcframework")
-            info_plist = os.path.join(framework_path, "Info.plist")
-            if os.path.exists(info_plist):
-                # Add random comment to Info.plist
-                random_comment = f"<!-- Build ID: {random.randint(10000, 99999)} -->"
-                with open(info_plist, "r") as f:
-                    content = f.read()
-
-                if "<!DOCTYPE plist" in content:
-                    content = content.replace(
-                        "<!DOCTYPE plist", f"{random_comment}\n<!DOCTYPE plist"
-                    )
-                    with open(info_plist, "w") as f:
-                        f.write(content)
-        except:
-            # Ignore errors when modifying metadata
-            pass

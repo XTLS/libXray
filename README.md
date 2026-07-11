@@ -121,7 +121,11 @@ The C export is:
 
 ```c
 char* CGoInvoke(char* requestJSON);
+void CGoFree(char* value);
 ```
+
+`CGoInvoke` allocates its response. The caller must release every non-null
+response with `CGoFree`; do not use a platform allocator directly.
 
 The request is a JSON object:
 

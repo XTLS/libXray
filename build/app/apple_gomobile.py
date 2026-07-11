@@ -11,22 +11,25 @@ class AppleGoMobileBuilder(Builder):
         self.prepare_gomobile()
 
     def build(self):
-        self.before_build()
+        self.snapshot_go_env()
+        try:
+            self.before_build()
 
-        os.chdir(self.lib_dir)
-        ret = subprocess.run(
-            [
-                "gomobile",
-                "bind",
-                "-target",
-                "ios,iossimulator,macos,maccatalyst",
-                "-iosversion",
-                "15.0",
-            ]
-        )
-        if ret.returncode != 0:
-            raise Exception("build failed")
-
-        self.after_build()
-
-        self.revert_go_env()
+            os.chdir(self.lib_dir)
+            ret = subprocess.run(
+                [
+                    "gomobile",
+                    "bind",
+                    "-target",
+                    "ios,iossimulator,macos,maccatalyst",
+                    "-iosversion",
+                    "15.0",
+                ]
+            )
+            if ret.returncode != 0:
+                raise Exception("build failed")
+        finally:
+            try:
+                self.after_build()
+            finally:
+                self.restore_go_env()

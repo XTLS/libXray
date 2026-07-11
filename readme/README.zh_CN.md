@@ -89,7 +89,11 @@ C 导出为：
 
 ```c
 char* CGoInvoke(char* requestJSON);
+void CGoFree(char* value);
 ```
+
+`CGoInvoke` 会分配返回值。调用方必须使用 `CGoFree` 释放每个非空返回值，
+不要直接使用平台分配器释放。
 
 请求是 JSON 对象：
 
