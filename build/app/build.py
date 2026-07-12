@@ -8,8 +8,8 @@ from app.cmd import (
 
 LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 XRAY_CORE_MOD_NAME = "github.com/xtls/xray-core"
-# This pseudo-version pins the Xray-core main commit that added root env config.
-DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260710025649-d5bc58dc6b76"
+# Go modules resolve the Xray-core v26.7.11 release tag through this version.
+DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20260711155151-50231eaff98c"
 LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
