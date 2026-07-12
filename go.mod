@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/stretchr/testify v1.11.1
-	github.com/xtls/xray-core v1.260327.1-0.20260710025649-d5bc58dc6b76
+	github.com/xtls/xray-core v1.260327.1-0.20260711155151-50231eaff98c
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )
