@@ -8,18 +8,10 @@ type DialerController interface {
 	ProtectFd(int) bool
 }
 
-// ProcessFinder is an interface for Android process finding functionality.
-// Apps should implement FindProcessByConnection()
-// and pass the implementation to RegisterProcessFinder() before starting the core.
+// ProcessFinder -> implemented by apps to resolve UID from connection details.
+// See RegisterProcessFinder.
 type ProcessFinder interface {
-	// FindProcessByConnection finds the UID of the process that owns the given connection.
-	//
-	// network: Protocol type: "tcp" or "udp"
-	// srcIP: Source IP address
-	// srcPort: Source port
-	// destIP: Destination IP address
-	// destPort: Destination port
-	// Returns the UID of the owning process, or -1 if not found.
+	// FindProcessByConnection -> returns UID owning the connection, or -1.
 	FindProcessByConnection(network, srcIP string, srcPort int, destIP string, destPort int) int
 }
 
@@ -35,17 +27,18 @@ func RegisterListenerController(controller DialerController) {
 	})
 }
 
-// RegisterProcessFinder registers an Android process finder with Xray-core,
-// enabling per-app routing based on UID. Must be called before starting the
-// core for process-based routing rules to work.
-// Pass nil to unregister a previously registered finder.
-func RegisterProcessFinder(finder ProcessFinder) {
+// RegisterProcessFinder -> registers process finder for per-app routing.
+// Pass nil to unregister.
+// sdkVersion = Build.VERSION.SDK_INT.
+// On API < 30, /proc/net/* parsing is used automatically; the Java callback
+// is only called on API 30+.
+func RegisterProcessFinder(finder ProcessFinder, sdkVersion int) {
 	if finder == nil {
-		c.RegisterProcessFinder(nil)
+		c.RegisterProcessFinder(nil, 0)
 		return
 	}
 
 	c.RegisterProcessFinder(func(network, srcIP string, srcPort int, destIP string, destPort int) int {
 		return finder.FindProcessByConnection(network, srcIP, srcPort, destIP, destPort)
-	})
+	}, sdkVersion)
 }

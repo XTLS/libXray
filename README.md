@@ -180,7 +180,27 @@ getXrayState
 
 ## controller
 
+### Socket protect
+
 Used to solve the socket protect problem on Android.
+
+### Process finder (per-app routing)
+
+`ConnectivityManager.getConnectionOwnerUid()` is API 30+. On older Android
+libXray falls back to parsing `/proc/net/{tcp,udp}{,6}` in pure Go.
+
+Usage (Java/Kotlin):
+
+```java
+ProcessFinder finder = new ProcessFinder() {
+    @Override
+    public long findProcessByConnection(String network, String srcIP, long srcPort,
+                                         String destIP, long destPort) {
+        return -1; // return UID or -1
+    }
+};
+LibXray.registerProcessFinder(finder, Build.VERSION.SDK_INT);
+```
 
 ## geo
 
