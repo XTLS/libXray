@@ -138,28 +138,26 @@ func formatHexAddr6(ip16 []byte, port int) (string, error) {
 	return fmt.Sprintf("%s:%04X", strings.Join(words, ""), port), nil
 }
 
-// allZerosHex -> true if IP part of "hex:port" is all zeros. PCAPdroid
-// treats zero-hex as "ANY".
-func allZerosHex(addr string) bool {
-	colon := strings.IndexByte(addr, ':')
-	if colon < 0 {
-		return false
-	}
-	hexPart := addr[:colon]
-	for _, c := range hexPart {
+// allZeros -> true if s is all '0' characters.
+func allZeros(s string) bool {
+	for _, c := range s {
 		if c != '0' {
 			return false
 		}
 	}
-	return true
+	return len(s) > 0
 }
 
 // findUidInProcFile -> scans /proc/net/{tcp,udp,..} for a line matching
-// (targetHex, destHex). Matching rules (per PCAPdroid):
+// (targetHex, destHex).  Matching per PCAPdroid get_uid_proc:
 //
-//   src hex: exact OR all-zeros
-//   dst hex: exact OR all-zeros
-//   dst port: exact OR 0
+//   sport == src_port
+//   (dport == dst_port || dport == 0)
+//   (dhex == conn_dhex || dhex == zero)
+//   (shex == conn_shex || shex == zero)
+//
+// where shex/dhex/sport/dport are from /proc and
+// conn_shex/conn_dhex/src_port/dst_port are our connection args.
 func findUidInProcFile(filePath, targetHex, destHex string) (int, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -180,21 +178,37 @@ func findUidInProcFile(filePath, targetHex, destHex string) (int, error) {
 			continue
 		}
 
-		loc := fields[1]
-		rem := fields[2]
-
-		if loc != targetHex && !allZerosHex(loc) {
+		// Split hex:port into parts for independent matching.
+		loc := strings.SplitN(fields[1], ":", 2)
+		tgt := strings.SplitN(targetHex, ":", 2)
+		if len(loc) != 2 || len(tgt) != 2 {
 			continue
 		}
 
+		// sport == src_port
+		if loc[1] != tgt[1] {
+			continue
+		}
+		// shex == conn_shex || shex == zero
+		if loc[0] != tgt[0] && !allZeros(loc[0]) {
+			continue
+		}
+
+		// Match remote when we have a dest filter.
 		if destHex != "" {
-			if rem != destHex {
-				parts := strings.SplitN(rem, ":", 2)
-				portZero := len(parts) == 2 && parts[1] == "0000"
-				hexZero := allZerosHex(rem)
-				if !portZero && !hexZero {
-					continue
-				}
+			rem := strings.SplitN(fields[2], ":", 2)
+			dst := strings.SplitN(destHex, ":", 2)
+			if len(rem) != 2 || len(dst) != 2 {
+				continue
+			}
+
+			// dport == dst_port || dport == 0
+			if rem[1] != dst[1] && rem[1] != "0000" {
+				continue
+			}
+			// dhex == conn_dhex || dhex == zero
+			if rem[0] != dst[0] && !allZeros(rem[0]) {
+				continue
 			}
 		}
 
