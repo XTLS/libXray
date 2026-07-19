@@ -33,7 +33,13 @@ jobs:
           - runner: windows-2022
             target: windows
             arch: x64
+            goarch: amd64
             artifact: windows-x64
+          - runner: windows-11-arm
+            target: windows
+            arch: arm64
+            goarch: arm64
+            artifact: windows-arm64
           - runner: macos-26
             target: apple
             artifact: apple-cgo
@@ -124,8 +130,26 @@ jobs:
 
       - name: Build Windows
         if: matrix.target == 'windows'
+        env:
+          GOARCH: ${{ matrix.goarch }}
         run: |
           python build/main.py windows
+
+      - name: Verify Windows architecture
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          $bytes = [System.IO.File]::ReadAllBytes("windows_dll/libXray.dll")
+          $peOffset = [System.BitConverter]::ToInt32($bytes, 0x3c)
+          $machine = [System.BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          $expected = switch ("${{ matrix.arch }}") {
+            "x64" { 0x8664 }
+            "arm64" { 0xaa64 }
+            default { throw "unsupported Windows architecture: ${{ matrix.arch }}" }
+          }
+          if ($machine -ne $expected) {
+            throw ("unexpected PE machine 0x{0:X4}; expected 0x{1:X4}" -f $machine, $expected)
+          }
 
       - name: Build Apple (macOS/iOS)
         if: matrix.target == 'apple'

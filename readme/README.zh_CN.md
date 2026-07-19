@@ -69,13 +69,10 @@ python3 build/main.py windows local
 
 ### Windows
 
-依赖 LLVM MinGW 。
+依赖 `PATH` 中的 gcc 和 g++。
 
-你可使用 winget 安装 [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw)。
-
-```shell
-winget install MartinStorsjo.LLVM-MinGW.UCRT
-```
+支持原生 amd64 和 arm64 构建。Release workflow 会在对应架构的 GitHub
+Windows runner 上分别构建产物。
 
 ## API
 

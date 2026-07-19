@@ -54,21 +54,20 @@ class AppleGoBuilder(Builder):
             ),
         ]
 
-        # keep same with flutter
         self.macos_targets = [
             AppleTarget(
                 "darwin",
                 "amd64",
                 "x86_64",
                 "macosx",
-                "10.14",
+                "12.0",
             ),
             AppleTarget(
                 "darwin",
                 "arm64",
                 "arm64",
                 "macosx",
-                "10.14",
+                "12.0",
             ),
         ]
 

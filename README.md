@@ -101,13 +101,10 @@ depend on gcc and g++.
 
 ### Windows
 
-depend on LLVM MinGW.
+Depends on gcc and g++ in `PATH`.
 
-you can use winget to install [LLVM MinGW](https://github.com/mstorsjo/llvm-mingw).
-
-```shell
-winget install MartinStorsjo.LLVM-MinGW.UCRT
-```
+Native amd64 and arm64 builds are supported. The release workflow builds each
+architecture on its matching GitHub-hosted Windows runner.
 
 ## API
 
