@@ -2,10 +2,31 @@
 
 package libXray
 
-import c "github.com/xtls/libxray/controller"
+import (
+	"errors"
+
+	c "github.com/xtls/libxray/controller"
+	"github.com/xtls/libxray/dns"
+)
 
 type DialerController interface {
 	ProtectFd(int) bool
+}
+
+// SetDNS installs an Android VPN-aware process resolver. server must be an IP
+// endpoint such as 8.8.8.8:53 or [2001:4860:4860::8888]:53.
+func SetDNS(controller DialerController, server string) error {
+	if controller == nil {
+		return errors.New("dns dialer controller is nil")
+	}
+	return dns.SetDNS(server, func(fd uintptr) bool {
+		return controller.ProtectFd(int(fd))
+	})
+}
+
+// ResetDNS restores the resolver that was active before SetDNS.
+func ResetDNS() {
+	dns.ResetDNS()
 }
 
 // ProcessFinder -> implemented by apps to resolve UID from connection details.
