@@ -141,6 +141,25 @@ getXrayState
 
 用于解决 Android 上 socket protect 问题。
 
+### DNS 解析器
+
+Android VPN 运行时可能会向 Go 解析器提供回环 DNS 地址。请在调用
+`runXray` 前调用 `SetDNS`，让 Go 使用 VPN 配置指定的 DNS，并通过
+`protectFd` 将 DNS socket 排除在 VPN 隧道外。DNS 必须是包含端口的 IP
+地址，例如 `8.8.8.8:53` 或 `[2001:4860:4860::8888]:53`。
+
+Xray 停止后调用 `ResetDNS`。这两个 API 仅存在于 Android 产物中，并会
+修改 Go 进程级默认解析器。
+
+```java
+LibXray.setDNS(controller, "8.8.8.8:53");
+LibXray.invoke(runXrayRequest);
+
+// 稍后停止 Core 时：
+LibXray.invoke(stopXrayRequest);
+LibXray.resetDNS();
+```
+
 ## geo
 
 ### count

@@ -181,6 +181,26 @@ getXrayState
 
 Used to solve the socket protect problem on Android.
 
+### DNS resolver
+
+Android may expose a loopback DNS server to Go's resolver while a VPN is
+active. Call `SetDNS` before `runXray` to make Go use the DNS server selected by
+the VPN configuration and protect the DNS socket from the VPN tunnel. The
+server must be an IP endpoint with a port, such as `8.8.8.8:53` or
+`[2001:4860:4860::8888]:53`.
+
+Call `ResetDNS` after Xray has stopped. These APIs are available only in the
+Android artifact and change the process-wide Go resolver.
+
+```java
+LibXray.setDNS(controller, "8.8.8.8:53");
+LibXray.invoke(runXrayRequest);
+
+// Later, when stopping the core:
+LibXray.invoke(stopXrayRequest);
+LibXray.resetDNS();
+```
+
 ### Process finder (per-app routing)
 
 `ConnectivityManager.getConnectionOwnerUid()` is API 30+. On older Android
