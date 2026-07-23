@@ -158,6 +158,9 @@ Design notes:
 4. The complete UTF-8 encoded Invoke request and response JSON envelopes are
    limited to 16 MiB. If either limit is exceeded, Invoke returns a failure
    response with `success: false`, `data: null`, and a size-limit error.
+5. `convertShareLinksToXrayJson` validates each parsed outbound with the current
+   Xray-core config builder. Invalid outbounds are omitted, and the method fails
+   if none remain. Validation does not create or start an Xray instance.
 
 Supported methods:
 
