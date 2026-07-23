@@ -10,6 +10,7 @@ import (
 
 	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/common/geodata"
+	"github.com/xtls/xray-core/infra/conf"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -304,6 +305,47 @@ func TestInvokeMapResponseShape(t *testing.T) {
 	links := decodeDataObject[ConvertXrayJsonToShareLinksResponse](t, response)
 	if links.Links == "" {
 		t.Fatal("links should not be empty")
+	}
+}
+
+func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
+	const validName = "Valid"
+	links := "vless://2418d087-648k-4990-86e8-19dca1d006d3@invalid.example:443?encryption=none&security=tls&sni=invalid.example&fp=chrome\n" +
+		"vless://12345678-abcd-abcd-abcd-123456789abc@valid.example:443?encryption=none&security=tls&sni=valid.example&fp=chrome#" + validName
+
+	response := invokeForTest(
+		t,
+		LibXrayMethodConvertShareLinksToXrayJson,
+		ConvertShareLinksToXrayJsonRequest{Text: links},
+	)
+	if !response.Success {
+		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
+	}
+	config := decodeDataObject[conf.Config](t, response)
+	if len(config.OutboundConfigs) != 1 {
+		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
+	}
+	if config.OutboundConfigs[0].SendThrough == nil || *config.OutboundConfigs[0].SendThrough != validName {
+		t.Fatalf("sendThrough = %v, want %q", config.OutboundConfigs[0].SendThrough, validName)
+	}
+}
+
+func TestInvokeConvertShareLinksFailsWhenAllOutboundsAreBuildInvalid(t *testing.T) {
+	response := invokeForTest(
+		t,
+		LibXrayMethodConvertShareLinksToXrayJson,
+		ConvertShareLinksToXrayJsonRequest{
+			Text: "vless://2418d087-648k-4990-86e8-19dca1d006d3@invalid.example:443?encryption=none&security=tls&sni=invalid.example&fp=chrome",
+		},
+	)
+	if response.Success {
+		t.Fatal("ConvertShareLinksToXrayJson should fail when all outbounds are invalid")
+	}
+	if !strings.Contains(response.Err, "no valid outbound found") {
+		t.Fatalf("error = %q", response.Err)
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
 	}
 }
 

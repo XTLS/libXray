@@ -49,7 +49,11 @@ func decodeBase64Text(text string) (string, error) {
 //   - one base64 blob that decodes to Xray JSON, share lines, or Clash YAML
 //   - Clash / Clash.Meta YAML (proxies:)
 func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
-	return convertShareLinksToXrayJson(links, true)
+	config, err := convertShareLinksToXrayJson(links, true)
+	if err != nil {
+		return nil, err
+	}
+	return filterBuildableOutbounds(config)
 }
 
 func convertShareLinksToXrayJson(links string, allowBase64 bool) (*conf.Config, error) {
