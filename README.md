@@ -161,6 +161,14 @@ Design notes:
 5. `convertShareLinksToXrayJson` validates each parsed outbound with the current
    Xray-core config builder. Invalid outbounds are omitted, and the method fails
    if none remain. Validation does not create or start an Xray instance.
+6. Xray-core keeps its system dialer DNS client and outbound manager in
+   process-wide state. Creating another Xray instance through `ping`,
+   `pingBatch`, `testXray`, or the exported Go APIs while `runXray` or
+   `runXrayFromJson` is active may replace that state and affect the running
+   instance. Closing the temporary instance does not restore the previous
+   state. libXray does not serialize, isolate, or restore concurrent instances;
+   callers that require overlapping instances must place them in separate
+   processes.
 
 Supported methods:
 
@@ -170,6 +178,7 @@ convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
 countGeoData
 ping
+pingBatch
 testXray
 runXray
 runXrayFromJson
@@ -281,6 +290,45 @@ Some tools used to parse shared links.
 ### ping
 
 Latency testing.
+
+### pingBatch
+
+Tests multiple outbound configurations concurrently in one temporary Xray
+instance. Each config file is parsed only for its `outbounds`; all other root
+fields are ignored. The target outbound is selected by `outboundTag`, then by
+the `proxy` tag, and finally by the first outbound.
+
+```json
+{
+  "apiVersion": 1,
+  "method": "pingBatch",
+  "payload": {
+    "configs": [
+      {
+        "id": "node-1",
+        "configPath": "/path/to/node-1.json"
+      },
+      {
+        "id": "node-2",
+        "configPath": "/path/to/full-config.json",
+        "outboundTag": "media"
+      }
+    ],
+    "timeout": 5,
+    "url": "https://cp.cloudflare.com/"
+  }
+}
+```
+
+Each request accepts at most five configurations and tests all accepted
+configurations concurrently. Requests containing more than five configurations
+fail before any configuration is tested.
+
+The top-level response succeeds when the batch itself was accepted. Each item
+has its own result; `delay` is `10000` for an error and `11000` for a timeout.
+Results keep the input order. Outbound dependencies referenced by
+`streamSettings.sockopt.dialerProxy` or `proxySettings.tag` are included
+automatically.
 
 ### metrics
 

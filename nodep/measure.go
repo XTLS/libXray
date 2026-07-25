@@ -51,16 +51,19 @@ func CoreHTTPClient(timeout time.Duration, proxy string) (*http.Client, error) {
 
 func PingHTTPRequest(c *http.Client, url string, timeout int) (int64, error) {
 	start := time.Now()
-	req, _ := http.NewRequest("HEAD", url, nil)
-	_, err := c.Do(req)
+	req, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		return PingDelayError, err
+	}
+	response, err := c.Do(req)
 	delay := time.Since(start).Milliseconds()
 	if err != nil {
 		precision := delay - int64(timeout)*1000
 		if math.Abs(float64(precision)) < 50 {
 			return PingDelayTimeout, err
-		} else {
-			return PingDelayError, err
 		}
+		return PingDelayError, err
 	}
+	response.Body.Close()
 	return delay, nil
 }
