@@ -236,11 +236,9 @@ tag、首个 outbound 选择。
   "payload": {
     "configs": [
       {
-        "id": "node-1",
         "configPath": "/path/to/node-1.json"
       },
       {
-        "id": "node-2",
         "configPath": "/path/to/full-config.json",
         "outboundTag": "media"
       }
@@ -255,7 +253,8 @@ tag、首个 outbound 选择。
 请求会在开始测试前直接失败。
 
 批次请求本身被接受时，顶层 response 为成功；每个配置通过自己的结果表示成功或
-失败。`delay` 为 `10000` 表示错误，`11000` 表示超时，结果顺序与输入一致。
+失败。`delay` 为 `10000` 表示错误，`11000` 表示超时。结果数组与输入配置数组
+长度相同且顺序一致。
 通过 `streamSettings.sockopt.dialerProxy` 或 `proxySettings.tag` 引用的
 outbound 依赖会被自动包含。
 

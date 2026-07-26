@@ -3,7 +3,6 @@ package libXray
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -379,7 +378,6 @@ func TestInvokePingBatchReturnsPerItemFailures(t *testing.T) {
 		PingBatchRequest{
 			Configs: []PingBatchItemRequest{
 				{
-					ID:         "missing",
 					ConfigPath: filepath.Join(t.TempDir(), "missing.json"),
 				},
 			},
@@ -395,9 +393,6 @@ func TestInvokePingBatchReturnsPerItemFailures(t *testing.T) {
 		t.Fatalf("results = %d, want 1", len(batch.Results))
 	}
 	result := batch.Results[0]
-	if result.ID != "missing" {
-		t.Fatalf("id = %q, want missing", result.ID)
-	}
 	if result.Success {
 		t.Fatal("missing config unexpectedly succeeded")
 	}
@@ -433,7 +428,6 @@ func TestInvokePingBatchRejectsMoreThanFiveConfigs(t *testing.T) {
 	configs := make([]PingBatchItemRequest, 6)
 	for i := range configs {
 		configs[i] = PingBatchItemRequest{
-			ID:         fmt.Sprintf("node-%d", i),
 			ConfigPath: "unused.json",
 		}
 	}

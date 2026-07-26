@@ -184,7 +184,7 @@ func TestPreparePingOutboundsRejectsDependencyCycle(t *testing.T) {
 	}
 }
 
-func TestPingBatchRunsRequestsConcurrentlyAndPreservesOrder(t *testing.T) {
+func TestPingBatchRunsRequestsConcurrently(t *testing.T) {
 	requestStarted := make(chan struct{}, 2)
 	releaseRequests := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(
@@ -209,8 +209,8 @@ func TestPingBatchRunsRequestsConcurrentlyAndPreservesOrder(t *testing.T) {
 	go func() {
 		results, err := PingBatch(
 			[]PingBatchItem{
-				{ID: "first", ConfigPath: firstPath},
-				{ID: "second", ConfigPath: secondPath},
+				{ConfigPath: firstPath},
+				{ConfigPath: secondPath},
 			},
 			2,
 			server.URL,
@@ -234,10 +234,7 @@ func TestPingBatchRunsRequestsConcurrentlyAndPreservesOrder(t *testing.T) {
 	if len(result.results) != 2 {
 		t.Fatalf("results = %d, want 2", len(result.results))
 	}
-	for index, id := range []string{"first", "second"} {
-		if result.results[index].ID != id {
-			t.Fatalf("result %d id = %q, want %q", index, result.results[index].ID, id)
-		}
+	for index := range result.results {
 		if !result.results[index].Success {
 			t.Fatalf(
 				"result %d failed: %s",
@@ -248,12 +245,11 @@ func TestPingBatchRunsRequestsConcurrentlyAndPreservesOrder(t *testing.T) {
 	}
 }
 
-func TestPingBatchKeepsPerItemConfigErrors(t *testing.T) {
+func TestPingBatchKeepsPerItemConfigErrorsInInputOrder(t *testing.T) {
 	results, err := PingBatch(
 		[]PingBatchItem{
-			{ID: "missing", ConfigPath: filepath.Join(t.TempDir(), "missing.json")},
+			{ConfigPath: filepath.Join(t.TempDir(), "missing.json")},
 			{
-				ID: "invalid",
 				ConfigPath: writePingBatchConfig(
 					t,
 					"invalid.json",
@@ -281,6 +277,12 @@ func TestPingBatchKeepsPerItemConfigErrors(t *testing.T) {
 			t.Fatalf("result %d has no error", index)
 		}
 	}
+	if !strings.Contains(results[0].Error, "missing.json") {
+		t.Fatalf("first result error = %q, want missing config error", results[0].Error)
+	}
+	if results[1].Error != "ping config has no outbounds" {
+		t.Fatalf("second result error = %q, want empty outbounds error", results[1].Error)
+	}
 }
 
 func TestValidatePingBatchRequest(t *testing.T) {
@@ -298,15 +300,8 @@ func TestValidatePingBatchRequest(t *testing.T) {
 			errorText: "configs are empty",
 		},
 		{
-			name:      "duplicate id",
-			items:     []PingBatchItem{{ID: "same"}, {ID: "same"}},
-			timeout:   1,
-			targetURL: "https://example.com",
-			errorText: "duplicate",
-		},
-		{
 			name:      "invalid URL",
-			items:     []PingBatchItem{{ID: "one"}},
+			items:     []PingBatchItem{{}},
 			timeout:   1,
 			targetURL: "example.com",
 			errorText: "absolute HTTP",
@@ -314,12 +309,12 @@ func TestValidatePingBatchRequest(t *testing.T) {
 		{
 			name: "too many configs",
 			items: []PingBatchItem{
-				{ID: "one"},
-				{ID: "two"},
-				{ID: "three"},
-				{ID: "four"},
-				{ID: "five"},
-				{ID: "six"},
+				{},
+				{},
+				{},
+				{},
+				{},
+				{},
 			},
 			timeout:   1,
 			targetURL: "https://example.com",
@@ -344,11 +339,11 @@ func TestValidatePingBatchRequest(t *testing.T) {
 func TestValidatePingBatchRequestAcceptsFiveConfigs(t *testing.T) {
 	err := validatePingBatchRequest(
 		[]PingBatchItem{
-			{ID: "one"},
-			{ID: "two"},
-			{ID: "three"},
-			{ID: "four"},
-			{ID: "five"},
+			{},
+			{},
+			{},
+			{},
+			{},
 		},
 		1,
 		"https://example.com",
@@ -360,7 +355,7 @@ func TestValidatePingBatchRequestAcceptsFiveConfigs(t *testing.T) {
 
 func ExamplePingBatch() {
 	results, _ := PingBatch(
-		[]PingBatchItem{{ID: "node-1", ConfigPath: "config.json"}},
+		[]PingBatchItem{{ConfigPath: "config.json"}},
 		5,
 		"https://cp.cloudflare.com/",
 	)

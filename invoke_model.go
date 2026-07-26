@@ -70,7 +70,6 @@ type PingBatchRequest struct {
 }
 
 type PingBatchItemRequest struct {
-	ID          string `json:"id,omitempty"`
 	ConfigPath  string `json:"configPath,omitempty"`
 	OutboundTag string `json:"outboundTag,omitempty"`
 }
@@ -80,7 +79,6 @@ type PingBatchResponse struct {
 }
 
 type PingBatchItemResponse struct {
-	ID      string `json:"id,omitempty"`
 	Success bool   `json:"success"`
 	Delay   int64  `json:"delay,omitempty"`
 	Error   string `json:"error,omitempty"`

@@ -305,11 +305,9 @@ the `proxy` tag, and finally by the first outbound.
   "payload": {
     "configs": [
       {
-        "id": "node-1",
         "configPath": "/path/to/node-1.json"
       },
       {
-        "id": "node-2",
         "configPath": "/path/to/full-config.json",
         "outboundTag": "media"
       }
@@ -326,7 +324,8 @@ fail before any configuration is tested.
 
 The top-level response succeeds when the batch itself was accepted. Each item
 has its own result; `delay` is `10000` for an error and `11000` for a timeout.
-Results keep the input order. Outbound dependencies referenced by
+The result array has the same length and order as the input config array.
+Outbound dependencies referenced by
 `streamSettings.sockopt.dialerProxy` or `proxySettings.tag` are included
 automatically.
 

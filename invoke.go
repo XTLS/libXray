@@ -189,7 +189,6 @@ func invokePingBatch(payload json.RawMessage) string {
 	configs := make([]xray.PingBatchItem, len(request.Configs))
 	for i, config := range request.Configs {
 		configs[i] = xray.PingBatchItem{
-			ID:          config.ID,
 			ConfigPath:  config.ConfigPath,
 			OutboundTag: config.OutboundTag,
 		}
@@ -207,7 +206,6 @@ func invokePingBatch(payload json.RawMessage) string {
 	responseResults := make([]PingBatchItemResponse, len(results))
 	for i, result := range results {
 		responseResults[i] = PingBatchItemResponse{
-			ID:      result.ID,
 			Success: result.Success,
 			Delay:   result.Delay,
 			Error:   result.Error,

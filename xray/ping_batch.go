@@ -26,13 +26,11 @@ const (
 )
 
 type PingBatchItem struct {
-	ID          string
 	ConfigPath  string
 	OutboundTag string
 }
 
 type PingBatchResult struct {
-	ID      string
 	Success bool
 	Delay   int64
 	Error   string
@@ -61,11 +59,9 @@ func PingBatch(
 	mergedOutbounds := make([]conf.OutboundDetourConfig, 0, len(items))
 
 	for index, item := range items {
-		results[index] = PingBatchResult{ID: item.ID}
-
 		outbounds, err := readPingOutbounds(item.ConfigPath)
 		if err != nil {
-			results[index] = failedPingBatchResult(item.ID, nodep.PingDelayError, err)
+			results[index] = failedPingBatchResult(nodep.PingDelayError, err)
 			continue
 		}
 
@@ -75,7 +71,7 @@ func PingBatch(
 			index,
 		)
 		if err != nil {
-			results[index] = failedPingBatchResult(item.ID, nodep.PingDelayError, err)
+			results[index] = failedPingBatchResult(nodep.PingDelayError, err)
 			continue
 		}
 		prepared = append(prepared, preparedPingItem{
@@ -111,14 +107,12 @@ func PingBatch(
 				)
 				if err != nil {
 					results[item.resultIndex] = failedPingBatchResult(
-						results[item.resultIndex].ID,
 						delay,
 						err,
 					)
 					continue
 				}
 				results[item.resultIndex] = PingBatchResult{
-					ID:      results[item.resultIndex].ID,
 					Success: true,
 					Delay:   delay,
 				}
@@ -157,17 +151,6 @@ func validatePingBatchRequest(
 	if err != nil || parsedURL.Host == "" ||
 		(parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
 		return errors.New("ping batch URL must be an absolute HTTP or HTTPS URL")
-	}
-
-	ids := make(map[string]struct{}, len(items))
-	for _, item := range items {
-		if item.ID == "" {
-			return errors.New("ping batch config id is empty")
-		}
-		if _, found := ids[item.ID]; found {
-			return fmt.Errorf("duplicate ping batch config id %q", item.ID)
-		}
-		ids[item.ID] = struct{}{}
 	}
 	return nil
 }
@@ -418,12 +401,11 @@ func measureOutboundDelay(
 	return nodep.PingHTTPRequest(client, targetURL, timeout)
 }
 
-func failedPingBatchResult(id string, delay int64, err error) PingBatchResult {
+func failedPingBatchResult(delay int64, err error) PingBatchResult {
 	if delay != nodep.PingDelayTimeout {
 		delay = nodep.PingDelayError
 	}
 	return PingBatchResult{
-		ID:      id,
 		Success: false,
 		Delay:   delay,
 		Error:   err.Error(),
