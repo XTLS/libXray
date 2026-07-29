@@ -91,11 +91,33 @@ func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Scheme = "ss"
 
 	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
-	password := fmt.Sprintf("%s:%s", settings.Cipher, settings.Password)
-	username := base64.StdEncoding.EncodeToString([]byte(password))
-	link.User = url.User(username)
+	if isShadowsocksAEAD2022(settings.Cipher) {
+		userInfo := escapeShadowsocksUserInfo(settings.Cipher) + ":" +
+			escapeShadowsocksUserInfo(settings.Password)
+		link.Opaque = "//" + userInfo + "@" + link.Host
+		link.Host = ""
+	} else {
+		password := fmt.Sprintf("%s:%s", settings.Cipher, settings.Password)
+		username := base64.StdEncoding.EncodeToString([]byte(password))
+		link.User = url.User(username)
+	}
 
 	return nil
+}
+
+func isShadowsocksAEAD2022(cipher string) bool {
+	switch strings.ToLower(cipher) {
+	case "2022-blake3-aes-128-gcm",
+		"2022-blake3-aes-256-gcm",
+		"2022-blake3-chacha20-poly1305":
+		return true
+	default:
+		return false
+	}
+}
+
+func escapeShadowsocksUserInfo(value string) string {
+	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
 }
 
 func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {

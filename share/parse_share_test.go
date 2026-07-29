@@ -241,6 +241,37 @@ func TestConvertShareLinksToXrayJson_Shadowsocks(t *testing.T) {
 	assert.Equal(t, uint16(8388), s.Port)
 }
 
+func TestConvertShareLinksToXrayJson_ShadowsocksPlainUserInfo(t *testing.T) {
+	const password = "YctPZ6U7xPPcU+gp3u+0tx/tRizJN9K8y+uKlW2qjlI="
+	link := "ss://2022-blake3-aes-256-gcm:" +
+		url.QueryEscape(password) +
+		"@192.168.100.1:8888#Example3"
+
+	cfg, err := ConvertShareLinksToXrayJson(link)
+	require.NoError(t, err)
+	require.Len(t, cfg.OutboundConfigs, 1)
+
+	ob := cfg.OutboundConfigs[0]
+	assert.Equal(t, "shadowsocks", ob.Protocol)
+	var settings conf.ShadowsocksClientConfig
+	require.NoError(t, json.Unmarshal(*ob.Settings, &settings))
+	assert.Equal(t, "2022-blake3-aes-256-gcm", settings.Cipher)
+	assert.Equal(t, password, settings.Password)
+	assert.Equal(t, uint16(8888), settings.Port)
+}
+
+func TestParseShadowsocksUserInfo_PlainPercentEncoding(t *testing.T) {
+	link, err := url.Parse(
+		"ss://aes-128-gcm:p%40ss%3Aword%2Fwith%2Bsymbols@ss.example.com:8388",
+	)
+	require.NoError(t, err)
+
+	cipher, password, err := parseShadowsocksUserInfo(link.User)
+	require.NoError(t, err)
+	assert.Equal(t, "aes-128-gcm", cipher)
+	assert.Equal(t, "p@ss:word/with+symbols", password)
+}
+
 func TestConvertShareLinksToXrayJson_VlessWSAndTLS(t *testing.T) {
 	link := "vless://" + testShareUUID + "@edge.example:443?encryption=none&type=ws&path=%2Fws&host=cdn.edge&security=tls&sni=edge.example&alpn=h2%2Ch3&fp=chrome&vcn=edge.example"
 	cfg, err := ConvertShareLinksToXrayJson(link)

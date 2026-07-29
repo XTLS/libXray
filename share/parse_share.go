@@ -202,17 +202,12 @@ func (proxy xrayShareLink) shadowsocksOutbound() (*conf.OutboundDetourConfig, er
 	}
 	settings.Port = uint16(port)
 
-	user := proxy.link.User.String()
-	passwordText, err := decodeBase64Text(user)
+	cipher, password, err := parseShadowsocksUserInfo(proxy.link.User)
 	if err != nil {
 		return nil, err
 	}
-	pwConfig := strings.SplitN(passwordText, ":", 2)
-	if len(pwConfig) != 2 {
-		return nil, fmt.Errorf("unsupported shadowsocks link password: %s", passwordText)
-	}
-	settings.Cipher = pwConfig[0]
-	settings.Password = pwConfig[1]
+	settings.Cipher = cipher
+	settings.Password = password
 
 	settingsRawMessage, err := convertJsonToRawMessage(settings)
 	if err != nil {
@@ -226,6 +221,32 @@ func (proxy xrayShareLink) shadowsocksOutbound() (*conf.OutboundDetourConfig, er
 	}
 	outbound.StreamSetting = streamSettings
 	return outbound, nil
+}
+
+func parseShadowsocksUserInfo(user *url.Userinfo) (string, string, error) {
+	if user == nil {
+		return "", "", fmt.Errorf("missing shadowsocks user info")
+	}
+
+	// SIP002 plain user info uses method:password. net/url decodes the
+	// percent-encoded method and password independently.
+	if password, ok := user.Password(); ok {
+		cipher := user.Username()
+		if cipher == "" {
+			return "", "", fmt.Errorf("missing shadowsocks cipher")
+		}
+		return cipher, password, nil
+	}
+
+	decoded, err := decodeBase64Text(user.String())
+	if err != nil {
+		return "", "", err
+	}
+	cipher, password, ok := strings.Cut(decoded, ":")
+	if !ok || cipher == "" {
+		return "", "", fmt.Errorf("unsupported shadowsocks user info")
+	}
+	return cipher, password, nil
 }
 
 func (proxy xrayShareLink) vmessOutbound() (*conf.OutboundDetourConfig, error) {
