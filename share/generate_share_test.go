@@ -206,6 +206,42 @@ func TestConvertXrayJsonToShareLinks_Errors(t *testing.T) {
 
 	_, err = ConvertXrayJsonToShareLinks([]byte(`{`))
 	require.Error(t, err)
+
+	_, err = ConvertXrayJsonToShareLinks([]byte(`null`))
+	require.Error(t, err)
+
+	_, err = ConvertXrayJsonToShareLinks([]byte(`{
+		"outbounds": [{"protocol": "shadowsocks"}]
+	}`))
+	require.Error(t, err)
+
+	_, err = ConvertXrayJsonToShareLinks([]byte(`{
+		"outbounds": [{"protocol": "shadowsocks", "settings": null}]
+	}`))
+	require.Error(t, err)
+
+	_, err = ConvertXrayJsonToShareLinks([]byte(`{
+		"outbounds": [{"protocol": "freedom", "tag": "direct"}]
+	}`))
+	require.Error(t, err)
+}
+
+func TestConvertXrayJsonToShareLinksSkipsUnsupportedOutbounds(t *testing.T) {
+	links, err := ConvertXrayJsonToShareLinks([]byte(`{
+		"outbounds": [
+			{
+				"protocol": "trojan",
+				"settings": {
+					"address": "example.com",
+					"port": 443,
+					"password": "password"
+				}
+			},
+			{"protocol": "freedom", "tag": "direct"}
+		]
+	}`))
+	require.NoError(t, err)
+	assert.Equal(t, "trojan://password@example.com:443#trojan", links)
 }
 
 func TestConvertXrayJsonToShareLinks_PrefersTagWhenSendThroughEmpty(t *testing.T) {
