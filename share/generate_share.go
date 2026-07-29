@@ -1,6 +1,7 @@
 package share
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,10 +15,8 @@ import (
 // Convert XrayJson to share links.
 // VMess will generate VMessAEAD link.
 func ConvertXrayJsonToShareLinks(xrayBytes []byte) (string, error) {
-	var xray *conf.Config
-
-	err := json.Unmarshal(xrayBytes, &xray)
-	if err != nil {
+	var xray conf.Config
+	if err := json.Unmarshal(xrayBytes, &xray); err != nil {
 		return "", err
 	}
 
@@ -29,8 +28,12 @@ func ConvertXrayJsonToShareLinks(xrayBytes []byte) (string, error) {
 	links := make([]string, 0, len(outbounds))
 	for _, outbound := range outbounds {
 		link, err := shareLink(outbound)
-		if err == nil {
-			links = append(links, link.String())
+		if err != nil || link == nil {
+			continue
+		}
+		text := link.String()
+		if text != "" {
+			links = append(links, text)
 		}
 	}
 	if len(links) == 0 {
@@ -74,15 +77,38 @@ func shareLink(proxy conf.OutboundDetourConfig) (*url.URL, error) {
 		if err != nil {
 			return nil, err
 		}
+	default:
+		return nil, fmt.Errorf("unsupported outbound protocol %q", proxy.Protocol)
 	}
 	streamSettingsQuery(proxy, shareUrl)
 
 	return shareUrl, nil
 }
 
+func decodeOutboundSettings[T any](
+	proxy conf.OutboundDetourConfig,
+) (*T, error) {
+	if proxy.Settings == nil {
+		return nil, fmt.Errorf("missing %s outbound settings", proxy.Protocol)
+	}
+	raw := bytes.TrimSpace(*proxy.Settings)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, fmt.Errorf("missing %s outbound settings", proxy.Protocol)
+	}
+
+	var settings T
+	if err := json.Unmarshal(raw, &settings); err != nil {
+		return nil, fmt.Errorf(
+			"invalid %s outbound settings: %w",
+			proxy.Protocol,
+			err,
+		)
+	}
+	return &settings, nil
+}
+
 func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings *conf.ShadowsocksClientConfig
-	err := json.Unmarshal(*proxy.Settings, &settings)
+	settings, err := decodeOutboundSettings[conf.ShadowsocksClientConfig](proxy)
 	if err != nil {
 		return err
 	}
@@ -91,16 +117,37 @@ func shadowsocksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	link.Scheme = "ss"
 
 	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
-	password := fmt.Sprintf("%s:%s", settings.Cipher, settings.Password)
-	username := base64.StdEncoding.EncodeToString([]byte(password))
-	link.User = url.User(username)
+	if isShadowsocksAEAD2022(settings.Cipher) {
+		userInfo := escapeShadowsocksUserInfo(settings.Cipher) + ":" +
+			escapeShadowsocksUserInfo(settings.Password)
+		link.Opaque = "//" + userInfo + "@" + link.Host
+		link.Host = ""
+	} else {
+		password := fmt.Sprintf("%s:%s", settings.Cipher, settings.Password)
+		username := base64.StdEncoding.EncodeToString([]byte(password))
+		link.User = url.User(username)
+	}
 
 	return nil
 }
 
+func isShadowsocksAEAD2022(cipher string) bool {
+	switch strings.ToLower(cipher) {
+	case "2022-blake3-aes-128-gcm",
+		"2022-blake3-aes-256-gcm",
+		"2022-blake3-chacha20-poly1305":
+		return true
+	default:
+		return false
+	}
+}
+
+func escapeShadowsocksUserInfo(value string) string {
+	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
+}
+
 func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings *conf.VMessOutboundConfig
-	err := json.Unmarshal(*proxy.Settings, &settings)
+	settings, err := decodeOutboundSettings[conf.VMessOutboundConfig](proxy)
 	if err != nil {
 		return err
 	}
@@ -118,8 +165,7 @@ func vmessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings *conf.VLessOutboundConfig
-	err := json.Unmarshal(*proxy.Settings, &settings)
+	settings, err := decodeOutboundSettings[conf.VLessOutboundConfig](proxy)
 	if err != nil {
 		return err
 	}
@@ -140,8 +186,7 @@ func vlessLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings *conf.SocksClientConfig
-	err := json.Unmarshal(*proxy.Settings, &settings)
+	settings, err := decodeOutboundSettings[conf.SocksClientConfig](proxy)
 	if err != nil {
 		return err
 	}
@@ -158,8 +203,7 @@ func socksLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings *conf.TrojanClientConfig
-	err := json.Unmarshal(*proxy.Settings, &settings)
+	settings, err := decodeOutboundSettings[conf.TrojanClientConfig](proxy)
 	if err != nil {
 		return err
 	}
@@ -174,8 +218,7 @@ func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 }
 
 func hysteriaLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	var settings *conf.HysteriaClientConfig
-	err := json.Unmarshal(*proxy.Settings, &settings)
+	settings, err := decodeOutboundSettings[conf.HysteriaClientConfig](proxy)
 	if err != nil {
 		return err
 	}
@@ -257,7 +300,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if streamSettings.FinalMask != nil && len(streamSettings.FinalMask.Udp) > 0 {
 			mask := streamSettings.FinalMask.Udp[0]
 			if mask.Settings != nil {
-				var obfs *conf.Salamander
+				var obfs conf.Salamander
 				err := json.Unmarshal(*mask.Settings, &obfs)
 				if err == nil {
 					query = addQuery(query, "obfs", "salamander")
@@ -286,7 +329,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if headerConfig == nil {
 			break
 		}
-		var header *XrayRawSettingsHeader
+		var header XrayRawSettingsHeader
 		err := json.Unmarshal(headerConfig, &header)
 		if err != nil {
 			break
@@ -323,7 +366,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		if headerConfig == nil {
 			break
 		}
-		var header *XrayFakeHeader
+		var header XrayFakeHeader
 		err := json.Unmarshal(headerConfig, &header)
 		if err != nil {
 			break
@@ -393,7 +436,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		}
 		extra := streamSettings.XHTTPSettings.Extra
 		if extra != nil {
-			var extraConfig *conf.SplitHTTPConfig
+			var extraConfig conf.SplitHTTPConfig
 			err := json.Unmarshal(extra, &extraConfig)
 			if err == nil {
 				extraBytes, err := json.Marshal(extraConfig)

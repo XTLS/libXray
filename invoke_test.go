@@ -371,6 +371,86 @@ func TestInvokePingReturnsDelaySentinelOnXrayError(t *testing.T) {
 	}
 }
 
+func TestInvokePingBatchReturnsPerItemFailures(t *testing.T) {
+	response := invokeForTest(
+		t,
+		LibXrayMethodPingBatch,
+		PingBatchRequest{
+			Configs: []PingBatchItemRequest{
+				{
+					ConfigPath: filepath.Join(t.TempDir(), "missing.json"),
+				},
+			},
+			Timeout: 1,
+			URL:     "https://example.com",
+		},
+	)
+	if !response.Success {
+		t.Fatalf("PingBatch failed: %s", response.Err)
+	}
+	batch := decodeDataObject[PingBatchResponse](t, response)
+	if len(batch.Results) != 1 {
+		t.Fatalf("results = %d, want 1", len(batch.Results))
+	}
+	result := batch.Results[0]
+	if result.Success {
+		t.Fatal("missing config unexpectedly succeeded")
+	}
+	if result.Delay != nodep.PingDelayError {
+		t.Fatalf("delay = %d, want %d", result.Delay, nodep.PingDelayError)
+	}
+	if result.Error == "" {
+		t.Fatal("missing config has no error")
+	}
+}
+
+func TestInvokePingBatchRejectsInvalidRequest(t *testing.T) {
+	response := invokeForTest(
+		t,
+		LibXrayMethodPingBatch,
+		PingBatchRequest{
+			Timeout: 1,
+			URL:     "https://example.com",
+		},
+	)
+	if response.Success {
+		t.Fatal("PingBatch should reject an empty config list")
+	}
+	if !strings.Contains(response.Err, "configs are empty") {
+		t.Fatalf("error = %q", response.Err)
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
+	}
+}
+
+func TestInvokePingBatchRejectsMoreThanFiveConfigs(t *testing.T) {
+	configs := make([]PingBatchItemRequest, 6)
+	for i := range configs {
+		configs[i] = PingBatchItemRequest{
+			ConfigPath: "unused.json",
+		}
+	}
+	response := invokeForTest(
+		t,
+		LibXrayMethodPingBatch,
+		PingBatchRequest{
+			Configs: configs,
+			Timeout: 1,
+			URL:     "https://example.com",
+		},
+	)
+	if response.Success {
+		t.Fatal("PingBatch should reject more than five configs")
+	}
+	if !strings.Contains(response.Err, "more than 5 configs") {
+		t.Fatalf("error = %q", response.Err)
+	}
+	if got := string(response.Data); got != "null" {
+		t.Fatalf("data = %s, want null", got)
+	}
+}
+
 func TestInvokeCountGeoDataUsesPayloadDatDir(t *testing.T) {
 	datDir := t.TempDir()
 	writeGeoSiteDatForTest(t, filepath.Join(datDir, "geosite.dat"))

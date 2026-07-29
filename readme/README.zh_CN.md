@@ -16,7 +16,7 @@
 
 依赖 git 和 go。
 
-默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 的 pseudo-version 将 Xray-core 固定到发布版本 `v26.7.11`。
+默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 的 pseudo-version 将 Xray-core 固定到发布版本 `v26.7.28`。
 传入可选参数 `local` 时，会通过 Go module `replace` 改用已有的本地仓库 `../Xray-core`。
 
 ### 使用方式
@@ -121,6 +121,7 @@ void CGoFree(char* value);
 3. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 4. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
 5. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。
+6. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。当 `runXray` 或 `runXrayFromJson` 正在运行时，通过 `ping`、`pingBatch`、`testXray` 或导出的 Go API 创建另一个 Xray instance，可能覆盖这些状态并影响正在运行的 instance。关闭临时 instance 不会恢复之前的状态。libXray 不对并发 instance 进行串行化、隔离或状态恢复；调用方如需同时运行多个 instance，必须将它们放在不同进程中。
 
 支持的 method：
 
@@ -130,6 +131,7 @@ convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
 countGeoData
 ping
+pingBatch
 testXray
 runXray
 runXrayFromJson
@@ -220,6 +222,41 @@ libXray 使用 `sendThrough` 来存储节点名称。
 ### ping
 
 延迟测试。
+
+### pingBatch
+
+在一个临时 Xray instance 内并发测试多份 outbound 配置。每份配置文件只解析
+`outbounds`，其他根字段全部忽略。目标 outbound 依次按 `outboundTag`、`proxy`
+tag、首个 outbound 选择。
+
+```json
+{
+  "apiVersion": 1,
+  "method": "pingBatch",
+  "payload": {
+    "configs": [
+      {
+        "configPath": "/path/to/node-1.json"
+      },
+      {
+        "configPath": "/path/to/full-config.json",
+        "outboundTag": "media"
+      }
+    ],
+    "timeout": 5,
+    "url": "https://cp.cloudflare.com/"
+  }
+}
+```
+
+每次请求最多接受 5 份配置，并发测试该请求中所有已接受的配置。超过 5 份配置的
+请求会在开始测试前直接失败。
+
+批次请求本身被接受时，顶层 response 为成功；每个配置通过自己的结果表示成功或
+失败。`delay` 为 `10000` 表示错误，`11000` 表示超时。结果数组与输入配置数组
+长度相同且顺序一致。
+通过 `streamSettings.sockopt.dialerProxy` 或 `proxySettings.tag` 引用的
+outbound 依赖会被自动包含。
 
 ### metrics
 

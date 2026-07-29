@@ -12,17 +12,17 @@ import (
 
 // RegisterDialerController -> callback before connection begins.
 // Depends on xray:api:beta
-func RegisterDialerController(controller func(fd uintptr)) {
+func RegisterDialerController(controller func(fd uintptr) bool) {
 	xinternet.RegisterDialerController(func(network, address string, conn syscall.RawConn) error {
-		return conn.Control(controller)
+		return protectSocket(conn, controller)
 	})
 }
 
 // RegisterListenerController -> callback before listener begins.
 // Depends on xray:api:beta
-func RegisterListenerController(controller func(fd uintptr)) {
+func RegisterListenerController(controller func(fd uintptr) bool) {
 	xinternet.RegisterListenerController(func(network, address string, conn syscall.RawConn) error {
-		return conn.Control(controller)
+		return protectSocket(conn, controller)
 	})
 }
 

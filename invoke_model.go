@@ -11,6 +11,7 @@ const (
 	LibXrayMethodConvertXrayJsonToShareLinks LibXrayMethod = "convertXrayJsonToShareLinks"
 	LibXrayMethodCountGeoData                LibXrayMethod = "countGeoData"
 	LibXrayMethodPing                        LibXrayMethod = "ping"
+	LibXrayMethodPingBatch                   LibXrayMethod = "pingBatch"
 	LibXrayMethodTestXray                    LibXrayMethod = "testXray"
 	LibXrayMethodRunXray                     LibXrayMethod = "runXray"
 	LibXrayMethodRunXrayFromJson             LibXrayMethod = "runXrayFromJson"
@@ -60,6 +61,27 @@ type PingRequest struct {
 
 type PingResponse struct {
 	Delay int64 `json:"delay,omitempty"`
+}
+
+type PingBatchRequest struct {
+	Configs []PingBatchItemRequest `json:"configs,omitempty"`
+	Timeout int                    `json:"timeout,omitempty"`
+	URL     string                 `json:"url,omitempty"`
+}
+
+type PingBatchItemRequest struct {
+	ConfigPath  string `json:"configPath,omitempty"`
+	OutboundTag string `json:"outboundTag,omitempty"`
+}
+
+type PingBatchResponse struct {
+	Results []PingBatchItemResponse `json:"results,omitempty"`
+}
+
+type PingBatchItemResponse struct {
+	Success bool   `json:"success"`
+	Delay   int64  `json:"delay,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 type RunXrayRequest struct {

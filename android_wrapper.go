@@ -37,14 +37,14 @@ type ProcessFinder interface {
 }
 
 func RegisterDialerController(controller DialerController) {
-	c.RegisterDialerController(func(fd uintptr) {
-		controller.ProtectFd(int(fd))
+	c.RegisterDialerController(func(fd uintptr) bool {
+		return controller.ProtectFd(int(fd))
 	})
 }
 
 func RegisterListenerController(controller DialerController) {
-	c.RegisterListenerController(func(fd uintptr) {
-		controller.ProtectFd(int(fd))
+	c.RegisterListenerController(func(fd uintptr) bool {
+		return controller.ProtectFd(int(fd))
 	})
 }
 

@@ -16,6 +16,7 @@ func Ping(configPath string, timeout int, url string, proxy string) (int64, erro
 	}
 
 	if err := server.Start(); err != nil {
+		_ = server.Close()
 		return nodep.PingDelayError, err
 	}
 	defer server.Close()

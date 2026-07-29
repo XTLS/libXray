@@ -45,6 +45,8 @@ func Invoke(requestJSON string) string {
 		return invokeCountGeoData(request.Payload)
 	case LibXrayMethodPing:
 		return invokePing(request.Payload)
+	case LibXrayMethodPingBatch:
+		return invokePingBatch(request.Payload)
 	case LibXrayMethodTestXray:
 		return invokeTestXray(request.Payload)
 	case LibXrayMethodRunXray:
@@ -176,6 +178,40 @@ func invokePing(payload json.RawMessage) string {
 		return encodeInvokeResponse(nil, err)
 	}
 	return encodeInvokeResponse(&PingResponse{Delay: delay}, nil)
+}
+
+func invokePingBatch(payload json.RawMessage) string {
+	request, err := decodePayload[PingBatchRequest](payload)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+
+	configs := make([]xray.PingBatchItem, len(request.Configs))
+	for i, config := range request.Configs {
+		configs[i] = xray.PingBatchItem{
+			ConfigPath:  config.ConfigPath,
+			OutboundTag: config.OutboundTag,
+		}
+	}
+
+	results, err := xray.PingBatch(
+		configs,
+		request.Timeout,
+		request.URL,
+	)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+
+	responseResults := make([]PingBatchItemResponse, len(results))
+	for i, result := range results {
+		responseResults[i] = PingBatchItemResponse{
+			Success: result.Success,
+			Delay:   result.Delay,
+			Error:   result.Error,
+		}
+	}
+	return encodeInvokeResponse(&PingBatchResponse{Results: responseResults}, nil)
 }
 
 func invokeTestXray(payload json.RawMessage) string {
