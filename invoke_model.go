@@ -5,16 +5,16 @@ import "encoding/json"
 
 type LibXrayMethod string
 
+const LibXrayAPIVersion = 2
+
 const (
 	LibXrayMethodGetFreePorts                LibXrayMethod = "getFreePorts"
 	LibXrayMethodConvertShareLinksToXrayJson LibXrayMethod = "convertShareLinksToXrayJson"
 	LibXrayMethodConvertXrayJsonToShareLinks LibXrayMethod = "convertXrayJsonToShareLinks"
 	LibXrayMethodCountGeoData                LibXrayMethod = "countGeoData"
-	LibXrayMethodPing                        LibXrayMethod = "ping"
 	LibXrayMethodPingBatch                   LibXrayMethod = "pingBatch"
 	LibXrayMethodTestXray                    LibXrayMethod = "testXray"
 	LibXrayMethodRunXray                     LibXrayMethod = "runXray"
-	LibXrayMethodRunXrayFromJson             LibXrayMethod = "runXrayFromJson"
 	LibXrayMethodStopXray                    LibXrayMethod = "stopXray"
 	LibXrayMethodXrayVersion                 LibXrayMethod = "xrayVersion"
 	LibXrayMethodGetXrayState                LibXrayMethod = "getXrayState"
@@ -52,17 +52,6 @@ type CountGeoDataRequest struct {
 	DatDir  string `json:"datDir,omitempty"`
 }
 
-type PingRequest struct {
-	ConfigPath string `json:"configPath,omitempty"`
-	Timeout    int    `json:"timeout,omitempty"`
-	URL        string `json:"url,omitempty"`
-	Proxy      string `json:"proxy,omitempty"`
-}
-
-type PingResponse struct {
-	Delay int64 `json:"delay,omitempty"`
-}
-
 type PingBatchRequest struct {
 	Configs []PingBatchItemRequest `json:"configs,omitempty"`
 	Timeout int                    `json:"timeout,omitempty"`
@@ -70,7 +59,7 @@ type PingBatchRequest struct {
 }
 
 type PingBatchItemRequest struct {
-	ConfigPath  string `json:"configPath,omitempty"`
+	XrayJson    string `json:"xrayJson,omitempty"`
 	OutboundTag string `json:"outboundTag,omitempty"`
 }
 
@@ -85,11 +74,11 @@ type PingBatchItemResponse struct {
 }
 
 type RunXrayRequest struct {
-	ConfigPath string `json:"configPath,omitempty"`
+	XrayJson string `json:"xrayJson,omitempty"`
 }
 
-type RunXrayFromJSONRequest struct {
-	ConfigJSON string `json:"configJSON,omitempty"`
+type TestXrayRequest struct {
+	XrayJson string `json:"xrayJson,omitempty"`
 }
 
 type XrayVersionResponse struct {

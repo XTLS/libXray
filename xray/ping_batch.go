@@ -9,7 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,7 +26,7 @@ const (
 )
 
 type PingBatchItem struct {
-	ConfigPath  string
+	XrayJSON    string
 	OutboundTag string
 }
 
@@ -59,7 +59,7 @@ func PingBatch(
 	mergedOutbounds := make([]conf.OutboundDetourConfig, 0, len(items))
 
 	for index, item := range items {
-		outbounds, err := readPingOutbounds(item.ConfigPath)
+		outbounds, err := readPingOutbounds(item.XrayJSON)
 		if err != nil {
 			results[index] = failedPingBatchResult(nodep.PingDelayError, err)
 			continue
@@ -155,19 +155,13 @@ func validatePingBatchRequest(
 	return nil
 }
 
-func readPingOutbounds(path string) ([]conf.OutboundDetourConfig, error) {
-	if path == "" {
-		return nil, errors.New("ping config path is empty")
+func readPingOutbounds(xrayJSON string) ([]conf.OutboundDetourConfig, error) {
+	if xrayJSON == "" {
+		return nil, errors.New("ping Xray JSON is empty")
 	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
 
 	var config pingOutboundConfig
-	decoder := json.NewDecoder(&confJSON.Reader{Reader: file})
+	decoder := json.NewDecoder(&confJSON.Reader{Reader: strings.NewReader(xrayJSON)})
 	if err := decoder.Decode(&config); err != nil {
 		return nil, err
 	}

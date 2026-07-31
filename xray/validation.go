@@ -1,9 +1,9 @@
 package xray
 
 // Test Xray Config.
-// configPath means the config.json file path.
-func TestXray(configPath string) error {
-	server, err := StartXray(configPath)
+// xrayJSON is the serialized Xray JSON configuration.
+func TestXray(xrayJSON string) error {
+	server, err := newXrayInstance(xrayJSON)
 	if err != nil {
 		return err
 	}

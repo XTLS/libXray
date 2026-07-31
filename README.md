@@ -128,10 +128,10 @@ The request is a JSON object:
 
 ```json
 {
-  "apiVersion": 1,
+  "apiVersion": 2,
   "method": "runXray",
   "payload": {
-    "configPath": "/path/to/config.json"
+    "xrayJson": "{\"outbounds\":[...]}"
   }
 }
 ```
@@ -148,23 +148,26 @@ The response is a JSON object:
 
 Design notes:
 
-1. A top-level `env` field is ignored and has no effect. Xray-core runtime
+1. Invoke currently accepts only `apiVersion: 2`. Xray configurations are
+   passed as UTF-8 JSON text in `xrayJson`; libXray does not read configuration
+   file paths.
+2. A top-level `env` field is ignored and has no effect. Xray-core runtime
    environment options belong in the root `env` object of the Xray config.
-2. `SetTunFd` has been removed. When the fd is only known at runtime, write
+3. `SetTunFd` has been removed. When the fd is only known at runtime, write
    `xray.tun.fd` into the Xray config root `env` object before calling
    `runXray`.
-3. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
+4. `countGeoData` is not backed by an Xray config, so its `datDir` is passed in
    the method payload.
-4. The complete UTF-8 encoded Invoke request and response JSON envelopes are
+5. The complete UTF-8 encoded Invoke request and response JSON envelopes are
    limited to 16 MiB. If either limit is exceeded, Invoke returns a failure
    response with `success: false`, `data: null`, and a size-limit error.
-5. `convertShareLinksToXrayJson` validates each parsed outbound with the current
+6. `convertShareLinksToXrayJson` validates each parsed outbound with the current
    Xray-core config builder. Invalid outbounds are omitted, and the method fails
    if none remain. Validation does not create or start an Xray instance.
-6. Xray-core keeps its system dialer DNS client and outbound manager in
-   process-wide state. Creating another Xray instance through `ping`,
-   `pingBatch`, `testXray`, or the exported Go APIs while `runXray` or
-   `runXrayFromJson` is active may replace that state and affect the running
+7. Xray-core keeps its system dialer DNS client and outbound manager in
+   process-wide state. Creating another Xray instance through `pingBatch`,
+   `testXray`, or the exported Go APIs while `runXray` is active may replace
+   that state and affect the running
    instance. Closing the temporary instance does not restore the previous
    state. libXray does not serialize, isolate, or restore concurrent instances;
    callers that require overlapping instances must place them in separate
@@ -177,11 +180,9 @@ getFreePorts
 convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
 countGeoData
-ping
 pingBatch
 testXray
 runXray
-runXrayFromJson
 stopXray
 xrayVersion
 getXrayState
@@ -287,28 +288,24 @@ Some tools used to parse shared links.
 
 ## xray
 
-### ping
-
-Latency testing.
-
 ### pingBatch
 
 Tests multiple outbound configurations concurrently in one temporary Xray
-instance. Each config file is parsed only for its `outbounds`; all other root
-fields are ignored. The target outbound is selected by `outboundTag`, then by
-the `proxy` tag, and finally by the first outbound.
+instance. Each `xrayJson` string is parsed only for its `outbounds`; all other
+root fields are ignored. The target outbound is selected by `outboundTag`, then
+by the `proxy` tag, and finally by the first outbound.
 
 ```json
 {
-  "apiVersion": 1,
+  "apiVersion": 2,
   "method": "pingBatch",
   "payload": {
     "configs": [
       {
-        "configPath": "/path/to/node-1.json"
+        "xrayJson": "{\"outbounds\":[...]}"
       },
       {
-        "configPath": "/path/to/full-config.json",
+        "xrayJson": "{\"outbounds\":[...]}",
         "outboundTag": "media"
       }
     ],
@@ -328,6 +325,26 @@ The result array has the same length and order as the input config array.
 Outbound dependencies referenced by
 `streamSettings.sockopt.dialerProxy` or `proxySettings.tag` are included
 automatically.
+
+### testXray
+
+Validates an Xray configuration from the supplied JSON text without reading a
+configuration file:
+
+```json
+{
+  "apiVersion": 2,
+  "method": "testXray",
+  "payload": {
+    "xrayJson": "{\"outbounds\":[...]}"
+  }
+}
+```
+
+### runXray
+
+Starts the managed Xray instance from the supplied JSON text. Use `stopXray`
+to stop that instance. `runXrayFromJson` is no longer a separate method.
 
 ### metrics
 

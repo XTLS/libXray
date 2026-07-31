@@ -12,7 +12,7 @@ const minimalConfig = `{
   "outbounds": [{"protocol": "freedom", "tag": "direct"}]
 }`
 
-func TestRunXrayFromJSONRejectsDuplicateStart(t *testing.T) {
+func TestRunXrayRejectsDuplicateStart(t *testing.T) {
 	t.Cleanup(func() {
 		if err := StopXray(); err != nil {
 			t.Errorf("stop xray: %v", err)
@@ -22,13 +22,13 @@ func TestRunXrayFromJSONRejectsDuplicateStart(t *testing.T) {
 	if err := StopXray(); err != nil {
 		t.Fatalf("reset xray state: %v", err)
 	}
-	if err := RunXrayFromJSON(minimalConfig); err != nil {
+	if err := RunXray(minimalConfig); err != nil {
 		t.Fatalf("start xray: %v", err)
 	}
 	if !GetXrayState() {
 		t.Fatal("xray should be running")
 	}
-	if err := RunXrayFromJSON(minimalConfig); !errors.Is(err, ErrAlreadyRunning) {
+	if err := RunXray(minimalConfig); !errors.Is(err, ErrAlreadyRunning) {
 		t.Fatalf("duplicate start error = %v, want %v", err, ErrAlreadyRunning)
 	}
 }
@@ -37,7 +37,7 @@ func TestXrayLifecycleConcurrentStateReads(t *testing.T) {
 	if err := StopXray(); err != nil {
 		t.Fatalf("reset xray state: %v", err)
 	}
-	if err := RunXrayFromJSON(minimalConfig); err != nil {
+	if err := RunXray(minimalConfig); err != nil {
 		t.Fatalf("start xray: %v", err)
 	}
 
@@ -59,17 +59,17 @@ func TestXrayLifecycleConcurrentStateReads(t *testing.T) {
 	}
 }
 
-func TestRunXrayFromJSONFailureDoesNotPublishInstance(t *testing.T) {
+func TestRunXrayFailureDoesNotPublishInstance(t *testing.T) {
 	if err := StopXray(); err != nil {
 		t.Fatalf("reset xray state: %v", err)
 	}
-	if err := RunXrayFromJSON(`{"outbounds":[`); err == nil {
+	if err := RunXray(`{"outbounds":[`); err == nil {
 		t.Fatal("invalid config should fail")
 	}
 	if GetXrayState() {
 		t.Fatal("failed start must not publish an instance")
 	}
-	if err := RunXrayFromJSON(minimalConfig); err != nil {
+	if err := RunXray(minimalConfig); err != nil {
 		t.Fatalf("start after failure: %v", err)
 	}
 	if err := StopXray(); err != nil {
@@ -77,7 +77,7 @@ func TestRunXrayFromJSONFailureDoesNotPublishInstance(t *testing.T) {
 	}
 }
 
-func TestRunXrayFromJSONSerializesConcurrentStarts(t *testing.T) {
+func TestRunXraySerializesConcurrentStarts(t *testing.T) {
 	if err := StopXray(); err != nil {
 		t.Fatalf("reset xray state: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestRunXrayFromJSONSerializesConcurrentStarts(t *testing.T) {
 		starters.Add(1)
 		go func() {
 			defer starters.Done()
-			errorsByStart <- RunXrayFromJSON(minimalConfig)
+			errorsByStart <- RunXray(minimalConfig)
 		}()
 	}
 	starters.Wait()

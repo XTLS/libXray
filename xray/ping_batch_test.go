@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,17 +11,8 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 )
 
-func writePingBatchConfig(t *testing.T, name string, content string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), name)
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
 func TestReadPingOutboundsIgnoresOtherRootFields(t *testing.T) {
-	path := writePingBatchConfig(t, "config.json", `{
+	xrayJSON := `{
 		// These fields are deliberately invalid for the full Xray schema.
 		"inbounds": "ignored",
 		"routing": 42,
@@ -31,9 +20,9 @@ func TestReadPingOutboundsIgnoresOtherRootFields(t *testing.T) {
 		"outbounds": [
 			{"protocol": "freedom", "tag": "proxy"}
 		]
-	}`)
+	}`
 
-	outbounds, err := readPingOutbounds(path)
+	outbounds, err := readPingOutbounds(xrayJSON)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +35,7 @@ func TestReadPingOutboundsIgnoresOtherRootFields(t *testing.T) {
 }
 
 func TestPreparePingOutboundsPreservesRealityClientConfig(t *testing.T) {
-	path := writePingBatchConfig(t, "reality.json", `{
+	xrayJSON := `{
 		"outbounds": [{
 			"tag": "proxy",
 			"protocol": "vless",
@@ -71,9 +60,9 @@ func TestPreparePingOutboundsPreservesRealityClientConfig(t *testing.T) {
 				}
 			}
 		}]
-	}`)
+	}`
 
-	outbounds, err := readPingOutbounds(path)
+	outbounds, err := readPingOutbounds(xrayJSON)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,9 +187,6 @@ func TestPingBatchRunsRequestsConcurrently(t *testing.T) {
 	defer server.Close()
 
 	config := `{"outbounds":[{"protocol":"freedom","tag":"proxy"}]}`
-	firstPath := writePingBatchConfig(t, "first.json", config)
-	secondPath := writePingBatchConfig(t, "second.json", config)
-
 	type batchResult struct {
 		results []PingBatchResult
 		err     error
@@ -209,8 +195,8 @@ func TestPingBatchRunsRequestsConcurrently(t *testing.T) {
 	go func() {
 		results, err := PingBatch(
 			[]PingBatchItem{
-				{ConfigPath: firstPath},
-				{ConfigPath: secondPath},
+				{XrayJSON: config},
+				{XrayJSON: config},
 			},
 			2,
 			server.URL,
@@ -248,14 +234,8 @@ func TestPingBatchRunsRequestsConcurrently(t *testing.T) {
 func TestPingBatchKeepsPerItemConfigErrorsInInputOrder(t *testing.T) {
 	results, err := PingBatch(
 		[]PingBatchItem{
-			{ConfigPath: filepath.Join(t.TempDir(), "missing.json")},
-			{
-				ConfigPath: writePingBatchConfig(
-					t,
-					"invalid.json",
-					`{"outbounds":[]}`,
-				),
-			},
+			{XrayJSON: "not JSON"},
+			{XrayJSON: `{"outbounds":[]}`},
 		},
 		1,
 		"https://example.com",
@@ -277,8 +257,8 @@ func TestPingBatchKeepsPerItemConfigErrorsInInputOrder(t *testing.T) {
 			t.Fatalf("result %d has no error", index)
 		}
 	}
-	if !strings.Contains(results[0].Error, "missing.json") {
-		t.Fatalf("first result error = %q, want missing config error", results[0].Error)
+	if results[0].Error == "" {
+		t.Fatal("first result should contain a JSON parsing error")
 	}
 	if results[1].Error != "ping config has no outbounds" {
 		t.Fatalf("second result error = %q, want empty outbounds error", results[1].Error)
@@ -355,7 +335,7 @@ func TestValidatePingBatchRequestAcceptsFiveConfigs(t *testing.T) {
 
 func ExamplePingBatch() {
 	results, _ := PingBatch(
-		[]PingBatchItem{{ConfigPath: "config.json"}},
+		[]PingBatchItem{{XrayJSON: `{"outbounds":[{"protocol":"freedom"}]}`}},
 		5,
 		"https://cp.cloudflare.com/",
 	)

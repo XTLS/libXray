@@ -96,10 +96,10 @@ void CGoFree(char* value);
 
 ```json
 {
-  "apiVersion": 1,
+  "apiVersion": 2,
   "method": "runXray",
   "payload": {
-    "configPath": "/path/to/config.json"
+    "xrayJson": "{\"outbounds\":[...]}"
   }
 }
 ```
@@ -116,12 +116,13 @@ void CGoFree(char* value);
 
 设计决定：
 
-1. 顶层 `env` 字段会被忽略且不会生效。Xray-core 运行时环境项应写入 Xray 配置根 `env` 对象。
-2. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
-3. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
-4. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
-5. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。
-6. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。当 `runXray` 或 `runXrayFromJson` 正在运行时，通过 `ping`、`pingBatch`、`testXray` 或导出的 Go API 创建另一个 Xray instance，可能覆盖这些状态并影响正在运行的 instance。关闭临时 instance 不会恢复之前的状态。libXray 不对并发 instance 进行串行化、隔离或状态恢复；调用方如需同时运行多个 instance，必须将它们放在不同进程中。
+1. Invoke 当前只接受 `apiVersion: 2`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
+2. 顶层 `env` 字段会被忽略且不会生效。Xray-core 运行时环境项应写入 Xray 配置根 `env` 对象。
+3. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
+4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
+5. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
+6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。
+7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。当 `runXray` 正在运行时，通过 `pingBatch`、`testXray` 或导出的 Go API 创建另一个 Xray instance，可能覆盖这些状态并影响正在运行的 instance。关闭临时 instance 不会恢复之前的状态。libXray 不对并发 instance 进行串行化、隔离或状态恢复；调用方如需同时运行多个 instance，必须将它们放在不同进程中。
 
 支持的 method：
 
@@ -130,11 +131,9 @@ getFreePorts
 convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
 countGeoData
-ping
 pingBatch
 testXray
 runXray
-runXrayFromJson
 stopXray
 xrayVersion
 getXrayState
@@ -219,27 +218,23 @@ libXray 使用 `sendThrough` 来存储节点名称。
 
 ## xray
 
-### ping
-
-延迟测试。
-
 ### pingBatch
 
-在一个临时 Xray instance 内并发测试多份 outbound 配置。每份配置文件只解析
-`outbounds`，其他根字段全部忽略。目标 outbound 依次按 `outboundTag`、`proxy`
-tag、首个 outbound 选择。
+在一个临时 Xray instance 内并发测试多份 outbound 配置。每个 `xrayJson` 文本只
+解析 `outbounds`，其他根字段全部忽略。目标 outbound 依次按 `outboundTag`、
+`proxy` tag、首个 outbound 选择。
 
 ```json
 {
-  "apiVersion": 1,
+  "apiVersion": 2,
   "method": "pingBatch",
   "payload": {
     "configs": [
       {
-        "configPath": "/path/to/node-1.json"
+        "xrayJson": "{\"outbounds\":[...]}"
       },
       {
-        "configPath": "/path/to/full-config.json",
+        "xrayJson": "{\"outbounds\":[...]}",
         "outboundTag": "media"
       }
     ],
@@ -257,6 +252,25 @@ tag、首个 outbound 选择。
 长度相同且顺序一致。
 通过 `streamSettings.sockopt.dialerProxy` 或 `proxySettings.tag` 引用的
 outbound 依赖会被自动包含。
+
+### testXray
+
+直接校验传入的 Xray JSON 文本，不读取配置文件：
+
+```json
+{
+  "apiVersion": 2,
+  "method": "testXray",
+  "payload": {
+    "xrayJson": "{\"outbounds\":[...]}"
+  }
+}
+```
+
+### runXray
+
+使用传入的 Xray JSON 文本启动由 libXray 管理的 Xray instance，并通过
+`stopXray` 停止。`runXrayFromJson` 不再作为独立 method 存在。
 
 ### metrics
 

@@ -43,16 +43,12 @@ func Invoke(requestJSON string) string {
 		return invokeConvertXrayJsonToShareLinks(request.Payload)
 	case LibXrayMethodCountGeoData:
 		return invokeCountGeoData(request.Payload)
-	case LibXrayMethodPing:
-		return invokePing(request.Payload)
 	case LibXrayMethodPingBatch:
 		return invokePingBatch(request.Payload)
 	case LibXrayMethodTestXray:
 		return invokeTestXray(request.Payload)
 	case LibXrayMethodRunXray:
 		return invokeRunXray(request.Payload)
-	case LibXrayMethodRunXrayFromJson:
-		return invokeRunXrayFromJSON(request.Payload)
 	case LibXrayMethodStopXray:
 		return encodeInvokeNoDataResponse(xray.StopXray())
 	case LibXrayMethodXrayVersion:
@@ -64,7 +60,7 @@ func Invoke(requestJSON string) string {
 	}
 }
 func validateAPIVersion(version int) error {
-	if version == 0 || version == 1 {
+	if version == LibXrayAPIVersion {
 		return nil
 	}
 	return errors.New("unsupported apiVersion")
@@ -165,21 +161,6 @@ func invokeCountGeoData(payload json.RawMessage) string {
 	return encodeInvokeNoDataResponse(err)
 }
 
-func invokePing(payload json.RawMessage) string {
-	request, err := decodePayload[PingRequest](payload)
-	if err != nil {
-		return encodeInvokeResponse(nil, err)
-	}
-	delay, err := xray.Ping(request.ConfigPath, request.Timeout, request.URL, request.Proxy)
-	if err != nil {
-		if delay == nodep.PingDelayError || delay == nodep.PingDelayTimeout {
-			return encodeInvokeResponse(&PingResponse{Delay: delay}, err)
-		}
-		return encodeInvokeResponse(nil, err)
-	}
-	return encodeInvokeResponse(&PingResponse{Delay: delay}, nil)
-}
-
 func invokePingBatch(payload json.RawMessage) string {
 	request, err := decodePayload[PingBatchRequest](payload)
 	if err != nil {
@@ -189,7 +170,7 @@ func invokePingBatch(payload json.RawMessage) string {
 	configs := make([]xray.PingBatchItem, len(request.Configs))
 	for i, config := range request.Configs {
 		configs[i] = xray.PingBatchItem{
-			ConfigPath:  config.ConfigPath,
+			XrayJSON:    config.XrayJson,
 			OutboundTag: config.OutboundTag,
 		}
 	}
@@ -215,11 +196,11 @@ func invokePingBatch(payload json.RawMessage) string {
 }
 
 func invokeTestXray(payload json.RawMessage) string {
-	request, err := decodePayload[RunXrayRequest](payload)
+	request, err := decodePayload[TestXrayRequest](payload)
 	if err != nil {
 		return encodeInvokeNoDataResponse(err)
 	}
-	err = xray.TestXray(request.ConfigPath)
+	err = xray.TestXray(request.XrayJson)
 	return encodeInvokeNoDataResponse(err)
 }
 
@@ -228,15 +209,6 @@ func invokeRunXray(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeNoDataResponse(err)
 	}
-	err = xray.RunXray(request.ConfigPath)
-	return encodeInvokeNoDataResponse(err)
-}
-
-func invokeRunXrayFromJSON(payload json.RawMessage) string {
-	request, err := decodePayload[RunXrayFromJSONRequest](payload)
-	if err != nil {
-		return encodeInvokeNoDataResponse(err)
-	}
-	err = xray.RunXrayFromJSON(request.ConfigJSON)
+	err = xray.RunXray(request.XrayJson)
 	return encodeInvokeNoDataResponse(err)
 }
