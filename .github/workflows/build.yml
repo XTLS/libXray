@@ -241,7 +241,6 @@ jobs:
               cp -R LibXray.xcframework "dist/${{ matrix.artifact }}/"
               ;;
           esac
-
       # =========================
       # Upload artifacts
       # =========================

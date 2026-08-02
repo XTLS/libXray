@@ -121,7 +121,7 @@ void CGoFree(char* value);
 3. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
 4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 5. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
-6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。
+6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
 7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。当 `runXray` 正在运行时，通过 `pingBatch`、`testXray` 或导出的 Go API 创建另一个 Xray instance，可能覆盖这些状态并影响正在运行的 instance。关闭临时 instance 不会恢复之前的状态。libXray 不对并发 instance 进行串行化、隔离或状态恢复；调用方如需同时运行多个 instance，必须将它们放在不同进程中。
 
 支持的 method：
@@ -130,6 +130,7 @@ void CGoFree(char* value);
 getFreePorts
 convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
+generateAgeKeyPair
 countGeoData
 pingBatch
 testXray
@@ -207,6 +208,44 @@ libXray 使用 `sendThrough` 来存储节点名称。
 转换 VMessAEAD/VLESS 分享协议为 Xray Json。
 
 转换 VMessQRCode 为 Xray Json。
+
+### age 加密订阅
+
+`convertShareLinksToXrayJson` 接受可选的 age 原生私钥。仅支持 X25519
+（`AGE-SECRET-KEY-1...`）和 ML-KEM-768 + X25519 hybrid
+（`AGE-SECRET-KEY-PQ-1...`）identity。识别到 age armor 后会在内存中完成
+解密，解密后明文上限为 16 MiB。
+
+```json
+{
+  "apiVersion": 2,
+  "method": "convertShareLinksToXrayJson",
+  "payload": {
+    "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
+    "age": {
+      "secretKey": "AGE-SECRET-KEY-1..."
+    }
+  }
+}
+```
+
+`generateAgeKeyPair` 可生成新密钥对，`keyType` 支持 `x25519` 或
+`hybrid`；省略时默认为 `x25519`：
+
+```json
+{
+  "apiVersion": 2,
+  "method": "generateAgeKeyPair",
+  "payload": {
+    "keyType": "x25519"
+  }
+}
+```
+
+响应同时包含 `secretKey` 和 `publicKey`。接入 App 必须持久化该密钥对，并且
+只将 `publicKey` 作为 `X-Age-Public-Key` 发送。libXray 不负责订阅 HTTP 请求、
+密钥持久化或请求 Header；严禁通过 HTTP 发送私钥，也不能把解密后的订阅文本
+写入磁盘。
 
 ### vmess
 
@@ -322,6 +361,8 @@ http://localhost:49227/debug/vars
 [VMessPing](https://github.com/v2fly/vmessping)
 
 [FreePort](https://github.com/phayes/freeport)
+
+[MetaCubeX age](https://github.com/MetaCubeX/age)（BSD 3-Clause）
 
 # License
 

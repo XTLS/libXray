@@ -11,6 +11,7 @@ const (
 	LibXrayMethodGetFreePorts                LibXrayMethod = "getFreePorts"
 	LibXrayMethodConvertShareLinksToXrayJson LibXrayMethod = "convertShareLinksToXrayJson"
 	LibXrayMethodConvertXrayJsonToShareLinks LibXrayMethod = "convertXrayJsonToShareLinks"
+	LibXrayMethodGenerateAgeKeyPair          LibXrayMethod = "generateAgeKeyPair"
 	LibXrayMethodCountGeoData                LibXrayMethod = "countGeoData"
 	LibXrayMethodPingBatch                   LibXrayMethod = "pingBatch"
 	LibXrayMethodTestXray                    LibXrayMethod = "testXray"
@@ -34,8 +35,29 @@ type GetFreePortsResponse struct {
 	Ports []int `json:"ports,omitempty"`
 }
 
+type AgeDecryptConfig struct {
+	SecretKey string `json:"secretKey,omitempty"`
+}
+
 type ConvertShareLinksToXrayJsonRequest struct {
-	Text string `json:"text,omitempty"`
+	Text string            `json:"text,omitempty"`
+	Age  *AgeDecryptConfig `json:"age,omitempty"`
+}
+
+type AgeKeyType string
+
+const (
+	AgeKeyTypeX25519 AgeKeyType = "x25519"
+	AgeKeyTypeHybrid AgeKeyType = "hybrid"
+)
+
+type GenerateAgeKeyPairRequest struct {
+	KeyType AgeKeyType `json:"keyType,omitempty"`
+}
+
+type GenerateAgeKeyPairResponse struct {
+	SecretKey string `json:"secretKey,omitempty"`
+	PublicKey string `json:"publicKey,omitempty"`
 }
 
 type ConvertXrayJsonToShareLinksRequest struct {

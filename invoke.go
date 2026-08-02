@@ -41,6 +41,8 @@ func Invoke(requestJSON string) string {
 		return invokeConvertShareLinksToXrayJson(request.Payload)
 	case LibXrayMethodConvertXrayJsonToShareLinks:
 		return invokeConvertXrayJsonToShareLinks(request.Payload)
+	case LibXrayMethodGenerateAgeKeyPair:
+		return invokeGenerateAgeKeyPair(request.Payload)
 	case LibXrayMethodCountGeoData:
 		return invokeCountGeoData(request.Payload)
 	case LibXrayMethodPingBatch:
@@ -133,8 +135,27 @@ func invokeConvertShareLinksToXrayJson(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
-	xrayJson, err := share.ConvertShareLinksToXrayJson(request.Text)
+	secretKey := ""
+	if request.Age != nil {
+		secretKey = request.Age.SecretKey
+	}
+	xrayJson, err := share.ConvertShareLinksToXrayJsonWithAge(request.Text, secretKey)
 	return encodeInvokeResponse(xrayJson, err)
+}
+
+func invokeGenerateAgeKeyPair(payload json.RawMessage) string {
+	request, err := decodePayload[GenerateAgeKeyPairRequest](payload)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	pair, err := share.GenerateAgeKeyPair(share.AgeKeyType(request.KeyType))
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	return encodeInvokeResponse(&GenerateAgeKeyPairResponse{
+		SecretKey: pair.SecretKey,
+		PublicKey: pair.PublicKey,
+	}, nil)
 }
 
 func invokeConvertXrayJsonToShareLinks(payload json.RawMessage) string {

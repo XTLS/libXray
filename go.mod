@@ -3,6 +3,7 @@ module github.com/xtls/libxray
 go 1.26.3
 
 require (
+	github.com/metacubex/age v0.0.0-20260603010618-28d156b4ea78
 	github.com/stretchr/testify v1.11.1
 	github.com/xtls/xray-core v1.260327.1-0.20260728075948-5ca6f4b7d4dc
 	google.golang.org/protobuf v1.36.11
@@ -21,6 +22,9 @@ require (
 	github.com/juju/ratelimit v1.0.2 // indirect
 	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
+	github.com/metacubex/hkdf v0.1.0 // indirect
+	github.com/metacubex/hpke v0.1.0 // indirect
+	github.com/metacubex/mlkem v0.1.0 // indirect
 	github.com/miekg/dns v1.1.72 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pion/dtls/v3 v3.1.4 // indirect

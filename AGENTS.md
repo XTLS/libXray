@@ -64,6 +64,7 @@ Supported methods:
 - `getFreePorts`
 - `convertShareLinksToXrayJson`
 - `convertXrayJsonToShareLinks`
+- `generateAgeKeyPair`
 - `countGeoData`
 - `pingBatch`
 - `testXray`
@@ -71,6 +72,12 @@ Supported methods:
 - `stopXray`
 - `xrayVersion`
 - `getXrayState`
+
+Age-encrypted subscription support is part of the share boundary. libXray owns
+native key generation, in-memory armor decryption, and parsing. Integrating
+applications own HTTP headers, persistence of both generated keys, and refresh
+behavior. Never log age secret keys, decrypted subscription text, or complete
+Invoke requests containing those values.
 
 `pingBatch`, `testXray`, and `runXray` receive serialized Xray configuration
 text through `xrayJson`. They must not accept or read an application-provided

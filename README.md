@@ -164,6 +164,8 @@ Design notes:
 6. `convertShareLinksToXrayJson` validates each parsed outbound with the current
    Xray-core config builder. Invalid outbounds are omitted, and the method fails
    if none remain. Validation does not create or start an Xray instance.
+   Its optional `age.secretKey` decrypts official age ASCII armor in memory
+   before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in
    process-wide state. Creating another Xray instance through `pingBatch`,
    `testXray`, or the exported Go APIs while `runXray` is active may replace
@@ -179,6 +181,7 @@ Supported methods:
 getFreePorts
 convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
+generateAgeKeyPair
 countGeoData
 pingBatch
 testXray
@@ -277,6 +280,44 @@ convert Xray Json to VMessAEAD/VLESS sharing protocol.
 convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
 convert VMessQRCode to Xray Json.
+
+### age-encrypted subscriptions
+
+`convertShareLinksToXrayJson` accepts an optional native age secret key. Only
+X25519 (`AGE-SECRET-KEY-1...`) and ML-KEM-768 + X25519 hybrid
+(`AGE-SECRET-KEY-PQ-1...`) identities are accepted. Recognized age armor is
+decrypted in memory and limited to 16 MiB of plaintext.
+
+```json
+{
+  "apiVersion": 2,
+  "method": "convertShareLinksToXrayJson",
+  "payload": {
+    "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
+    "age": {
+      "secretKey": "AGE-SECRET-KEY-1..."
+    }
+  }
+}
+```
+
+Generate a new keypair with `keyType` set to `x25519` or `hybrid`. An omitted
+
+```json
+{
+  "apiVersion": 2,
+  "method": "generateAgeKeyPair",
+  "payload": {
+    "keyType": "x25519"
+  }
+}
+```
+
+The response contains both `secretKey` and `publicKey`. The integrating
+application must persist the pair and send only `publicKey` as
+`X-Age-Public-Key`. libXray does not perform the subscription HTTP request,
+persist keys, or add headers. Applications must never send the secret key over
+HTTP or write decrypted subscription text to disk.
 
 ### vmess
 
@@ -395,6 +436,8 @@ Start and stop Xray instances.
 [VMessPing](https://github.com/v2fly/vmessping)
 
 [FreePort](https://github.com/phayes/freeport)
+
+[MetaCubeX age](https://github.com/MetaCubeX/age) (BSD 3-Clause)
 
 # License
 
