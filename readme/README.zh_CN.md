@@ -230,7 +230,9 @@ libXray 使用 `sendThrough` 来存储节点名称。
 ```
 
 `generateAgeKeyPair` 可生成新密钥对，`keyType` 支持 `x25519` 或
-`hybrid`；省略时默认为 `x25519`：
+`hybrid`；省略时默认为 `x25519`。`hybrid` 对应 Mihomo 的
+`age keygen-pq`，生成 `AGE-SECRET-KEY-PQ-1...` identity 和
+`age1pq1...` recipient：
 
 ```json
 {

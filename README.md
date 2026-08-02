@@ -302,6 +302,9 @@ decrypted in memory and limited to 16 MiB of plaintext.
 ```
 
 Generate a new keypair with `keyType` set to `x25519` or `hybrid`. An omitted
+`keyType` defaults to `x25519`. The `hybrid` option matches Mihomo
+`age keygen-pq` and produces an `AGE-SECRET-KEY-PQ-1...` identity with an
+`age1pq1...` recipient.
 
 ```json
 {
