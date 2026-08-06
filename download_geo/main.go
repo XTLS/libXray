@@ -72,7 +72,7 @@ func makeLoadGeoDataRequest(datDir string, name string, geoType string) (string,
 		return "", err
 	}
 	request := libXray.LibXrayInvokeRequest{
-		APIVersion: 1,
+		APIVersion: libXray.LibXrayAPIVersion,
 		Method:     libXray.LibXrayMethodCountGeoData,
 		Payload:    payload,
 	}
