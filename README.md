@@ -66,6 +66,24 @@ python3 build/main.py windows local
 
 ```
 
+> [!WARNING]
+> **Use only one Go runtime per process.** Go does not support loading multiple
+> independently built Go runtimes into one process. Every native libXray
+> artifact embeds a Go runtime, whether it is produced through cgo or gomobile.
+> Do not load libXray together with another independently built Go, cgo, or
+> gomobile library in the same executable or process. Doing so can fail during
+> build, link, or load, or crash during runtime initialization before
+> application code runs.
+> If one process needs Go packages from several libraries, include those
+> packages in the same Go build or `gomobile bind` invocation and produce one
+> native artifact so they share a runtime. Merely repackaging or merging
+> independently built frameworks, archives, AARs, shared libraries, or DLLs is
+> not sufficient. Separate OS processes may each load one Go runtime, so apply
+> this rule independently to each process. See
+> [Go #18976](https://github.com/golang/go/issues/18976#issuecomment-308505600),
+> [golang/go#15956](https://github.com/golang/go/issues/15956#issuecomment-373709423),
+> and [libXray #116](https://github.com/XTLS/libXray/issues/116).
+
 ### Android
 
 use [gomobile](https://github.com/golang/mobile) .
@@ -76,7 +94,8 @@ use [gomobile](https://github.com/golang/mobile) .
 
 Need "iOS Simulator Runtime".
 
-This is the best choice for general scenarios and will not conflict with other frameworks.
+This is the best choice for general scenarios. The cross-platform single-runtime
+restriction above still applies when linking other Go-based libraries.
 
 Supports iOS, iOSSimulator, macOS, macCatalyst.
 

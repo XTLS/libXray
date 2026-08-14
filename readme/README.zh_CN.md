@@ -34,6 +34,20 @@ python3 build/main.py windows
 python3 build/main.py windows local
 ```
 
+> [!WARNING]
+> **每个进程只能使用一个 Go runtime。** Go 不支持在同一进程中加载多个独立构建的
+> Go runtime。libXray 的所有原生产物都会嵌入 Go runtime，无论它们通过 cgo 还是
+> gomobile 生成。不要在同一个可执行文件或进程中同时加载 libXray 与另一个独立构建的
+> Go、cgo 或 gomobile 库，否则可能在构建、链接或加载阶段失败，也可能在应用代码执行前
+> 的 runtime 初始化阶段崩溃。
+> 如果同一进程需要多个库中的 Go package，应将这些 package 放入同一次 Go build 或
+> `gomobile bind` 并生成一个原生产物，使其共享一个 runtime。仅重新打包或合并已经独立
+> 构建的 framework、archive、AAR、shared library 或 DLL 并不能解决问题。不同的操作系统
+> 进程可以各自加载一个 Go runtime，因此需要分别对每个进程遵守这一限制。参见
+> [Go #18976](https://github.com/golang/go/issues/18976#issuecomment-308505600)、
+> [golang/go#15956](https://github.com/golang/go/issues/15956#issuecomment-373709423)
+> 和 [libXray #116](https://github.com/XTLS/libXray/issues/116)。
+
 ### Android
 
 使用 [gomobile](https://github.com/golang/mobile) 。
@@ -44,7 +58,8 @@ python3 build/main.py windows local
 
 需要 “iOS Simulator Runtime”。
 
-这是常规场景下的最佳选择，不会与其他 frameworks 冲突。
+这是常规场景下的最佳选择；与其他基于 Go 的库同时集成时，仍须遵守上方跨平台的
+单 runtime 限制。
 
 支持 iOS，iOSSimulator，macOS，macCatalyst。
 
