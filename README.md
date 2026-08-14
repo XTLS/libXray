@@ -72,11 +72,29 @@ use [gomobile](https://github.com/golang/mobile) .
 
 ### iOS && macOS
 
+> [!WARNING]
+> **Use only one Go runtime per process.** Go does not support loading multiple
+> independently built Go runtimes into one process. Both the cgo and gomobile
+> Apple artifacts embed a Go runtime. Do not link `LibXray.xcframework`
+> together with another independently built Go or gomobile framework into the
+> same app or extension executable. Doing so can fail at link time or crash
+> during runtime initialization, before application code or
+> `NEPacketTunnelProvider` runs.
+> If one process needs Go packages from several frameworks, include those
+> packages in the same Go build or `gomobile bind` invocation and produce one
+> framework so they share a runtime. Merely repackaging or merging independently
+> built frameworks is not sufficient. The containing app and a Network
+> Extension are separate processes, so apply this rule independently to each
+> target. See [Go #18976](https://github.com/golang/go/issues/18976#issuecomment-308505600),
+> [x/mobile #15956](https://github.com/golang/go/issues/15956#issuecomment-373709423),
+> and [libXray #116](https://github.com/XTLS/libXray/issues/116).
+
 #### 1. use gomobile
 
 Need "iOS Simulator Runtime".
 
-This is the best choice for general scenarios and will not conflict with other frameworks.
+This is the best choice for general scenarios. The single-runtime restriction
+above still applies when linking other Go-based frameworks.
 
 Supports iOS, iOSSimulator, macOS, macCatalyst.
 

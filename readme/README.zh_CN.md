@@ -40,11 +40,26 @@ python3 build/main.py windows local
 
 ### iOS && macOS
 
+> [!WARNING]
+> **每个进程只能使用一个 Go runtime。** Go 不支持在同一进程中加载多个独立构建的
+> Go runtime。cgo 和 gomobile 生成的 Apple 产物都会嵌入 Go runtime。不要在同一个
+> App 或 Extension 可执行文件中同时链接 `LibXray.xcframework` 与另一个独立构建的
+> Go 或 gomobile framework，否则可能在链接阶段失败，或在 runtime 初始化阶段崩溃，
+> 甚至早于应用代码或 `NEPacketTunnelProvider` 执行。如果同一进程需要多个
+> framework 中的 Go package，应将这些 package 放入同一次 Go build 或
+> `gomobile bind` 并生成一个 framework，
+> 使其共享一个 runtime。仅重新打包或合并已经独立构建的 frameworks 并不能解决问题。
+> 宿主 App 与 Network Extension 是不同进程，因此需要分别对每个 target 遵守这一限制。
+> 参见 [Go #18976](https://github.com/golang/go/issues/18976#issuecomment-308505600)、
+> [x/mobile #15956](https://github.com/golang/go/issues/15956#issuecomment-373709423)
+> 和 [libXray #116](https://github.com/XTLS/libXray/issues/116)。
+
 #### 1. 使用 gomobile
 
 需要 “iOS Simulator Runtime”。
 
-这是常规场景下的最佳选择，不会与其他 frameworks 冲突。
+这是常规场景下的最佳选择；与其他基于 Go 的 framework 同时集成时，仍须遵守上方的
+单 runtime 限制。
 
 支持 iOS，iOSSimulator，macOS，macCatalyst。
 
