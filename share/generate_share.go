@@ -274,9 +274,6 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			if len(vcn) > 0 {
 				query = addQuery(query, "vcn", vcn)
 			}
-			if streamSettings.TLSSettings.AllowInsecure {
-				query = addQuery(query, "insecure", "1")
-			}
 		}
 
 		// QuicParams (bandwidth + port-hopping)
@@ -475,9 +472,6 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		vcn := streamSettings.TLSSettings.VerifyPeerCertByName
 		if len(vcn) > 0 {
 			query = addQuery(query, "vcn", vcn)
-		}
-		if streamSettings.TLSSettings.AllowInsecure {
-			query = addQuery(query, "insecure", "1")
 		}
 	case "reality":
 		if streamSettings.REALITYSettings == nil {

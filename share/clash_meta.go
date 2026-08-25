@@ -35,11 +35,10 @@ type ClashProxy struct {
 	Udp        bool `yaml:"udp,omitempty"`
 	UdpOverTcp bool `yaml:"udp-over-tcp,omitempty"`
 
-	Tls            bool     `yaml:"tls,omitempty"`
-	SkipCertVerify bool     `yaml:"skip-cert-verify,omitempty"`
-	Servername     string   `yaml:"servername,omitempty"`
-	Sni            string   `yaml:"sni,omitempty"`
-	Alpn           []string `yaml:"alpn,omitempty"`
+	Tls        bool     `yaml:"tls,omitempty"`
+	Servername string   `yaml:"servername,omitempty"`
+	Sni        string   `yaml:"sni,omitempty"`
+	Alpn       []string `yaml:"alpn,omitempty"`
 
 	Fingerprint       string                 `yaml:"fingerprint,omitempty"`
 	ClientFingerprint string                 `yaml:"client-fingerprint,omitempty"`
@@ -66,14 +65,13 @@ type ClashProxyRealityOpts struct {
 }
 
 type ClashProxyPluginOpts struct {
-	Mode           string             `yaml:"mode,omitempty"`
-	Tls            bool               `yaml:"tls,omitempty"`
-	Fingerprint    string             `yaml:"fingerprint,omitempty"`
-	EchOpts        *ClashProxyEchOpts `yaml:"ech-opts,omitempty"`
-	SkipCertVerify bool               `yaml:"skip-cert-verify,omitempty"`
-	Host           string             `yaml:"host,omitempty"`
-	Path           string             `yaml:"path,omitempty"`
-	Mux            bool               `yaml:"mux,omitempty"`
+	Mode        string             `yaml:"mode,omitempty"`
+	Tls         bool               `yaml:"tls,omitempty"`
+	Fingerprint string             `yaml:"fingerprint,omitempty"`
+	EchOpts     *ClashProxyEchOpts `yaml:"ech-opts,omitempty"`
+	Host        string             `yaml:"host,omitempty"`
+	Path        string             `yaml:"path,omitempty"`
+	Mux         bool               `yaml:"mux,omitempty"`
 }
 
 type ClashProxyWsOpts struct {
@@ -125,7 +123,6 @@ type ClashProxyXhttpOptsDownloadSettings struct {
 	Alpn              []string               `yaml:"alpn,omitempty"`
 	EchOpts           *ClashProxyEchOpts     `yaml:"ech-opts,omitempty"`
 	RealityOpts       *ClashProxyRealityOpts `yaml:"reality-opts,omitempty"`
-	SkipCertVerify    bool                   `yaml:"skip-cert-verify,omitempty"`
 	Fingerprint       string                 `yaml:"fingerprint,omitempty"`
 	Servername        string                 `yaml:"servername,omitempty"`
 	ClientFingerprint string                 `yaml:"client-fingerprint,omitempty"`
@@ -500,8 +497,6 @@ func (proxy ClashProxy) parseSecurity(streamSettings *conf.StreamConfig, outboun
 		realitySettings.Fingerprint = proxy.ClientFingerprint
 	}
 
-	tlsSettings.AllowInsecure = proxy.SkipCertVerify
-
 	if (outbound.Protocol == "trojan" || outbound.Protocol == "hysteria") && len(streamSettings.Security) == 0 {
 		streamSettings.Security = "tls"
 	}
@@ -694,8 +689,6 @@ func parseXHTTPDownloadSettingsSecurity(streamSettings *conf.StreamConfig, proxy
 		tlsSettings.Fingerprint = proxy.ClientFingerprint
 		realitySettings.Fingerprint = proxy.ClientFingerprint
 	}
-
-	tlsSettings.AllowInsecure = proxy.SkipCertVerify
 
 	switch streamSettings.Security {
 	case "tls":
