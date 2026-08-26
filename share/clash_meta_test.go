@@ -269,7 +269,6 @@ func TestClashVless_XhttpExtraDownloadAndRanges(t *testing.T) {
     ech-opts:
       enable: true
       config: echcfg123
-    skip-cert-verify: true
     xhttp-opts:
       path: /xh
       host: xh.h
@@ -342,15 +341,13 @@ func TestClashTrojan_TlsFromType(t *testing.T) {
     server: tr.host
     port: 443
     password: trpass
-    sni: tr.host
-    skip-cert-verify: true`
+    sni: tr.host`
 	cfg := parseClashYAML(t, yaml)
 	require.Len(t, cfg.OutboundConfigs, 1)
 	ss := cfg.OutboundConfigs[0].StreamSetting
 	require.NotNil(t, ss)
 	assert.Equal(t, "tls", ss.Security)
 	require.NotNil(t, ss.TLSSettings)
-	assert.True(t, ss.TLSSettings.AllowInsecure)
 }
 
 func TestClashVless_Reality(t *testing.T) {

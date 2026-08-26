@@ -139,8 +139,12 @@ func invokeConvertShareLinksToXrayJson(payload json.RawMessage) string {
 	if request.Age != nil {
 		secretKey = request.Age.SecretKey
 	}
-	xrayJson, err := share.ConvertShareLinksToXrayJsonWithAge(request.Text, secretKey)
-	return encodeInvokeResponse(xrayJson, err)
+	config, err := share.ConvertShareLinksToXrayJsonWithAge(request.Text, secretKey)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	xrayJSON, err := share.MarshalShareConfigJSON(config)
+	return encodeInvokeResponse(xrayJSON, err)
 }
 
 func invokeGenerateAgeKeyPair(payload json.RawMessage) string {

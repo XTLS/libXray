@@ -44,7 +44,7 @@ func decodeBase64Text(text string) (string, error) {
 // https://github.com/XTLS/Xray-core/discussions/716
 
 // ConvertShareLinksToXrayJson parses:
-//   - a single Xray JSON object (starts with '{')
+//   - a single Xray JSON object (starts with '{'; only root outbounds are retained)
 //   - plain v2rayN-style lines (vless/vmess/ss/socks/trojan/hy2…)
 //   - one base64 blob that decodes to Xray JSON, share lines, or Clash YAML
 //   - Clash / Clash.Meta YAML (proxies:)
@@ -87,7 +87,7 @@ func parseXrayJSONConfig(text string) (*conf.Config, error) {
 	if len(xray.OutboundConfigs) == 0 {
 		return nil, fmt.Errorf("no valid outbounds")
 	}
-	return xray, nil
+	return &conf.Config{OutboundConfigs: xray.OutboundConfigs}, nil
 }
 
 var shareSchemes = []string{

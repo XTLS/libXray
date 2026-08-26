@@ -274,9 +274,6 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			if len(vcn) > 0 {
 				query = addQuery(query, "vcn", vcn)
 			}
-			if streamSettings.TLSSettings.AllowInsecure {
-				query = addQuery(query, "insecure", "1")
-			}
 		}
 
 		// QuicParams (bandwidth + port-hopping)
@@ -352,29 +349,6 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			if len(host) > 0 {
 				query = addQuery(query, "host", strings.Join(host, ","))
 			}
-		}
-	case "kcp":
-		if streamSettings.KCPSettings == nil {
-			break
-		}
-		seed := streamSettings.KCPSettings.Seed
-		if seed != nil && len(*seed) > 0 {
-			query = addQuery(query, "seed", *seed)
-		}
-
-		headerConfig := streamSettings.KCPSettings.HeaderConfig
-		if headerConfig == nil {
-			break
-		}
-		var header XrayFakeHeader
-		err := json.Unmarshal(headerConfig, &header)
-		if err != nil {
-			break
-		}
-
-		headerType := header.Type
-		if len(headerType) > 0 {
-			query = addQuery(query, "headerType", headerType)
 		}
 	case "ws":
 		if streamSettings.WSSettings == nil {
@@ -475,9 +449,6 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 		vcn := streamSettings.TLSSettings.VerifyPeerCertByName
 		if len(vcn) > 0 {
 			query = addQuery(query, "vcn", vcn)
-		}
-		if streamSettings.TLSSettings.AllowInsecure {
-			query = addQuery(query, "insecure", "1")
 		}
 	case "reality":
 		if streamSettings.REALITYSettings == nil {

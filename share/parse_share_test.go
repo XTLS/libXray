@@ -173,6 +173,25 @@ func TestConvertShareLinksToXrayJson_XrayJSONRoundTrip(t *testing.T) {
 	assert.Equal(t, orig.OutboundConfigs[0].Protocol, again.OutboundConfigs[0].Protocol)
 }
 
+func TestConvertShareLinksToXrayJson_XrayJSONKeepsOnlyOutbounds(t *testing.T) {
+	config, err := ConvertShareLinksToXrayJson(`{
+		"env": {"TEST_ENV": "value"},
+		"log": {"loglevel": "debug"},
+		"routing": {"rules": []},
+		"dns": {"servers": ["8.8.8.8"]},
+		"inbounds": [{"protocol": "http", "listen": "127.0.0.1", "port": 1080, "settings": {}}],
+		"outbounds": [{"protocol": "freedom", "tag": "direct", "settings": {}}],
+		"policy": {"levels": {}},
+		"metrics": {"tag": "metrics"},
+		"stats": {},
+		"fakeDns": {"ipPool": "198.18.0.0/15", "poolSize": 65535}
+	}`)
+	require.NoError(t, err)
+	require.Len(t, config.OutboundConfigs, 1)
+	assert.Equal(t, "direct", config.OutboundConfigs[0].Tag)
+	assert.Equal(t, &conf.Config{OutboundConfigs: config.OutboundConfigs}, config)
+}
+
 func TestConvertShareLinksToXrayJson_XrayJSONInvalid(t *testing.T) {
 	_, err := ConvertShareLinksToXrayJson("{not json")
 	require.Error(t, err)
@@ -365,9 +384,9 @@ func TestConvertShareLinksToXrayJson_VmessBase64QR(t *testing.T) {
 func TestConvertShareLinksToXrayJson_TransportKcpGrpcHttpUpgradeXhttp(t *testing.T) {
 	t.Run("kcp", func(t *testing.T) {
 		link := "vless://" + testShareUUID + "@k.example:443?encryption=none&type=kcp&headerType=srtp&seed=myseed"
-		_, err := ConvertShareLinksToXrayJson(link)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "mkcp header & seed has been removed")
+		cfg, err := ConvertShareLinksToXrayJson(link)
+		require.NoError(t, err)
+		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.KCPSettings)
 	})
 
 	t.Run("grpc", func(t *testing.T) {
@@ -527,9 +546,9 @@ func TestConvertShareLinksToXrayJson_VmessQRGrpcAndKcp(t *testing.T) {
 	t.Run("kcp", func(t *testing.T) {
 		qr := `{"ps":"k","add":"kcp.host","port":"8391","id":"` + testShareUUID + `","net":"kcp","path":"seedval","type":"wireguard"}`
 		link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
-		_, err := ConvertShareLinksToXrayJson(link)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "mkcp header & seed has been removed")
+		cfg, err := ConvertShareLinksToXrayJson(link)
+		require.NoError(t, err)
+		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.KCPSettings)
 	})
 }
 
