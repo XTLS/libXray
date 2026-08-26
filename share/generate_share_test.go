@@ -173,6 +173,26 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 	}
 }
 
+func TestGenerate_KCPIgnoresSeedAndHeader(t *testing.T) {
+	config, err := ConvertShareLinksToXrayJson(
+		"vless://" + testShareUUID + "@kcp.example:443?encryption=none&type=kcp",
+	)
+	require.NoError(t, err)
+
+	seed := "legacy-seed"
+	header := json.RawMessage(`{"type":"srtp"}`)
+	kcp := config.OutboundConfigs[0].StreamSetting.KCPSettings
+	require.NotNil(t, kcp)
+	kcp.Seed = &seed
+	kcp.HeaderConfig = header
+
+	link, err := shareLink(config.OutboundConfigs[0])
+	require.NoError(t, err)
+	assert.Equal(t, "kcp", link.Query().Get("type"))
+	assert.Empty(t, link.Query().Get("seed"))
+	assert.Empty(t, link.Query().Get("headerType"))
+}
+
 func TestGenerate_ShadowsocksAEAD2022PlainUserInfo(t *testing.T) {
 	const original = "ss://2022-blake3-aes-256-gcm:" +
 		"YctPZ6U7xPPcU%2Bgp3u%2B0tx%2FtRizJN9K8y%2BuKlW2qjlI%3D" +

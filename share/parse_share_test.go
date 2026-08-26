@@ -384,9 +384,12 @@ func TestConvertShareLinksToXrayJson_VmessBase64QR(t *testing.T) {
 func TestConvertShareLinksToXrayJson_TransportKcpGrpcHttpUpgradeXhttp(t *testing.T) {
 	t.Run("kcp", func(t *testing.T) {
 		link := "vless://" + testShareUUID + "@k.example:443?encryption=none&type=kcp&headerType=srtp&seed=myseed"
-		_, err := ConvertShareLinksToXrayJson(link)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "mkcp header & seed has been removed")
+		cfg, err := ConvertShareLinksToXrayJson(link)
+		require.NoError(t, err)
+		kcp := cfg.OutboundConfigs[0].StreamSetting.KCPSettings
+		require.NotNil(t, kcp)
+		assert.Nil(t, kcp.HeaderConfig)
+		assert.Nil(t, kcp.Seed)
 	})
 
 	t.Run("grpc", func(t *testing.T) {
@@ -546,9 +549,12 @@ func TestConvertShareLinksToXrayJson_VmessQRGrpcAndKcp(t *testing.T) {
 	t.Run("kcp", func(t *testing.T) {
 		qr := `{"ps":"k","add":"kcp.host","port":"8391","id":"` + testShareUUID + `","net":"kcp","path":"seedval","type":"wireguard"}`
 		link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
-		_, err := ConvertShareLinksToXrayJson(link)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "mkcp header & seed has been removed")
+		cfg, err := ConvertShareLinksToXrayJson(link)
+		require.NoError(t, err)
+		kcp := cfg.OutboundConfigs[0].StreamSetting.KCPSettings
+		require.NotNil(t, kcp)
+		assert.Nil(t, kcp.HeaderConfig)
+		assert.Nil(t, kcp.Seed)
 	})
 }
 

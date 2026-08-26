@@ -350,29 +350,6 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 				query = addQuery(query, "host", strings.Join(host, ","))
 			}
 		}
-	case "kcp":
-		if streamSettings.KCPSettings == nil {
-			break
-		}
-		seed := streamSettings.KCPSettings.Seed
-		if seed != nil && len(*seed) > 0 {
-			query = addQuery(query, "seed", *seed)
-		}
-
-		headerConfig := streamSettings.KCPSettings.HeaderConfig
-		if headerConfig == nil {
-			break
-		}
-		var header XrayFakeHeader
-		err := json.Unmarshal(headerConfig, &header)
-		if err != nil {
-			break
-		}
-
-		headerType := header.Type
-		if len(headerType) > 0 {
-			query = addQuery(query, "headerType", headerType)
-		}
 	case "ws":
 		if streamSettings.WSSettings == nil {
 			break

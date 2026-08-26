@@ -21,10 +21,6 @@ type XrayRawSettingsHeaderRequestHeaders struct {
 	Host []string `json:"Host,omitempty"`
 }
 
-type XrayFakeHeader struct {
-	Type string `json:"type,omitempty"`
-}
-
 func setOutboundName(outbound *conf.OutboundDetourConfig, name string) {
 	outbound.SendThrough = &name
 }

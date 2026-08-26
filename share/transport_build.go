@@ -14,7 +14,6 @@ type shareTransportFields struct {
 	HeaderType      string
 	Path            string
 	Host            string
-	Seed            string // KCP seed (URL query or VMess QR path-as-seed)
 	GrpcAuthority   string
 	GrpcServiceName string
 	GrpcMultiMode   bool
@@ -28,12 +27,10 @@ func transportFieldsFromURLQuery(q url.Values) shareTransportFields {
 	if network == "" {
 		network = "raw"
 	}
-	return shareTransportFields{
+	fields := shareTransportFields{
 		Network:         network,
-		HeaderType:      q.Get("headerType"),
 		Path:            q.Get("path"),
 		Host:            q.Get("host"),
-		Seed:            q.Get("seed"),
 		GrpcAuthority:   q.Get("authority"),
 		GrpcServiceName: q.Get("serviceName"),
 		GrpcMultiMode:   q.Get("mode") == "multi",
@@ -41,6 +38,10 @@ func transportFieldsFromURLQuery(q url.Values) shareTransportFields {
 		ExtraJSON:       q.Get("extra"),
 		FMJSON:          q.Get("fm"),
 	}
+	if network == "raw" || network == "tcp" {
+		fields.HeaderType = q.Get("headerType")
+	}
+	return fields
 }
 
 func transportFieldsFromVmessQR(p vmessQrCode) shareTransportFields {
@@ -49,17 +50,16 @@ func transportFieldsFromVmessQR(p vmessQrCode) shareTransportFields {
 		network = "raw"
 	}
 	t := shareTransportFields{
-		Network:    network,
-		HeaderType: p.Type,
-		Path:       p.Path,
-		Host:       p.Host,
+		Network: network,
+		Path:    p.Path,
+		Host:    p.Host,
 	}
 	switch network {
+	case "raw", "tcp":
+		t.HeaderType = p.Type
 	case "grpc", "gun":
 		t.GrpcServiceName = p.Path
 		t.GrpcMultiMode = p.Type == "multi"
-	case "kcp", "mkcp":
-		t.Seed = p.Path
 	}
 	if network == "xhttp" || network == "splithttp" {
 		t.XHTTPMode = p.Type
@@ -96,17 +96,7 @@ func buildStreamFromTransportFields(t shareTransportFields) (*conf.StreamConfig,
 			streamSettings.RAWSettings = rawSettings
 		}
 	case "kcp", "mkcp":
-		kcpSettings := &conf.KCPConfig{}
-		if t.HeaderType != "" {
-			header := XrayFakeHeader{Type: t.HeaderType}
-			headerRawMessage, err := convertJsonToRawMessage(header)
-			if err != nil {
-				return nil, err
-			}
-			kcpSettings.HeaderConfig = headerRawMessage
-		}
-		kcpSettings.Seed = new(t.Seed)
-		streamSettings.KCPSettings = kcpSettings
+		streamSettings.KCPSettings = &conf.KCPConfig{}
 	case "ws", "websocket":
 		streamSettings.WSSettings = &conf.WebSocketConfig{Path: t.Path, Host: t.Host}
 	case "grpc", "gun":
