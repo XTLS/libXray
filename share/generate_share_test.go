@@ -181,10 +181,10 @@ func TestGenerate_KCPIgnoresSeedAndHeader(t *testing.T) {
 
 	seed := "legacy-seed"
 	header := json.RawMessage(`{"type":"srtp"}`)
-	kcp := config.OutboundConfigs[0].StreamSetting.KCPSettings
-	require.NotNil(t, kcp)
-	kcp.Seed = &seed
-	kcp.HeaderConfig = header
+	config.OutboundConfigs[0].StreamSetting.KCPSettings = &conf.KCPConfig{
+		Seed:         &seed,
+		HeaderConfig: header,
+	}
 
 	link, err := shareLink(config.OutboundConfigs[0])
 	require.NoError(t, err)

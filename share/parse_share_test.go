@@ -386,10 +386,7 @@ func TestConvertShareLinksToXrayJson_TransportKcpGrpcHttpUpgradeXhttp(t *testing
 		link := "vless://" + testShareUUID + "@k.example:443?encryption=none&type=kcp&headerType=srtp&seed=myseed"
 		cfg, err := ConvertShareLinksToXrayJson(link)
 		require.NoError(t, err)
-		kcp := cfg.OutboundConfigs[0].StreamSetting.KCPSettings
-		require.NotNil(t, kcp)
-		assert.Nil(t, kcp.HeaderConfig)
-		assert.Nil(t, kcp.Seed)
+		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.KCPSettings)
 	})
 
 	t.Run("grpc", func(t *testing.T) {
@@ -551,10 +548,7 @@ func TestConvertShareLinksToXrayJson_VmessQRGrpcAndKcp(t *testing.T) {
 		link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
 		cfg, err := ConvertShareLinksToXrayJson(link)
 		require.NoError(t, err)
-		kcp := cfg.OutboundConfigs[0].StreamSetting.KCPSettings
-		require.NotNil(t, kcp)
-		assert.Nil(t, kcp.HeaderConfig)
-		assert.Nil(t, kcp.Seed)
+		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.KCPSettings)
 	})
 }
 

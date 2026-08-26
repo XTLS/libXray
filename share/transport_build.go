@@ -95,8 +95,6 @@ func buildStreamFromTransportFields(t shareTransportFields) (*conf.StreamConfig,
 			rawSettings.HeaderConfig = headerRawMessage
 			streamSettings.RAWSettings = rawSettings
 		}
-	case "kcp", "mkcp":
-		streamSettings.KCPSettings = &conf.KCPConfig{}
 	case "ws", "websocket":
 		streamSettings.WSSettings = &conf.WebSocketConfig{Path: t.Path, Host: t.Host}
 	case "grpc", "gun":
