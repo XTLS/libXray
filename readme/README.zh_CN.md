@@ -136,7 +136,7 @@ void CGoFree(char* value);
 3. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
 4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 5. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
-6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。Xray JSON 输入仅作为节点来源，只保留根级 `outbounds`，忽略其他根字段。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
+6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。Xray JSON 输入仅作为节点来源，只保留根级 `outbounds`，忽略其他根字段。响应仅包含 libXray 分享链接支持的字段，不支持的字段和生成的空字段会被省略；XHTTP `extra` 与 FinalMask mask `settings` 中的原始 JSON 保持不变。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
 7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。当 `runXray` 正在运行时，通过 `pingBatch`、`testXray` 或导出的 Go API 创建另一个 Xray instance，可能覆盖这些状态并影响正在运行的 instance。关闭临时 instance 不会恢复之前的状态。libXray 不对并发 instance 进行串行化、隔离或状态恢复；调用方如需同时运行多个 instance，必须将它们放在不同进程中。
 
 支持的 method：

@@ -184,7 +184,10 @@ Design notes:
    Xray-core config builder. Invalid outbounds are omitted, and the method fails
    if none remain. Validation does not create or start an Xray instance.
    Xray JSON input is treated as a node source: only its root `outbounds` are
-   retained, and all other root fields are ignored.
+   retained, and all other root fields are ignored. The response contains only
+   fields supported by libXray share links; unsupported and generated empty
+   fields are omitted. Opaque XHTTP `extra` and FinalMask mask `settings` JSON
+   remain unchanged.
    Its optional `age.secretKey` decrypts official age ASCII armor in memory
    before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in

@@ -343,6 +343,46 @@ func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
 	}
 }
 
+func TestInvokeConvertShareLinksReturnsProjectedObject(t *testing.T) {
+	const publicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	link := "vless://12345678-abcd-abcd-abcd-123456789abc@example.com:443" +
+		"?encryption=none&type=xhttp&host=cdn.example.com&path=%2Fx&mode=stream-up" +
+		"&security=reality&sni=example.com&fp=chrome&pbk=" + publicKey + "&sid=abcd"
+	response := invokeForTest(
+		t,
+		LibXrayMethodConvertShareLinksToXrayJson,
+		ConvertShareLinksToXrayJsonRequest{Text: link},
+	)
+	if !response.Success {
+		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
+	}
+
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(response.Data, &root); err != nil {
+		t.Fatalf("data is not an object: %s", response.Data)
+	}
+	if len(root) != 1 || root["outbounds"] == nil {
+		t.Fatalf("data root = %s, want only outbounds", response.Data)
+	}
+	for _, field := range []string{"publicKey", "target", "dest", "proxySettings", "sockopt"} {
+		if bytes.Contains(response.Data, []byte(`"`+field+`"`)) {
+			t.Fatalf("data contains unsupported field %q: %s", field, response.Data)
+		}
+	}
+	if !bytes.Contains(response.Data, []byte(`"password":"`+publicKey+`"`)) {
+		t.Fatalf("data did not canonicalize REALITY password: %s", response.Data)
+	}
+
+	config := decodeDataObject[conf.Config](t, response)
+	if len(config.OutboundConfigs) != 1 {
+		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
+	}
+	config.OutboundConfigs[0].SendThrough = nil
+	if _, err := config.OutboundConfigs[0].Build(); err != nil {
+		t.Fatalf("projected outbound does not build: %v", err)
+	}
+}
+
 func TestInvokeAgeKeyGenerationAndConversion(t *testing.T) {
 	generated := invokeForTest(
 		t,
