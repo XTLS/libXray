@@ -173,6 +173,25 @@ func TestConvertShareLinksToXrayJson_XrayJSONRoundTrip(t *testing.T) {
 	assert.Equal(t, orig.OutboundConfigs[0].Protocol, again.OutboundConfigs[0].Protocol)
 }
 
+func TestConvertShareLinksToXrayJson_XrayJSONKeepsOnlyOutbounds(t *testing.T) {
+	config, err := ConvertShareLinksToXrayJson(`{
+		"env": {"TEST_ENV": "value"},
+		"log": {"loglevel": "debug"},
+		"routing": {"rules": []},
+		"dns": {"servers": ["8.8.8.8"]},
+		"inbounds": [{"protocol": "http", "listen": "127.0.0.1", "port": 1080, "settings": {}}],
+		"outbounds": [{"protocol": "freedom", "tag": "direct", "settings": {}}],
+		"policy": {"levels": {}},
+		"metrics": {"tag": "metrics"},
+		"stats": {},
+		"fakeDns": {"ipPool": "198.18.0.0/15", "poolSize": 65535}
+	}`)
+	require.NoError(t, err)
+	require.Len(t, config.OutboundConfigs, 1)
+	assert.Equal(t, "direct", config.OutboundConfigs[0].Tag)
+	assert.Equal(t, &conf.Config{OutboundConfigs: config.OutboundConfigs}, config)
+}
+
 func TestConvertShareLinksToXrayJson_XrayJSONInvalid(t *testing.T) {
 	_, err := ConvertShareLinksToXrayJson("{not json")
 	require.Error(t, err)
