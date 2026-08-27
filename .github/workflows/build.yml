@@ -184,6 +184,12 @@ jobs:
         run: |
           python3 build/main.py android
 
+      - name: Test Windows desktop Core
+        if: matrix.target == 'windows'
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: go test ./dns ./desktop_bin -count=1
+
       - name: Build Windows
         if: matrix.target == 'windows'
         env:
@@ -195,17 +201,27 @@ jobs:
         if: matrix.target == 'windows'
         shell: pwsh
         run: |
-          $bytes = [System.IO.File]::ReadAllBytes("windows_dll/libXray.dll")
-          $peOffset = [System.BitConverter]::ToInt32($bytes, 0x3c)
-          $machine = [System.BitConverter]::ToUInt16($bytes, $peOffset + 4)
           $expected = switch ("${{ matrix.arch }}") {
             "x64" { 0x8664 }
             "arm64" { 0xaa64 }
             default { throw "unsupported Windows architecture: ${{ matrix.arch }}" }
           }
-          if ($machine -ne $expected) {
-            throw ("unexpected PE machine 0x{0:X4}; expected 0x{1:X4}" -f $machine, $expected)
+          foreach ($path in @("windows_dll/libXray.dll", "bin/xray.exe")) {
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            $peOffset = [System.BitConverter]::ToInt32($bytes, 0x3c)
+            $machine = [System.BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            if ($machine -ne $expected) {
+              throw ("unexpected PE machine for {0}: 0x{1:X4}; expected 0x{2:X4}" -f $path, $machine, $expected)
+            }
           }
+
+      - name: Verify Linux desktop Core CLI
+        if: matrix.target == 'linux'
+        run: ./bin/xray -h
+
+      - name: Verify Windows desktop Core CLI
+        if: matrix.target == 'windows'
+        run: ./bin/xray.exe -h
 
       - name: Build Apple (macOS/iOS)
         if: matrix.target == 'apple'
@@ -225,11 +241,13 @@ jobs:
               mkdir -p "dist/${{ matrix.artifact }}"
               cp linux_so/libXray.so "dist/${{ matrix.artifact }}/"
               cp linux_so/libXray.h "dist/${{ matrix.artifact }}/"
+              cp bin/xray "dist/${{ matrix.artifact }}/"
               ;;
             windows)
               mkdir -p "dist/${{ matrix.artifact }}"
               cp windows_dll/libXray.dll "dist/${{ matrix.artifact }}/"
               cp windows_dll/libXray.h "dist/${{ matrix.artifact }}/"
+              cp bin/xray.exe "dist/${{ matrix.artifact }}/"
               ;;
             android)
               mkdir -p "dist/${{ matrix.artifact }}"

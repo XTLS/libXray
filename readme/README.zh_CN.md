@@ -34,6 +34,16 @@ python3 build/main.py windows
 python3 build/main.py windows local
 ```
 
+Linux 和 Windows 构建还会生成 `bin/xray` 或 `bin/xray.exe`。该会话 Core
+会保护 Go DNS 查询不被 VPN 路由重新捕获，并且只接受以下命令：
+
+```shell
+xray run -dns <IP:port> -interface <网卡名> -config <xray.json>
+```
+
+三个参数都必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
+JSON 配置。
+
 > [!WARNING]
 > **每个进程只能使用一个 Go runtime。** Go 不支持在同一进程中加载多个独立构建的
 > Go runtime。libXray 的所有原生产物都会嵌入 Go runtime，无论它们通过 cgo 还是

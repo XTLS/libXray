@@ -66,6 +66,16 @@ python3 build/main.py windows local
 
 ```
 
+Linux and Windows builds also produce `bin/xray` or `bin/xray.exe`. This
+session Core protects Go DNS lookups from the VPN route and accepts only:
+
+```shell
+xray run -dns <IP:port> -interface <name> -config <xray.json>
+```
+
+All three options are required. `-dns` must be an IP endpoint, and `-config`
+points directly to the Xray JSON configuration.
+
 > [!WARNING]
 > **Use only one Go runtime per process.** Go does not support loading multiple
 > independently built Go runtimes into one process. Every native libXray
