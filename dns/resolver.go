@@ -91,6 +91,14 @@ func newProtectedResolver(server string, control controlSocket) (*net.Resolver, 
 	}, nil
 }
 
+func preflightResolver(resolver *net.Resolver, server string) error {
+	connection, err := resolver.Dial(context.Background(), "udp", server)
+	if err != nil {
+		return err
+	}
+	return connection.Close()
+}
+
 func validateServer(server string) error {
 	host, portText, err := net.SplitHostPort(server)
 	if err != nil {

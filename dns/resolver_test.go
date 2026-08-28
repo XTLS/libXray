@@ -100,14 +100,7 @@ func TestNewProtectedResolverReturnsControlError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	connection, err := resolver.Dial(
-		context.Background(),
-		"udp",
-		"127.0.0.1:53",
-	)
-	if connection != nil {
-		connection.Close()
-	}
+	err = preflightResolver(resolver, "127.0.0.1:53")
 
 	require.True(t, controlCalled)
 	require.ErrorIs(t, err, controlErr)

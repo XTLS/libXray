@@ -26,6 +26,9 @@ func SetDNS(server, interfaceName string) error {
 	if err != nil {
 		return err
 	}
+	if err := preflightResolver(resolver, server); err != nil {
+		return err
+	}
 
 	installDefaultResolver(resolver)
 	return nil

@@ -36,7 +36,7 @@ func TestSetDNSInstallsAndRestoresResolver(t *testing.T) {
 		previousXrayResolver = nil
 	})
 
-	require.NoError(t, SetDNS("127.0.0.1:53", interfaceName))
+	require.NoError(t, SetDNS("8.8.8.8:53", interfaceName))
 	require.NotSame(t, original, net.DefaultResolver)
 	require.Same(t, net.DefaultResolver, xrayNet.DefaultResolver)
 	require.True(t, net.DefaultResolver.PreferGo)
