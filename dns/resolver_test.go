@@ -2,11 +2,49 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	xrayNet "github.com/xtls/xray-core/common/net"
 )
+
+func TestDefaultResolverLifecycle(t *testing.T) {
+	before := net.DefaultResolver
+	beforeXray := xrayNet.DefaultResolver
+	original := &net.Resolver{}
+	originalXray := &net.Resolver{}
+	net.DefaultResolver = original
+	xrayNet.DefaultResolver = originalXray
+	t.Cleanup(func() {
+		resolverMu.Lock()
+		defer resolverMu.Unlock()
+		net.DefaultResolver = before
+		xrayNet.DefaultResolver = beforeXray
+		previousResolver = nil
+		previousXrayResolver = nil
+	})
+
+	first := &net.Resolver{PreferGo: true}
+	second := &net.Resolver{StrictErrors: true}
+
+	installDefaultResolver(first)
+	require.Same(t, first, net.DefaultResolver)
+	require.Same(t, first, xrayNet.DefaultResolver)
+
+	installDefaultResolver(second)
+	require.Same(t, second, net.DefaultResolver)
+	require.Same(t, second, xrayNet.DefaultResolver)
+
+	restoreDefaultResolver()
+	require.Same(t, original, net.DefaultResolver)
+	require.Same(t, originalXray, xrayNet.DefaultResolver)
+
+	restoreDefaultResolver()
+	require.Same(t, original, net.DefaultResolver)
+	require.Same(t, originalXray, xrayNet.DefaultResolver)
+}
 
 func TestNewResolverUsesConfiguredServerAndProtectsSocket(t *testing.T) {
 	server, err := net.ListenPacket("udp", "127.0.0.1:0")
@@ -51,6 +89,28 @@ func TestNewResolverRejectsFailedProtection(t *testing.T) {
 		connection.Close()
 	}
 	require.ErrorIs(t, err, errProtectDNSConnection)
+}
+
+func TestNewProtectedResolverReturnsControlError(t *testing.T) {
+	controlErr := errors.New("bind DNS interface")
+	controlCalled := false
+	resolver, err := newProtectedResolver("127.0.0.1:53", func(string, uintptr) error {
+		controlCalled = true
+		return controlErr
+	})
+	require.NoError(t, err)
+
+	connection, err := resolver.Dial(
+		context.Background(),
+		"udp",
+		"127.0.0.1:53",
+	)
+	if connection != nil {
+		connection.Close()
+	}
+
+	require.True(t, controlCalled)
+	require.ErrorIs(t, err, controlErr)
 }
 
 func TestNewResolverValidatesServer(t *testing.T) {

@@ -7,16 +7,49 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
+
+	xrayNet "github.com/xtls/xray-core/common/net"
 )
 
 const resolverTimeout = 16 * time.Second
 
 var errProtectDNSConnection = errors.New("protect DNS connection failed")
 
+var (
+	resolverMu           sync.Mutex
+	previousResolver     *net.Resolver
+	previousXrayResolver *net.Resolver
+)
+
 type protectSocket func(fd uintptr) bool
 type controlSocket func(network string, fd uintptr) error
+
+func installDefaultResolver(resolver *net.Resolver) {
+	resolverMu.Lock()
+	defer resolverMu.Unlock()
+	if previousResolver == nil {
+		previousResolver = net.DefaultResolver
+		previousXrayResolver = xrayNet.DefaultResolver
+	}
+	net.DefaultResolver = resolver
+	// Xray-core caches the standard resolver during package initialization.
+	xrayNet.DefaultResolver = resolver
+}
+
+func restoreDefaultResolver() {
+	resolverMu.Lock()
+	defer resolverMu.Unlock()
+	if previousResolver == nil {
+		return
+	}
+	net.DefaultResolver = previousResolver
+	xrayNet.DefaultResolver = previousXrayResolver
+	previousResolver = nil
+	previousXrayResolver = nil
+}
 
 func newResolver(server string, protect protectSocket) (*net.Resolver, error) {
 	var control controlSocket

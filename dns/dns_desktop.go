@@ -5,12 +5,6 @@ package dns
 import (
 	"errors"
 	"net"
-	"sync"
-)
-
-var (
-	desktopResolverMu sync.Mutex
-	previousResolver  *net.Resolver
 )
 
 // SetDNS installs a process-wide resolver bound to interfaceName.
@@ -22,8 +16,8 @@ func SetDNS(server, interfaceName string) error {
 	if err != nil {
 		return err
 	}
-	if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-		return errors.New("dns interface must be an active non-loopback interface")
+	if err := validateDNSInterface(iface); err != nil {
+		return err
 	}
 
 	resolver, err := newProtectedResolver(server, func(network string, fd uintptr) error {
@@ -33,22 +27,18 @@ func SetDNS(server, interfaceName string) error {
 		return err
 	}
 
-	desktopResolverMu.Lock()
-	defer desktopResolverMu.Unlock()
-	if previousResolver == nil {
-		previousResolver = net.DefaultResolver
+	installDefaultResolver(resolver)
+	return nil
+}
+
+func validateDNSInterface(iface *net.Interface) error {
+	if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		return errors.New("dns interface must be an active non-loopback interface")
 	}
-	net.DefaultResolver = resolver
 	return nil
 }
 
 // ResetDNS restores the resolver that was active before SetDNS.
 func ResetDNS() {
-	desktopResolverMu.Lock()
-	defer desktopResolverMu.Unlock()
-	if previousResolver == nil {
-		return
-	}
-	net.DefaultResolver = previousResolver
-	previousResolver = nil
+	restoreDefaultResolver()
 }
