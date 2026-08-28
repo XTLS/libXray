@@ -32,11 +32,12 @@ jobs:
       - name: Test with race detector
         run: go test -race ./... -count=1 -timeout 15m
 
-      - name: Build Linux C ABI
+      - name: Build Linux artifacts
         run: |
           python3 build/main.py linux
           grep -q 'CGoFree' linux_so/libXray.h
           nm -D linux_so/libXray.so | grep -q ' CGoFree$'
+          ./bin/xray -h
 
       - name: Verify source was restored
         run: git diff --exit-code

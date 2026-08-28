@@ -20,7 +20,7 @@ the generic API.
 | `share/` | Share-link parsing, validation, and generation. |
 | `geo/` | GeoData inspection helpers. |
 | `controller/` | Android socket protection and process lookup integration. |
-| `dns/` | Android VPN-aware process DNS resolver. |
+| `dns/` | VPN-aware process DNS resolver and desktop interface binding. |
 | `memory/` | Platform-specific memory-pressure handling. |
 | `nodep/` | Small utilities that do not depend on the managed Xray instance. |
 | `cgo_bridge/` | C ABI exports used by Apple, Linux, Windows, and Dart FFI. |
@@ -139,13 +139,16 @@ typed JSON contract.
 
 ## Linux and Windows
 
-Linux produces `linux_so/libXray.so`; Windows produces
-`windows_dll/libXray.dll`. Both artifacts expose the C ABI. libXray does not
-provide or manage a desktop executable wrapper.
+Linux produces `linux_so/libXray.so` and `bin/xray`; Windows produces
+`windows_dll/libXray.dll` and `bin/xray.exe`. The libraries expose the C ABI.
+The session Core accepts only `run -dns <IP:port> -interface <name> -config
+<xray.json>`, installs a process-wide protected Go resolver, and runs one Xray
+instance until termination.
 
 # Building
 
-Build scripts use the Xray-core version pinned by `go.mod` by default:
+Build scripts use the Xray-core version pinned by `go.mod` by default. Linux
+and Windows builds produce both the native library and session Core:
 
 ```shell
 python3 build/main.py android

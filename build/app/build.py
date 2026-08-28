@@ -2,6 +2,7 @@ import os.path
 import subprocess
 
 from app.cmd import (
+    create_dir_if_not_exists,
     delete_file_if_exists,
     delete_dir_if_exists,
 )
@@ -161,6 +162,27 @@ class Builder(object):
 
     def main_package(self) -> str:
         return "./cgo_bridge"
+
+    def build_desktop_bin(self, file_name: str):
+        output_dir = os.path.join(self.lib_dir, "bin")
+        create_dir_if_not_exists(output_dir)
+        output_file = os.path.join(output_dir, file_name)
+        run_env = os.environ.copy()
+        run_env["CGO_ENABLED"] = "0"
+        cmd = [
+            "go",
+            "build",
+            "-trimpath",
+            "-buildvcs=false",
+            "-ldflags",
+            "-s -w -buildid=",
+            f"-o={output_file}",
+            "./desktop_bin",
+        ]
+        print(cmd)
+        ret = subprocess.run(cmd, cwd=self.lib_dir, env=run_env)
+        if ret.returncode != 0:
+            raise Exception("build_desktop_bin failed")
 
     def before_build(self):
         self.prepare_xray_core()
