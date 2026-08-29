@@ -264,12 +264,12 @@ func TestConvertXrayJsonToShareLinksSkipsUnsupportedOutbounds(t *testing.T) {
 	assert.Equal(t, "trojan://password@example.com:443#trojan", links)
 }
 
-func TestConvertXrayJsonToShareLinks_PrefersTagWhenSendThroughEmpty(t *testing.T) {
+func TestConvertXrayJsonToShareLinks_IgnoresSendThroughForName(t *testing.T) {
 	cfg, err := ConvertShareLinksToXrayJson(`trojan://pw@tag.example:443`)
 	require.NoError(t, err)
 	ob := cfg.OutboundConfigs[0]
-	empty := ""
-	ob.SendThrough = &empty
+	sendThrough := "127.0.0.1"
+	ob.SendThrough = &sendThrough
 	ob.Tag = "named-by-tag"
 	out, err := json.Marshal(&conf.Config{OutboundConfigs: []conf.OutboundDetourConfig{ob}})
 	require.NoError(t, err)

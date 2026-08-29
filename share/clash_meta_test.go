@@ -25,6 +25,8 @@ func parseClashHy2(t *testing.T, yaml string) *conf.OutboundDetourConfig {
 	config, err := tryToParseClashYaml(yaml)
 	require.NoError(t, err)
 	require.Len(t, config.OutboundConfigs, 1)
+	assert.Equal(t, "test-hy2", config.OutboundConfigs[0].Tag)
+	assert.Nil(t, config.OutboundConfigs[0].SendThrough)
 	return &config.OutboundConfigs[0]
 }
 

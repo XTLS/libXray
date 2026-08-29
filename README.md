@@ -157,7 +157,7 @@ The request is a JSON object:
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -177,7 +177,7 @@ The response is a JSON object:
 
 Design notes:
 
-1. Invoke currently accepts only `apiVersion: 2`. Xray configurations are
+1. Invoke currently accepts only `apiVersion: 3`. Xray configurations are
    passed as UTF-8 JSON text in `xrayJson`; libXray does not read configuration
    file paths.
 2. A top-level `env` field is ignored and has no effect. Xray-core runtime
@@ -299,7 +299,8 @@ Get free ports.
 
 ## share
 
-libXray uses `sendThrough` to store outbound names.
+libXray stores outbound names in `tag`. `sendThrough` keeps its native Xray
+meaning as the local bind address.
 
 ### clash_meta
 
@@ -324,7 +325,7 @@ decrypted in memory and limited to 16 MiB of plaintext.
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -342,7 +343,7 @@ Generate a new keypair with `keyType` set to `x25519` or `hybrid`. An omitted
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -375,7 +376,7 @@ by the `proxy` tag, and finally by the first outbound.
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -411,7 +412,7 @@ configuration file:
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"

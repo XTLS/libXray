@@ -27,8 +27,8 @@ func TestMarshalShareConfigJSONProjectsSupportedFields(t *testing.T) {
 			},
 			{
 				"protocol":"VLESS",
-				"sendThrough":"Node name",
-				"tag":"tag fallback",
+				"sendThrough":"127.0.0.1",
+				"tag":"Node name",
 				"settings":{
 					"address":"example.com","port":443,"id":"12345678-abcd-abcd-abcd-123456789abc",
 					"flow":"","encryption":"none","level":1,"email":"drop@example.com","seed":"drop","reverse":{}
@@ -59,8 +59,8 @@ func TestMarshalShareConfigJSONProjectsSupportedFields(t *testing.T) {
 	const expected = `{
 		"outbounds":[{
 			"protocol":"vless",
-			"sendThrough":"Node name",
-			"tag":"tag fallback",
+			"sendThrough":"127.0.0.1",
+			"tag":"Node name",
 			"settings":{"address":"example.com","port":443,"id":"12345678-abcd-abcd-abcd-123456789abc","encryption":"none"},
 			"streamSettings":{
 				"network":"xhttp","security":"reality",
@@ -134,7 +134,6 @@ func requireProjectedOutboundsBuild(t *testing.T, raw json.RawMessage) {
 	require.NoError(t, json.Unmarshal(raw, &config))
 	require.NotEmpty(t, config.OutboundConfigs)
 	for index := range config.OutboundConfigs {
-		config.OutboundConfigs[index].SendThrough = nil
 		_, err := config.OutboundConfigs[index].Build()
 		require.NoError(t, err)
 	}

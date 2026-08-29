@@ -121,7 +121,7 @@ void CGoFree(char* value);
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -141,7 +141,7 @@ void CGoFree(char* value);
 
 设计决定：
 
-1. Invoke 当前只接受 `apiVersion: 2`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
+1. Invoke 当前只接受 `apiVersion: 3`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
 2. 顶层 `env` 字段会被忽略且不会生效。Xray-core 运行时环境项应写入 Xray 配置根 `env` 对象。
 3. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
 4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
@@ -218,7 +218,7 @@ LibXray.resetDNS();
 
 ## share
 
-libXray 使用 `sendThrough` 来存储节点名称。
+libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义，用于指定本地绑定地址。
 
 ### clash_meta
 
@@ -243,7 +243,7 @@ libXray 使用 `sendThrough` 来存储节点名称。
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -261,7 +261,7 @@ libXray 使用 `sendThrough` 来存储节点名称。
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -292,7 +292,7 @@ libXray 使用 `sendThrough` 来存储节点名称。
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -325,7 +325,7 @@ outbound 依赖会被自动包含。
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"

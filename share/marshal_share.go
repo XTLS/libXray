@@ -306,8 +306,6 @@ func validateProjectedShareOutbound(projected map[string]any) error {
 	if err := json.Unmarshal(raw, &outbound); err != nil {
 		return err
 	}
-	// sendThrough stores the node display name during share conversion.
-	outbound.SendThrough = nil
 	_, err = outbound.Build()
 	return err
 }

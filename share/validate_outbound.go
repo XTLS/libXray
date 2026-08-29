@@ -24,9 +24,6 @@ func filterBuildableOutbounds(config *conf.Config) (*conf.Config, error) {
 	validOutbounds := make([]conf.OutboundDetourConfig, 0, len(config.OutboundConfigs))
 	var firstBuildError error
 	for index := range validationOutbounds {
-		// Share conversion stores the display name in sendThrough because Xray
-		// has no outbound name field. It is metadata here, not a bind address.
-		validationOutbounds[index].SendThrough = nil
 		if _, err := validationOutbounds[index].Build(); err != nil {
 			if firstBuildError == nil {
 				firstBuildError = err

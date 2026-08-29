@@ -338,8 +338,11 @@ func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
-	if config.OutboundConfigs[0].SendThrough == nil || *config.OutboundConfigs[0].SendThrough != validName {
-		t.Fatalf("sendThrough = %v, want %q", config.OutboundConfigs[0].SendThrough, validName)
+	if config.OutboundConfigs[0].Tag != validName {
+		t.Fatalf("tag = %q, want %q", config.OutboundConfigs[0].Tag, validName)
+	}
+	if config.OutboundConfigs[0].SendThrough != nil {
+		t.Fatalf("sendThrough = %v, want nil", config.OutboundConfigs[0].SendThrough)
 	}
 }
 
@@ -377,7 +380,6 @@ func TestInvokeConvertShareLinksReturnsProjectedObject(t *testing.T) {
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
-	config.OutboundConfigs[0].SendThrough = nil
 	if _, err := config.OutboundConfigs[0].Build(); err != nil {
 		t.Fatalf("projected outbound does not build: %v", err)
 	}
@@ -610,7 +612,7 @@ func TestInvokeRemovedMethods(t *testing.T) {
 	for _, method := range []string{"ping", "runXrayFromJson", "deriveAgePublicKey"} {
 		response := invokeRawForTest(
 			t,
-			`{"apiVersion":2,"method":"`+method+`","payload":{}}`,
+			`{"apiVersion":3,"method":"`+method+`","payload":{}}`,
 		)
 		if response.Success {
 			t.Fatalf("removed method %q should fail", method)
@@ -662,17 +664,17 @@ func TestInvokeAPIVersion(t *testing.T) {
 		t.Fatal("omitted apiVersion should fail")
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":1,"method":"xrayVersion"}`)
+	response = invokeRawForTest(t, `{"apiVersion":2,"method":"xrayVersion"}`)
 	if response.Success {
-		t.Fatal("v1 apiVersion should fail")
+		t.Fatal("v2 apiVersion should fail")
 	}
 	if got := string(response.Data); got != "null" {
 		t.Fatalf("data = %s, want null", got)
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":2,"method":"xrayVersion"}`)
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"xrayVersion"}`)
 	if !response.Success {
-		t.Fatalf("v2 apiVersion should succeed: %s", response.Err)
+		t.Fatalf("v3 apiVersion should succeed: %s", response.Err)
 	}
 }
 
@@ -683,7 +685,7 @@ func TestInvokeNoDataResponseShape(t *testing.T) {
 	}
 	requireNoDataObject(t, response)
 
-	response = invokeRawForTest(t, `{"apiVersion":2,"method":"runXray","payload":"invalid"}`)
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"runXray","payload":"invalid"}`)
 	if response.Success {
 		t.Fatal("invalid runXray payload should fail")
 	}
@@ -696,7 +698,7 @@ func TestInvokeIgnoresTopLevelEnv(t *testing.T) {
 	const key = "XRAY_LIBXRAY_UNKNOWN_ENV_TEST"
 	_ = os.Unsetenv(key)
 	t.Cleanup(func() { _ = os.Unsetenv(key) })
-	requestJSON := `{"apiVersion":2,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
+	requestJSON := `{"apiVersion":3,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
 	var response testResponse
 	if err := json.Unmarshal([]byte(Invoke(requestJSON)), &response); err != nil {
 		t.Fatal(err)

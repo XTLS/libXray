@@ -5,7 +5,7 @@ import "encoding/json"
 
 type LibXrayMethod string
 
-const LibXrayAPIVersion = 2
+const LibXrayAPIVersion = 3
 
 const (
 	LibXrayMethodGetFreePorts                LibXrayMethod = "getFreePorts"

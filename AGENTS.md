@@ -32,12 +32,12 @@ the generic API.
 
 # Invoke API Contract
 
-The current API version is `2`. Requests using an omitted or different
+The current API version is `3`. Requests using an omitted or different
 `apiVersion` are rejected.
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"

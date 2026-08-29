@@ -211,8 +211,8 @@ func TestConvertShareLinksToXrayJson_FiltersBuildInvalidOutbounds(t *testing.T) 
 	config, err := ConvertShareLinksToXrayJson(links)
 	require.NoError(t, err)
 	require.Len(t, config.OutboundConfigs, 1)
-	require.NotNil(t, config.OutboundConfigs[0].SendThrough)
-	assert.Equal(t, "Valid", *config.OutboundConfigs[0].SendThrough)
+	assert.Equal(t, "Valid", config.OutboundConfigs[0].Tag)
+	assert.Nil(t, config.OutboundConfigs[0].SendThrough)
 }
 
 func TestConvertShareLinksToXrayJson_AllBuildInvalidOutbounds(t *testing.T) {
@@ -369,6 +369,8 @@ func TestConvertShareLinksToXrayJson_VmessBase64QR(t *testing.T) {
 	link := "vmess://" + b64
 	cfg, err := ConvertShareLinksToXrayJson(link)
 	require.NoError(t, err)
+	assert.Equal(t, "qrname", cfg.OutboundConfigs[0].Tag)
+	assert.Nil(t, cfg.OutboundConfigs[0].SendThrough)
 	var s conf.VMessOutboundConfig
 	require.NoError(t, json.Unmarshal(*cfg.OutboundConfigs[0].Settings, &s))
 	assert.Equal(t, testShareUUID, s.ID)
