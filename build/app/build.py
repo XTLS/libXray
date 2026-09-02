@@ -1,5 +1,10 @@
+from datetime import datetime, timezone
+import hashlib
+import json
 import os.path
+import shutil
 import subprocess
+import sys
 
 from app.cmd import (
     create_dir_if_not_exists,
@@ -24,6 +29,7 @@ class Builder(object):
             os.path.join(self.lib_dir, self.xray_core_replace_path)
         )
         self._go_env_snapshot = None
+        self._gomobile_version = None
 
     def snapshot_go_env(self):
         paths = [
@@ -115,6 +121,7 @@ class Builder(object):
             raise Exception("download_geo failed")
 
     def prepare_gomobile(self):
+        requested_version = os.environ.get("LIBXRAY_GOMOBILE_VERSION") or "latest"
         result = subprocess.run(
             [
                 "go",
@@ -122,14 +129,15 @@ class Builder(object):
                 "-m",
                 "-f",
                 "{{.Version}}",
-                "golang.org/x/mobile@latest",
+                f"golang.org/x/mobile@{requested_version}",
             ],
             capture_output=True,
             text=True,
         )
         version = result.stdout.strip()
         if result.returncode != 0 or not version:
-            raise Exception("resolve latest gomobile version failed")
+            raise Exception("resolve gomobile version failed")
+        self._gomobile_version = version
 
         ret = subprocess.run(
             [
@@ -193,4 +201,95 @@ class Builder(object):
         pass
 
     def after_build(self):
-        pass
+        # Called in finally, before restoring the effective module files. This
+        # records inputs even on failure; it never certifies an artifact.
+        try:
+            builder = {
+                "AndroidBuilder": "android",
+                "AppleGoBuilder": "apple-go",
+                "AppleGoMobileBuilder": "apple-gomobile",
+                "LinuxBuilder": "linux",
+                "WindowsBuilder": "windows",
+            }.get(type(self).__name__, type(self).__name__)
+            errors = []
+
+            def capture(label, operation):
+                try:
+                    return operation()
+                except Exception as error:
+                    errors.append(f"{label}: {error}")
+                    return None
+
+            def output(*command):
+                return subprocess.run(
+                    command,
+                    cwd=self.lib_dir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                ).stdout.strip()
+
+            def file_hash(name):
+                with open(os.path.join(self.lib_dir, name), "rb") as file:
+                    return hashlib.sha256(file.read()).hexdigest()
+
+            metadata = {
+                "schemaVersion": 1,
+                "evidence": "build-inputs-only",
+                "builder": builder,
+                "recordedAt": datetime.now(timezone.utc).isoformat(),
+                "goModSha256": capture("go.mod", lambda: file_hash("go.mod")),
+                "goSumSha256": capture("go.sum", lambda: file_hash("go.sum")),
+                "libXrayCommit": capture(
+                    "git commit", lambda: output("git", "rev-parse", "HEAD")
+                ),
+                "goVersion": capture("Go version", lambda: output("go", "version")),
+                "modules": capture(
+                    "Go modules",
+                    lambda: output("go", "list", "-mod=readonly", "-m", "all"),
+                ),
+                "gomobile": None,
+                "errors": errors,
+            }
+            status = capture(
+                "git status",
+                lambda: output("git", "status", "--porcelain", "--untracked-files=no"),
+            )
+            metadata["libXrayDirty"] = None if status is None else bool(status)
+            if self._gomobile_version is not None:
+                binary = shutil.which("gomobile")
+                build_info = None
+                used_version = None
+                if binary is None:
+                    errors.append("gomobile binary: not found in PATH")
+                else:
+                    build_info = capture(
+                        "gomobile build info",
+                        lambda: output("go", "version", "-m", binary),
+                    )
+                    for line in (build_info or "").splitlines():
+                        fields = line.split()
+                        if (
+                            fields[:2] == ["mod", "golang.org/x/mobile"]
+                            and len(fields) >= 3
+                        ):
+                            used_version = fields[2]
+                            break
+                    if build_info is not None and used_version is None:
+                        errors.append("gomobile build info: module version missing")
+                metadata["gomobile"] = {
+                    "resolvedVersion": self._gomobile_version,
+                    "usedVersion": used_version,
+                    "binary": binary,
+                    "buildInfo": build_info,
+                }
+            path = os.path.join(self.build_dir, f"build-metadata-{builder}.json")
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(metadata, file, indent=2)
+                file.write("\n")
+            if errors:
+                print(f"Build input metadata is incomplete: {path}", file=sys.stderr)
+        except Exception as error:
+            # A metadata failure must not replace the original build exception.
+            print(f"Unable to record build input metadata: {error}", file=sys.stderr)
