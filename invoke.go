@@ -49,6 +49,8 @@ func Invoke(requestJSON string) string {
 		return invokePingBatch(request.Payload)
 	case LibXrayMethodTestXray:
 		return invokeTestXray(request.Payload)
+	case LibXrayMethodCheckRoute:
+		return invokeCheckRoute(request.Payload)
 	case LibXrayMethodRunXray:
 		return invokeRunXray(request.Payload)
 	case LibXrayMethodStopXray:
@@ -225,7 +227,11 @@ func invokeTestXray(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeNoDataResponse(err)
 	}
-	err = xray.TestXray(request.XrayJson)
+	if request.BuildOnly {
+		err = xray.ValidateXray(request.XrayJson)
+	} else {
+		err = xray.TestXray(request.XrayJson)
+	}
 	return encodeInvokeNoDataResponse(err)
 }
 
@@ -236,4 +242,24 @@ func invokeRunXray(payload json.RawMessage) string {
 	}
 	err = xray.RunXray(request.XrayJson)
 	return encodeInvokeNoDataResponse(err)
+}
+
+func invokeCheckRoute(payload json.RawMessage) string {
+	request, err := decodePayload[CheckRouteRequest](payload)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	result, err := xray.CheckRoute(xray.RouteCheckInput{
+		XrayJSON: request.XrayJson, Domain: request.Domain, IP: request.IP,
+		Port: request.Port, Network: request.Network,
+		InboundTag: request.InboundTag, Timeout: request.Timeout,
+	})
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	return encodeInvokeResponse(&CheckRouteResponse{
+		Matched: result.Matched, RuleTag: result.RuleTag,
+		OutboundTag: result.OutboundTag, BalancerTag: result.BalancerTag,
+		Defaulted: result.Defaulted,
+	}, nil)
 }

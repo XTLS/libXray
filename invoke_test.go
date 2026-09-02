@@ -206,6 +206,91 @@ func TestInvokeTestXray(t *testing.T) {
 	requireNoDataObject(t, response)
 }
 
+func TestInvokeTestXrayBuildOnlyDoesNotCreateRuntimeResources(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "not-created", "error.log")
+	config, err := json.Marshal(map[string]any{
+		"log": map[string]any{"error": logPath, "loglevel": "debug"},
+		"inbounds": []any{
+			map[string]any{"tag": "tunIn", "protocol": "tun", "settings": map[string]any{"name": "BuildOnlyMustNotCreate", "mtu": 1500}},
+		},
+		"outbounds": []any{
+			map[string]any{"protocol": "wireguard", "settings": map[string]any{
+				"secretKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+				"address":   []string{"10.0.0.2/32"},
+				"peers":     []any{map[string]any{"publicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "endpoint": "127.0.0.1:9"}},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: string(config), BuildOnly: true})
+	if !response.Success {
+		t.Fatalf("buildOnly must accept structurally valid TUN/WireGuard without construction: %s", response.Err)
+	}
+	requireNoDataObject(t, response)
+	if _, err := os.Stat(filepath.Dir(logPath)); !os.IsNotExist(err) {
+		t.Fatalf("buildOnly created a runtime log directory: %v", err)
+	}
+	response = invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: `{"outbounds":[{"protocol":"unknown"}]}`, BuildOnly: true})
+	if response.Success || string(response.Data) != "null" {
+		t.Fatalf("buildOnly must still reject invalid core configuration: %+v", response)
+	}
+}
+
+func TestInvokeTestXrayDefaultStillConstructsRuntime(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "not-created", "error.log")
+	config, err := json.Marshal(map[string]any{
+		"log":       map[string]any{"error": logPath, "loglevel": "debug"},
+		"outbounds": []any{map[string]any{"protocol": "freedom"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, payload := range []any{
+		TestXrayRequest{XrayJson: string(config)},
+		map[string]any{"xrayJson": string(config), "buildOnly": false},
+	} {
+		response := invokeForTest(t, LibXrayMethodTestXray, payload)
+		if response.Success || !strings.Contains(response.Err, "failed to initialize error logger") {
+			t.Fatalf("omitted/false buildOnly must retain runtime construction: %+v", response)
+		}
+	}
+}
+
+func TestInvokeCheckRoute(t *testing.T) {
+	request := CheckRouteRequest{
+		XrayJson: `{"outbounds":[{"protocol":"freedom","tag":"direct"}],"routing":{"rules":[{"domain":["full:example.com"],"outboundTag":"direct"}]}}`,
+		Domain:   "example.com", Port: 443, Network: "tcp", InboundTag: "tunIn", Timeout: 5000,
+	}
+	response := invokeForTest(t, LibXrayMethodCheckRoute, request)
+	if !response.Success {
+		t.Fatal(response.Err)
+	}
+	data := decodeDataObject[CheckRouteResponse](t, response)
+	if data != (CheckRouteResponse{Matched: true, OutboundTag: "direct"}) {
+		t.Fatalf("unexpected route evidence: %+v", data)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(response.Data, &fields); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"matched", "ruleTag", "outboundTag", "balancerTag", "defaulted"} {
+		if _, ok := fields[name]; !ok {
+			t.Fatalf("missing required evidence field %s", name)
+		}
+	}
+	request.IP = "192.0.2.1"
+	response = invokeForTest(t, LibXrayMethodCheckRoute, request)
+	if response.Success || string(response.Data) != "null" {
+		t.Fatalf("invalid target should fail without evidence: %+v", response)
+	}
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"checkRoute","payload":{"port":"443"}}`)
+	if response.Success {
+		t.Fatal("invalid typed field accepted")
+	}
+}
+
 func TestInvokeTestXrayDoesNotReadConfigPath(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "xray.json")
 	configJSON, err := json.Marshal(testXrayConfig(t))

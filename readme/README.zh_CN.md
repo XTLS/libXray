@@ -159,11 +159,79 @@ generateAgeKeyPair
 countGeoData
 pingBatch
 testXray
+checkRoute
 runXray
 stopXray
 xrayVersion
 getXrayState
 ```
+
+### 配置校验
+
+`testXray` 支持 `{"xrayJson":"...","buildOnly":true}`，只加载并构建完整配置，
+不创建 Xray instance。它校验包括 TUN/WireGuard 定义在内的配置结构，不创建设备、
+监听、日志文件或后台连接。构建器仍可能读取本地 GeoData/证书，并将根 `env` 应用
+到当前进程。Geodata assets 声明只校验 HTTPS URL 和已存在的本地文件，下载器及
+cron 不会在只构建校验期间运行。
+
+`buildOnly` 可选，默认 `false`，保留原有 `testXray` 创建并关闭 instance 的行为。
+原行为虽然不调用 `Start`，但构造函数可能创建 TUN、打开日志或启动后台任务。
+尚未启动的草稿应使用只构建校验；构建成功不代表运行资源可用，也不代表 instance
+可以启动。调用方仍须处理真实构造和启动阶段的失败。
+
+### 草稿路由检查
+
+`checkRoute` 是 API version 3 的增量方法。通过 `xrayJson` 接收完整草稿，
+调用当前锁定版本 Xray-core 的 Router；不启动临时 instance，也不向输入的目标
+派发访问流量：
+
+```json
+{
+  "apiVersion": 3,
+  "method": "checkRoute",
+  "payload": {
+    "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
+    "domain": "example.com",
+    "port": 443,
+    "network": "tcp",
+    "inboundTag": "tunIn",
+    "timeout": 5000
+  }
+}
+```
+
+`domain`（主机名，不是 URL）和 `ip`（不带 zone 的 IPv4/IPv6）必须且只能提供
+一个。`port` 为 1–65535，`network` 为 `tcp` 或 `udp`，必填的 `timeout` 为
+1–60000 毫秒。`inboundTag` 可选，省略时为空，不默认假设 VPN 入站。沿用
+16 MiB 的完整请求/响应包体限制。
+
+成功响应的 `data` 始终包含全部五个字段：
+
+```json
+{"matched":false,"ruleTag":"","outboundTag":"direct","balancerTag":"","defaulted":true}
+```
+
+`matched` 和 `ruleTag` 表示首次 Router 匹配，保留原始的空名称或重名。
+`defaulted` 表示首次 Router 没有匹配规则，随后使用 outbound manager 的真实
+默认出站；如果是 loopback，则按其原生入站 tag / 跳过 DNS 解析的转换再次调用
+Router。`outboundTag` 是最终选中的出站，`balancerTag` 是路径中最后经过的
+balancer，没有则为空。因此带默认 loopback 的草稿可以得到其实际配置的
+balancer，但不会假设任意 Raw JSON 的默认动作都是 `proxy`。仅在默认 loopback
+之后命中的规则不会被报告为首次用户规则命中。出站不存在、loopback 循环、依赖访问流量的 loopback
+sniffing、路由或节点选择失败均返回错误，不生成虚假结果。节点选择使用新建
+instance，而非运行实例的健康度/历史；它不验证连通性或出口 IP。
+
+只在内存中的检查配置移除 inbounds、禁用日志输出并移除规则 webhook，不回写
+调用方草稿。WireGuard 出站会在构造时创建 TUN，因此即使不调用 `Start`，也必须
+拒绝这类检查。不会启动入站监听或后台探测。DNS 解析仍可能通过草稿配置发出网络
+查询。VLESS reverse 出站也会在构造时启动后台连接，因此同样拒绝。timeout 的
+context 会传入核心，超时后不会返回成功；但部分核心解析器
+（尤其 `localhost`）不能立即响应取消，因此不承诺严格的墙钟耗时上限。调用会等
+匹配实际结束后才关闭 instance，不会留下继续使用已关闭核心的后台匹配。
+
+`checkRoute` 拒绝与同进程受管理的 `runXray` instance 重叠，并在构建、匹配和
+关闭期间持有受管理生命周期锁。这不隔离其他导出的临时核心 API，调用方仍须遵守
+独立执行进程边界。现有 `testXray` 和 `pingBatch` 的并发约定不变。
 
 ## controller
 

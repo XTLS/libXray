@@ -219,11 +219,92 @@ generateAgeKeyPair
 countGeoData
 pingBatch
 testXray
+checkRoute
 runXray
 stopXray
 xrayVersion
 getXrayState
 ```
+
+### Configuration validation
+
+`testXray` accepts `{"xrayJson":"...","buildOnly":true}` to load and build
+the complete configuration without creating an Xray instance. This validates
+the configuration structure, including TUN/WireGuard definitions, without
+creating devices, listeners, log files, or background connections. The builder
+can still read local GeoData/certificates and apply the root `env` to the current
+process. Geodata asset declarations validate HTTPS URLs and existing local
+files; their downloader/cron does not run during a build-only check.
+
+`buildOnly` is optional and defaults to `false`, preserving the existing
+`testXray` create-and-close behavior. That behavior does not call `Start`, but
+constructors can create TUN devices, open logs, or initiate background work.
+Use build-only validation for an unstarted draft; a successful build does not
+prove runtime resources are available or that an instance can start. Runtime
+construction/start errors remain the caller's responsibility to handle.
+
+### Draft route checking
+
+`checkRoute` is additive to API version 3. It accepts a complete draft in
+`xrayJson` and calls the pinned Xray-core Router, without starting the temporary
+instance or dispatching traffic to the supplied target:
+
+```json
+{
+  "apiVersion": 3,
+  "method": "checkRoute",
+  "payload": {
+    "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
+    "domain": "example.com",
+    "port": 443,
+    "network": "tcp",
+    "inboundTag": "tunIn",
+    "timeout": 5000
+  }
+}
+```
+
+Supply exactly one of `domain` (hostname, not URL) or `ip` (IPv4/IPv6 without a
+zone). `port` is 1–65535, `network` is `tcp` or `udp`, and required `timeout` is
+1–60000 milliseconds. `inboundTag` is optional; omitted means an empty tag, not
+an assumed VPN inbound. The existing 16 MiB envelope limit applies.
+
+Successful `data` always includes all five fields:
+
+```json
+{"matched":false,"ruleTag":"","outboundTag":"direct","balancerTag":"","defaulted":true}
+```
+
+`matched` and `ruleTag` describe the initial Router match, preserving an empty
+or duplicated original rule tag. `defaulted` means the initial Router found no
+matching rule. The outbound manager then supplies the actual default outbound;
+a loopback's native inbound-tag/skip-DNS transition is checked again through the
+Router. `outboundTag` is the terminal selected outbound, and `balancerTag` is
+the last balancer encountered, or empty when none was used. Thus a draft with a
+default loopback may resolve to its configured balancer, whereas an arbitrary
+Raw JSON draft is never assumed to default to `proxy`. Rules reached only after
+a default loopback are not reported as initial user matches. Missing handlers, loopback cycles,
+traffic-dependent loopback sniffing, and routing/selection failures return an
+error instead of invented evidence. Selection uses a fresh instance, not live
+balancer health/history, and does not test connectivity or the exit IP.
+
+Only the in-memory check configuration removes inbounds, disables file/log
+output, and removes rule webhooks; the caller's draft is not rewritten.
+WireGuard outbounds are rejected because construction can create a TUN device
+even without `Start`; VLESS reverse outbounds are rejected because construction
+starts background connections. There are no inbound listeners or background probes.
+DNS resolution may still send network queries through the draft configuration.
+The timeout context reaches the core; a timed-out lookup never returns success.
+Some core resolvers, notably `localhost`, do not honor cancellation immediately,
+so this is not a strict wall-clock limit. The call waits for matching to finish
+before closing the instance; it never leaves matching using an already-closed
+core in the background.
+
+`checkRoute` rejects a managed `runXray` instance in the same process and holds
+the managed lifecycle lock through construction, matching, and close. It does
+not isolate other exported temporary-core APIs: callers must continue to use
+an independent execution process where required. The existing `testXray` and
+`pingBatch` concurrency contract is unchanged.
 
 ## controller
 

@@ -68,6 +68,7 @@ Supported methods:
 - `countGeoData`
 - `pingBatch`
 - `testXray`
+- `checkRoute`
 - `runXray`
 - `stopXray`
 - `xrayVersion`
@@ -79,8 +80,8 @@ applications own HTTP headers, persistence of both generated keys, and refresh
 behavior. Never log age secret keys, decrypted subscription text, or complete
 Invoke requests containing those values.
 
-`pingBatch`, `testXray`, and `runXray` receive serialized Xray configuration
-text through `xrayJson`. They must not accept or read an application-provided
+`pingBatch`, `testXray`, `checkRoute`, and `runXray` receive serialized Xray
+configuration text through `xrayJson`. They must not accept or read an application-provided
 configuration file path. `countGeoData` is the exception because it operates on
 GeoData files directly and receives `datDir` in its payload.
 
@@ -94,12 +95,29 @@ ignores other root fields, and includes outbound dependencies referenced by
 `runXray` manages one package-level Xray instance. A second `runXray` call fails
 until `stopXray` closes the current instance.
 
-`testXray` and `pingBatch` create temporary Xray instances. Xray-core contains
+`testXray` (default `buildOnly: false`) and `pingBatch` create temporary Xray instances. Xray-core contains
 process-wide state, including the system dialer DNS client and outbound manager.
 Running temporary instances while another Xray instance is active may replace
 that state, and closing a temporary instance does not restore it. libXray does
 not serialize or isolate these calls. Integrators that require independent
 concurrent instances must place them in separate processes.
+
+`testXray` with `buildOnly: true` only loads/builds configuration and does not
+construct runtime handlers. Use it for draft structure checks that must not
+create TUN devices, logs, or background connections. Local asset/certificate
+reads and process-level root `env` application remain core builder behavior;
+successful building does not establish that runtime construction/start succeeds.
+
+`checkRoute` uses a temporary draft and the real Router without calling
+`Start` or dispatching the supplied target. It rejects managed-instance overlap
+and holds the managed lifecycle lock until matching and close finish. Other
+temporary-core APIs still require caller isolation. The draft copy removes
+inbounds, log output, and webhooks; WireGuard and VLESS reverse outbounds are
+rejected because construction itself has runtime side effects. DNS queries may
+occur. The timeout reaches the core context, but cancellation is not a hard
+wall-clock bound for every resolver. When changing route evidence or execution
+boundaries, read README.md's "Draft route checking" section for field semantics
+and default-loopback limitations.
 
 Xray runtime environment values belong in the root `env` object of `xrayJson`.
 A top-level `env` field on the Invoke request is ignored. Missing root env fields
