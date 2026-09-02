@@ -234,6 +234,16 @@ func invokeTestXray(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeNoDataResponse(err)
 	}
+	if request.URL != "" {
+		if request.BuildOnly {
+			return encodeInvokeNoDataResponse(errors.New("testXray URL and buildOnly are mutually exclusive"))
+		}
+		delay, err := xray.ProbeXray(request.XrayJson, request.URL, request.Timeout, request.InboundTag)
+		if err != nil {
+			return encodeInvokeNoDataResponse(err)
+		}
+		return encodeInvokeResponse(&TestXrayResponse{Delay: delay}, nil)
+	}
 	if request.BuildOnly {
 		err = xray.ValidateXray(request.XrayJson)
 	} else {

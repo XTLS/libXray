@@ -245,6 +245,20 @@ Use build-only validation for an unstarted draft; a successful build does not
 prove runtime resources are available or that an instance can start. Runtime
 construction/start errors remain the caller's responsibility to handle.
 
+### Configuration URL probe
+
+`testXray` also accepts `url`, `timeout` (1–60 seconds), and optional
+`inboundTag` with `xrayJson`. It returns `data: {"delay": 12}` in integer
+milliseconds. `url` and `buildOnly: true` are mutually exclusive. Omit `url`
+to retain the existing validation response.
+
+The probe sends an HTTP HEAD using the draft's DNS, routing and outbounds,
+without forcing one outbound. It uses the route check's safe construction:
+inbounds/log output/webhooks are disabled, WireGuard and VLESS reverse are
+rejected, and the temporary instance is never started or published. It does
+not test extra listeners, startup-only integrations, or every destination.
+The lifecycle lock and managed-instance overlap rejection still apply.
+
 ### Draft route checking
 
 `checkRoute` is additive to API version 3. It accepts a complete draft in

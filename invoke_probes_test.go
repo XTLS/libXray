@@ -46,6 +46,27 @@ func TestInvokeShareStatsResponseShape(t *testing.T) {
 	}
 }
 
+func TestInvokeConfigurationURLProbe(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	request := TestXrayRequest{XrayJson: `{"outbounds":[{"protocol":"freedom"}]}`, URL: server.URL, Timeout: 2}
+	response := invokeForTest(t, LibXrayMethodTestXray, request)
+	if !response.Success {
+		t.Fatal(response.Err)
+	}
+	result := decodeDataObject[TestXrayResponse](t, response)
+	if result.Delay < 0 || !strings.Contains(string(response.Data), `"delay"`) {
+		t.Fatalf("bad result: %s", response.Data)
+	}
+	request.BuildOnly = true
+	response = invokeForTest(t, LibXrayMethodTestXray, request)
+	if response.Success || string(response.Data) != "null" {
+		t.Fatalf("ambiguous request accepted: %+v", response)
+	}
+}
+
 func TestInvokePingLocationAndZeroDelayWireFields(t *testing.T) {
 	raw, err := json.Marshal(PingBatchItemResponse{Success: true, Delay: 0})
 	if err != nil {

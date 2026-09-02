@@ -116,8 +116,15 @@ type RuntimeConfig = xray.RuntimeConfig
 type RuntimeSnapshot = xray.RuntimeSnapshot
 
 type TestXrayRequest struct {
-	XrayJson  string `json:"xrayJson,omitempty"`
-	BuildOnly bool   `json:"buildOnly,omitempty"`
+	XrayJson   string `json:"xrayJson,omitempty"`
+	BuildOnly  bool   `json:"buildOnly,omitempty"`
+	URL        string `json:"url,omitempty"`
+	Timeout    int    `json:"timeout,omitempty"`
+	InboundTag string `json:"inboundTag,omitempty"`
+}
+
+type TestXrayResponse struct {
+	Delay int64 `json:"delay"`
 }
 
 type CheckRouteRequest struct {

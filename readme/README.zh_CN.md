@@ -179,6 +179,17 @@ cron 不会在只构建校验期间运行。
 尚未启动的草稿应使用只构建校验；构建成功不代表运行资源可用，也不代表 instance
 可以启动。调用方仍须处理真实构造和启动阶段的失败。
 
+### 配置 URL 测试
+
+`testXray` 还可随 `xrayJson` 提供 `url`、`timeout`（1–60 秒）和可选
+`inboundTag`，返回整数毫秒 `data: {"delay": 12}`。`url` 与
+`buildOnly: true` 互斥；省略 `url` 时保留原校验响应。
+
+测试使用草稿完整的 DNS、routing 和 outbounds 发送 HTTP HEAD，不强制单个出站。
+沿用路由检查的安全构造：禁用入站、日志输出和 webhook，拒绝 WireGuard/VLESS
+reverse，不调用临时 instance 的 Start，也不发布为活动核心。结果不证明额外监听、
+仅在启动时工作的集成或所有目标均可用；生命周期锁和受管理核心重叠拒绝仍然生效。
+
 ### 草稿路由检查
 
 `checkRoute` 是 API version 3 的增量方法。通过 `xrayJson` 接收完整草稿，
