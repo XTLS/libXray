@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,6 +20,7 @@ type runOptions struct {
 	dns           string
 	interfaceName string
 	configPath    string
+	runtimePath   string
 }
 
 func parseRunOptions(args []string) (runOptions, error) {
@@ -32,6 +34,7 @@ func parseRunOptions(args []string) (runOptions, error) {
 	flags.StringVar(&options.dns, "dns", "", "DNS server IP endpoint")
 	flags.StringVar(&options.interfaceName, "interface", "", "outbound network interface")
 	flags.StringVar(&options.configPath, "config", "", "Xray JSON configuration path")
+	flags.StringVar(&options.runtimePath, "runtime", "", "optional host runtime metadata JSON path")
 	if err := flags.Parse(args[1:]); err != nil {
 		return options, err
 	}
@@ -49,12 +52,31 @@ func run(options runOptions) error {
 	if err != nil {
 		return err
 	}
+	var runtime *xray.RuntimeConfig
+	if options.runtimePath != "" {
+		file, err := os.Open(options.runtimePath)
+		if err != nil {
+			return err
+		}
+		data, readErr := io.ReadAll(io.LimitReader(file, 64*1024+1))
+		closeErr := file.Close()
+		if err := errors.Join(readErr, closeErr); err != nil {
+			return err
+		}
+		if len(data) > 64*1024 {
+			return errors.New("runtime metadata exceeds 64 KiB")
+		}
+		runtime = new(xray.RuntimeConfig)
+		if err := json.Unmarshal(data, runtime); err != nil {
+			return errors.New("invalid runtime metadata")
+		}
+	}
 	if err := dns.SetDNS(options.dns, options.interfaceName); err != nil {
 		return err
 	}
 	defer dns.ResetDNS()
 
-	if err := xray.RunXray(string(config)); err != nil {
+	if err := xray.RunXrayWithRuntime(string(config), runtime); err != nil {
 		return err
 	}
 
@@ -66,7 +88,7 @@ func run(options runOptions) error {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stdout, "Usage: xray run -dns <IP:port> -interface <name> -config <xray.json>")
+	fmt.Fprintln(os.Stdout, "Usage: xray run -dns <IP:port> -interface <name> -config <xray.json> [-runtime <runtime.json>]")
 }
 
 func main() {

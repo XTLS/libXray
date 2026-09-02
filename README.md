@@ -70,11 +70,13 @@ Linux and Windows builds also produce `bin/xray` or `bin/xray.exe`. This
 session Core protects Go DNS lookups from the VPN route and accepts only:
 
 ```shell
-xray run -dns <IP:port> -interface <name> -config <xray.json>
+xray run -dns <IP:port> -interface <name> -config <xray.json> [-runtime <runtime.json>]
 ```
 
 All three options are required. `-dns` must be an IP endpoint, and `-config`
 points directly to the Xray JSON configuration.
+Optional `-runtime` reads the host metadata object described under "Managed
+runtime accounting", without a wrapping `runtime` key; it does not replace `-config`.
 
 > [!WARNING]
 > **Use only one Go runtime per process.** Go does not support loading multiple
@@ -201,13 +203,13 @@ Design notes:
    Its optional `age.secretKey` decrypts official age ASCII armor in memory
    before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in
-   process-wide state. Creating another Xray instance through `pingBatch`,
-   `testXray`, or the exported Go APIs while `runXray` is active may replace
-   that state and affect the running
-   instance. Closing the temporary instance does not restore the previous
-   state. libXray does not serialize, isolate, or restore concurrent instances;
-   callers that require overlapping instances must place them in separate
-   processes.
+   process-wide state. `pingBatch`, `testXray` (including `buildOnly`),
+   `checkRoute`, and their exported Go entrypoints take the managed lifecycle
+   lock and reject an active `runXray` instance before loading/building config.
+   A batch holds the lock through all workers and temporary-core close. This
+   also serializes these temporary operations with one another. Instances
+   created outside the managed APIs are not detected or restored; callers
+   requiring overlap with them must still use separate processes.
 
 Supported methods:
 
@@ -301,10 +303,10 @@ before closing the instance; it never leaves matching using an already-closed
 core in the background.
 
 `checkRoute` rejects a managed `runXray` instance in the same process and holds
-the managed lifecycle lock through construction, matching, and close. It does
-not isolate other exported temporary-core APIs: callers must continue to use
-an independent execution process where required. The existing `testXray` and
-`pingBatch` concurrency contract is unchanged.
+the managed lifecycle lock through construction, matching, and close. The same
+managed-overlap guard also applies to `testXray` (including `buildOnly`) and
+`pingBatch`. It does not detect externally created unmanaged instances; callers
+must still use independent execution processes when those can overlap.
 
 ## controller
 
@@ -505,6 +507,92 @@ configuration file:
 
 Starts the managed Xray instance from the supplied JSON text. Use `stopXray`
 to stop that instance. `runXrayFromJson` is no longer a separate method.
+
+### Managed runtime accounting
+
+`runXray.payload.runtime` is optional API v3 host metadata. Omitting it
+preserves the original lifecycle and writes no runtime snapshots. Hosts opt in
+with this object (also the complete content of the desktop `-runtime` file):
+
+```json
+{
+  "statePath": "/private/app/run/runtime.json",
+  "planId": "opaque-plan-id",
+  "inboundTag": "tunIn"
+}
+```
+
+The host supplies an existing private directory and an absolute `statePath`.
+`planId` and `inboundTag` must be nonempty and at most 256 bytes. `planId` is
+opaque and must not contain credentials. Metadata stays separate from Xray
+JSON, so user configuration cannot override it. The named inbound must exist,
+with uplink/downlink system statistics and a statistics manager enabled.
+Invalid metadata, corrupt saved state, an archive failure, or an initial save
+failure rejects startup; any constructed core is closed.
+
+The saved file contains only the current session's raw inbound counter values:
+
+```json
+{
+  "version": 1,
+  "session": {
+    "id": "2a7e2e49b947a802d8b39af4fbc48f52",
+    "planId": "opaque-plan-id",
+    "startedAtMs": 1788300000000,
+    "endedAtMs": 0,
+    "uplink": 120,
+    "downlink": 800
+  },
+  "available": true,
+  "sampledAtMs": 1788300030000,
+  "savedAtMs": 1788300030000,
+  "error": ""
+}
+```
+
+Timestamps are Unix milliseconds. Each new start generates a random
+32-character lowercase hex session ID, even when replaying identical metadata.
+`endedAtMs: 0` means no final stop was saved; it is not proof that the VPN is
+running. The host saves an initial snapshot, samples/saves every 30 seconds,
+and attempts a final sample/save before closing the core on `stopXray`.
+
+Sampling reads the named inbound's `Value()`, never resets it and never adds
+outbound/node counters. Repeated samples do not accumulate bytes. A nonnegative
+counter rollback is recorded as the smaller raw value, not a synthetic delta.
+Missing or negative counters set `available: false` and
+`error: "counters_unavailable"`, retaining the last valid nonnegative values.
+Idle valid counters report available zero. There are no application-wide totals,
+reset generations, runtime HTTP endpoints, control ports, or tokens.
+`resetRuntime` is not an Invoke method. Applications may read existing Xray
+metrics for live rates; their own totals/reset policy stays outside libXray.
+
+Before a new session can replace `runtime.json`, the previous valid saved
+snapshot is atomically archived beside it as
+`runtime-sessions/<session-id>.json`. The archive preserves its raw counters,
+timestamps, and any unset ending; it does not infer missing traffic or a crash
+time. Repeated unsuccessful starts reuse the same archive filename. A failed
+preparation may therefore leave the same session in both current and archive;
+consumers must identify sessions by ID, not count files. Archives are never
+cleaned up by libXray, and their counters are never carried into the new session.
+The archive directory rejects symlinks/non-directories and is created mode 0700.
+
+Snapshot files use a mode-0600 same-directory temporary file, sync, and atomic
+replacement (Windows uses `MoveFileEx` with replace-existing and write-through).
+The private parent directory/Windows ACL remains the host's responsibility.
+Failed saves leave the previous complete disk snapshot for later retry; a final
+save error is returned but never prevents core shutdown. An error after rename
+can have an uncertain persistence outcome, so consumers must re-read the file.
+This is reference data, not billing: crashes/forced termination can lose the
+tail after the last successful save, with no strict 30-second loss bound. A
+restart archives only that last saved tail and does not fabricate final values.
+
+A nonblocking OS lock on `statePath + ".lock"` is held until core close,
+preventing another process from writing the same current/archive sequence.
+Hosts must use one consistent canonical path and leave the lock file in place.
+UI code reads snapshots but does not write them while the host owns the path.
+This does not solve macOS System Extension root-owned file access or provide
+graceful final settlement when Windows forcibly terminates a job. Those platform
+boundaries remain the integrating application's responsibility.
 
 ### metrics
 

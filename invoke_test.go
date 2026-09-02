@@ -329,6 +329,43 @@ func TestInvokeRunXray(t *testing.T) {
 	requireNoDataObject(t, response)
 }
 
+func TestInvokeRunXrayRuntimeIsOptionalTypedMetadata(t *testing.T) {
+	defer xrayStopForTest(t)
+	request := RunXrayRequest{
+		XrayJson: `{"log":{"loglevel":"none"},"outbounds":[{"protocol":"freedom"}]}`,
+		Runtime: &RuntimeConfig{
+			StatePath: "relative.json", PlanID: "plan", InboundTag: "tunIn",
+		},
+	}
+	encoded, err := json.Marshal(request)
+	if err != nil || !strings.Contains(string(encoded), `"runtime":{"statePath":`) {
+		t.Fatalf("runtime metadata is missing from the request: %v", err)
+	}
+	response := invokeForTest(t, LibXrayMethodRunXray, request)
+	if response.Success || !strings.Contains(response.Err, "absolute statePath") {
+		t.Fatalf("runtime validation was bypassed: %+v", response)
+	}
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"runXray","payload":{"xrayJson":"{}","runtime":"invalid"}}`)
+	if response.Success {
+		t.Fatal("untyped runtime metadata was accepted")
+	}
+}
+
+func TestInvokeRejectsRemovedRuntimeControl(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runtime.json")
+	data := []byte(`{"fixture":"must not change"}`)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	response := invokeForTest(t, LibXrayMethod("resetRuntime"), map[string]string{"statePath": path})
+	if response.Success || response.Err != "unknown method" || string(response.Data) != "null" {
+		t.Fatalf("removed runtime control was accepted: %+v", response)
+	}
+	if saved, err := os.ReadFile(path); err != nil || !bytes.Equal(saved, data) {
+		t.Fatalf("unknown method modified a file: %s %v", saved, err)
+	}
+}
+
 func TestInvokeRunXrayAppliesConfigEnv(t *testing.T) {
 	const key = "XRAY_LIBXRAY_CONFIG_ENV_TEST"
 	t.Setenv(key, "")

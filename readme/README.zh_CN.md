@@ -38,11 +38,11 @@ Linux 和 Windows 构建还会生成 `bin/xray` 或 `bin/xray.exe`。该会话 C
 会保护 Go DNS 查询不被 VPN 路由重新捕获，并且只接受以下命令：
 
 ```shell
-xray run -dns <IP:port> -interface <网卡名> -config <xray.json>
+xray run -dns <IP:port> -interface <网卡名> -config <xray.json> [-runtime <runtime.json>]
 ```
 
-三个参数都必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
-JSON 配置。
+前三个参数都必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
+JSON 配置。可选 `-runtime` 的 JSON 对象见“托管运行统计”，不含外层 `runtime`。
 
 > [!WARNING]
 > **每个进程只能使用一个 Go runtime。** Go 不支持在同一进程中加载多个独立构建的
@@ -147,7 +147,7 @@ void CGoFree(char* value);
 4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 5. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
 6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。Xray JSON 输入仅作为节点来源，只保留根级 `outbounds`，忽略其他根字段。响应仅包含 libXray 分享链接支持的字段，不支持的字段和生成的空字段会被省略；XHTTP `extra` 与 FinalMask mask `settings` 中的原始 JSON 保持不变。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
-7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。当 `runXray` 正在运行时，通过 `pingBatch`、`testXray` 或导出的 Go API 创建另一个 Xray instance，可能覆盖这些状态并影响正在运行的 instance。关闭临时 instance 不会恢复之前的状态。libXray 不对并发 instance 进行串行化、隔离或状态恢复；调用方如需同时运行多个 instance，必须将它们放在不同进程中。
+7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。`pingBatch`、`testXray`（含 `buildOnly`）、`checkRoute` 及对应导出的 Go 入口均取得受管理生命周期锁，在加载/构建配置前拒绝同进程已运行的 `runXray` instance。批量测速在全部 worker 和临时核心关闭后才释放锁，这些临时操作也彼此串行。由管理 API 之外创建的 instance 不在检测或恢复范围内；可能与它们重叠的调用仍须使用独立进程。
 
 支持的 method：
 
@@ -230,8 +230,8 @@ context 会传入核心，超时后不会返回成功；但部分核心解析器
 匹配实际结束后才关闭 instance，不会留下继续使用已关闭核心的后台匹配。
 
 `checkRoute` 拒绝与同进程受管理的 `runXray` instance 重叠，并在构建、匹配和
-关闭期间持有受管理生命周期锁。这不隔离其他导出的临时核心 API，调用方仍须遵守
-独立执行进程边界。现有 `testXray` 和 `pingBatch` 的并发约定不变。
+关闭期间持有受管理生命周期锁。`testXray`（含 `buildOnly`）和 `pingBatch` 具有相同
+保护；未托管 instance 不在检测范围内，可能与其重叠时调用方仍须使用独立进程。
 
 ## controller
 
@@ -405,6 +405,76 @@ outbound 依赖会被自动包含。
 
 使用传入的 Xray JSON 文本启动由 libXray 管理的 Xray instance，并通过
 `stopXray` 停止。`runXrayFromJson` 不再作为独立 method 存在。
+
+### 托管运行统计
+
+API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
+不写运行快照。宿主传入以下对象；Desktop 的 `-runtime` 文件也直接使用此对象，
+不含外层 `runtime`，原始 Xray 配置仍通过独立的 `-config` 传入。
+
+```json
+{
+  "statePath": "/private/app/run/runtime.json",
+  "planId": "opaque-plan-id",
+  "inboundTag": "tunIn"
+}
+```
+
+宿主提供已存在的私有目录和绝对 `statePath`。`planId` / `inboundTag` 非空且
+各不超过 256 字节；`planId` 是不包含凭据的不透明标识。元数据独立于 Xray JSON，
+用户配置不能覆盖。指定入站必须存在，并启用上下行系统统计和 stats manager。
+元数据无效、已有快照损坏、归档失败或首次保存失败均拒绝启动，并关闭已构建的核心。
+
+落盘文件仅包含本次会话的原始入站计数：
+
+```json
+{
+  "version": 1,
+  "session": {
+    "id": "2a7e2e49b947a802d8b39af4fbc48f52",
+    "planId": "opaque-plan-id",
+    "startedAtMs": 1788300000000,
+    "endedAtMs": 0,
+    "uplink": 120,
+    "downlink": 800
+  },
+  "available": true,
+  "sampledAtMs": 1788300030000,
+  "savedAtMs": 1788300030000,
+  "error": ""
+}
+```
+
+时间为 Unix 毫秒。每次新启动生成 32 位小写十六进制随机 session ID，即使重放相同
+元数据也不复用。`endedAtMs: 0` 只表示没有保存最终停止快照，不能用来判断 VPN
+仍在运行。宿主启动时先保存新快照，此后每 30 秒采样保存，`stopXray` 在关闭核心前
+尽力完成最终采样保存。
+
+采样直接读取指定入站的 `Value()`，不重置计数，不叠加节点或 outbound 计数。
+重复采样不累加字节；非负计数回退时保存实际较小值，不合成差额。计数缺失或为负时，
+`available: false`、`error: "counters_unavailable"`，保留上次合法的非负值。
+有效入站尚无流量时为可用的 0。不维护 App 总量、重置代次、runtime HTTP 接口、
+控制端口或 token。`resetRuntime` 不是 Invoke method。App 可通过已有 Xray metrics
+读取实时速率；App 累计与重置策略由 App 自行管理，不属于 libXray。
+
+新会话覆盖 `runtime.json` 前，先将已有合法快照原子归档到同级目录
+`runtime-sessions/<session-id>.json`。归档保留原始计数、时间及可能未设置的结束
+时间，不推测丢失流量或崩溃时间。重复启动失败使用同一个归档文件名；准备失败时，
+当前文件和归档可能同时存在相同会话，消费者必须按 session ID 识别，不能按文件数
+重复计入。libXray 不清理归档，也不把旧计数继承到新会话。归档目录以 0700 创建，
+拒绝符号链接和非目录对象。
+
+快照文件使用同目录 0600 临时文件，sync 后原子替换；Windows 使用
+`MoveFileEx` 的替换和 write-through 标志。私有父目录/Windows ACL 由宿主管理。
+保存失败保留上次完整磁盘快照供后续重试；最终保存失败向调用方报告，但仍关闭核心。
+rename 后发生 I/O 错误时结果可能不确定，消费者应重新读取文件。这是参考数据，
+不是计费账本：崩溃/强杀允许丢失最后成功保存后的尾部，不承诺严格 30 秒丢失上限。
+下次启动只归档已有快照，不伪造最终计数。
+
+`statePath + ".lock"` 的非阻塞操作系统文件锁保持至核心关闭，防止跨进程同时
+改写当前快照和归档。宿主须使用一致的规范路径并保留锁文件。UI 只读快照，不能在
+宿主持有路径期间直接写入。此能力不解决 macOS System Extension 的 root 文件访问
+权限，也不能让 Windows Job 强制终止获得正常最终结算；这些平台边界仍由接入方处理。
 
 ### metrics
 

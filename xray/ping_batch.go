@@ -53,6 +53,11 @@ func PingBatch(
 	if err := validatePingBatchRequest(items, timeout, targetURL); err != nil {
 		return nil, err
 	}
+	coreServerMu.Lock()
+	defer coreServerMu.Unlock()
+	if coreServer != nil {
+		return nil, errors.New("pingBatch requires an isolated process without a managed Xray instance")
+	}
 
 	results := make([]PingBatchResult, len(items))
 	prepared := make([]preparedPingItem, 0, len(items))

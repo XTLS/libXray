@@ -1,7 +1,11 @@
 // libXray is an Xray wrapper focusing on improving the experience of Xray-core mobile development.
 package libXray
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/xtls/libxray/xray"
+)
 
 type LibXrayMethod string
 
@@ -97,8 +101,12 @@ type PingBatchItemResponse struct {
 }
 
 type RunXrayRequest struct {
-	XrayJson string `json:"xrayJson,omitempty"`
+	XrayJson string         `json:"xrayJson,omitempty"`
+	Runtime  *RuntimeConfig `json:"runtime,omitempty"`
 }
+
+type RuntimeConfig = xray.RuntimeConfig
+type RuntimeSnapshot = xray.RuntimeSnapshot
 
 type TestXrayRequest struct {
 	XrayJson  string `json:"xrayJson,omitempty"`

@@ -95,12 +95,18 @@ ignores other root fields, and includes outbound dependencies referenced by
 `runXray` manages one package-level Xray instance. A second `runXray` call fails
 until `stopXray` closes the current instance.
 
-`testXray` (default `buildOnly: false`) and `pingBatch` create temporary Xray instances. Xray-core contains
-process-wide state, including the system dialer DNS client and outbound manager.
-Running temporary instances while another Xray instance is active may replace
-that state, and closing a temporary instance does not restore it. libXray does
-not serialize or isolate these calls. Integrators that require independent
-concurrent instances must place them in separate processes.
+Optional `runXray.payload.runtime` saves only the current session's inbound
+counters periodically and on normal stop. Before replacing the current file,
+the previous session is archived for the App to reconcile. The App owns device
+totals and reset; live reads use Xray's native metrics endpoint. Read README.md's
+"Managed runtime accounting" section before changing session persistence.
+
+`testXray` (default `buildOnly: false`) and `pingBatch` create temporary Xray
+instances. Xray-core has process-wide DNS client and outbound manager state.
+These operations, `ValidateXray`/`buildOnly`, and `checkRoute` hold the managed
+lifecycle lock and reject an active managed instance before config loading.
+Batch workers share the outer lock through close. Unmanaged external instances
+remain the caller's isolation responsibility; use separate processes if needed.
 
 `testXray` with `buildOnly: true` only loads/builds configuration and does not
 construct runtime handlers. Use it for draft structure checks that must not
@@ -110,8 +116,7 @@ successful building does not establish that runtime construction/start succeeds.
 
 `checkRoute` uses a temporary draft and the real Router without calling
 `Start` or dispatching the supplied target. It rejects managed-instance overlap
-and holds the managed lifecycle lock until matching and close finish. Other
-temporary-core APIs still require caller isolation. The draft copy removes
+and holds the managed lifecycle lock until matching and close finish. The draft copy removes
 inbounds, log output, and webhooks; WireGuard and VLESS reverse outbounds are
 rejected because construction itself has runtime side effects. DNS queries may
 occur. The timeout reaches the core context, but cancellation is not a hard
@@ -159,9 +164,10 @@ typed JSON contract.
 
 Linux produces `linux_so/libXray.so` and `bin/xray`; Windows produces
 `windows_dll/libXray.dll` and `bin/xray.exe`. The libraries expose the C ABI.
-The session Core accepts only `run -dns <IP:port> -interface <name> -config
-<xray.json>`, installs a process-wide protected Go resolver, and runs one Xray
-instance until termination.
+The session Core accepts `run -dns <IP:port> -interface <name> -config
+<xray.json> [-runtime <runtime.json>]`, installs a process-wide protected Go
+resolver, and runs one Xray instance until termination. The optional runtime
+file contains host metadata, separate from the raw Xray configuration.
 
 # Building
 
@@ -197,8 +203,9 @@ manually.
 
 # Development Rules
 
-1. Keep `Invoke` as the single cross-platform API entrypoint. Platform-only
-   controller APIs must remain isolated by build tags.
+1. Use `Invoke` for typed commands and Xray metrics for live counters. Session
+   persistence does not introduce a second HTTP server. Platform-only controller
+   APIs remain isolated by build tags.
 2. Define request and response fields as typed Go models in `invoke_model.go`.
    Do not pass unstructured maps into package business logic.
 3. Treat method names, JSON keys, response shapes, and `apiVersion` as a public
