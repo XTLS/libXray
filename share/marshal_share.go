@@ -12,8 +12,13 @@ import (
 
 // MarshalShareConfigJSON returns the Xray JSON subset supported by share links.
 func MarshalShareConfigJSON(config *conf.Config) (json.RawMessage, error) {
+	raw, _, err := marshalShareConfigJSON(config)
+	return raw, err
+}
+
+func marshalShareConfigJSON(config *conf.Config) (json.RawMessage, int, error) {
 	if config == nil {
-		return nil, fmt.Errorf("no valid outbound found")
+		return nil, 0, fmt.Errorf("no valid outbound found")
 	}
 
 	outbounds := make([]map[string]any, 0, len(config.OutboundConfigs))
@@ -21,7 +26,7 @@ func MarshalShareConfigJSON(config *conf.Config) (json.RawMessage, error) {
 	for _, outbound := range config.OutboundConfigs {
 		source, err := marshalShareJSONObject(outbound)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		projected, supported := projectShareOutbound(source)
 		if !supported {
@@ -38,16 +43,16 @@ func MarshalShareConfigJSON(config *conf.Config) (json.RawMessage, error) {
 
 	if len(outbounds) == 0 {
 		if firstBuildError != nil {
-			return nil, fmt.Errorf("no valid outbound found: %w", firstBuildError)
+			return nil, 0, fmt.Errorf("no valid outbound found: %w", firstBuildError)
 		}
-		return nil, fmt.Errorf("no valid outbound found")
+		return nil, 0, fmt.Errorf("no valid outbound found")
 	}
 
 	raw, err := json.Marshal(map[string]any{"outbounds": outbounds})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal share config: %w", err)
+		return nil, 0, fmt.Errorf("failed to marshal share config: %w", err)
 	}
-	return raw, nil
+	return raw, len(outbounds), nil
 }
 
 func marshalShareJSONObject(value any) (map[string]any, error) {

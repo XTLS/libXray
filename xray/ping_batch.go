@@ -31,9 +31,16 @@ type PingBatchItem struct {
 }
 
 type PingBatchResult struct {
-	Success bool
-	Delay   int64
-	Error   string
+	Success       bool
+	Delay         int64
+	Error         string
+	Location      *PingLocation
+	LocationError string
+}
+
+type PingLocation struct {
+	IP          string `json:"ip"`
+	CountryCode string `json:"countryCode"`
 }
 
 type pingOutboundConfig struct {
@@ -50,8 +57,19 @@ func PingBatch(
 	timeout int,
 	targetURL string,
 ) ([]PingBatchResult, error) {
+	return PingBatchWithLocation(items, timeout, targetURL, "")
+}
+
+// PingBatchWithLocation uses the same forced-outbound client for latency and
+// optional location probes. The two probe results are independent.
+func PingBatchWithLocation(items []PingBatchItem, timeout int, targetURL, locationURL string) ([]PingBatchResult, error) {
 	if err := validatePingBatchRequest(items, timeout, targetURL); err != nil {
 		return nil, err
+	}
+	if locationURL != "" {
+		if err := validatePingBatchRequest(items, timeout, locationURL); err != nil {
+			return nil, errors.New("ping batch location URL must be an absolute HTTP or HTTPS URL")
+		}
 	}
 	coreServerMu.Lock()
 	defer coreServerMu.Unlock()
@@ -104,23 +122,13 @@ func PingBatch(
 		go func() {
 			defer workers.Done()
 			for item := range jobs {
-				delay, err := measureOutboundDelay(
+				results[item.resultIndex] = probeOutbound(
 					server,
 					item.outboundTag,
 					timeout,
 					targetURL,
+					locationURL,
 				)
-				if err != nil {
-					results[item.resultIndex] = failedPingBatchResult(
-						delay,
-						err,
-					)
-					continue
-				}
-				results[item.resultIndex] = PingBatchResult{
-					Success: true,
-					Delay:   delay,
-				}
 			}
 		}()
 	}
@@ -366,12 +374,13 @@ func startPingBatchServer(
 	return server, nil
 }
 
-func measureOutboundDelay(
+func probeOutbound(
 	server *core.Instance,
 	outboundTag string,
 	timeout int,
 	targetURL string,
-) (int64, error) {
+	locationURL string,
+) PingBatchResult {
 	httpTimeout := time.Second * time.Duration(timeout)
 	transport := &http.Transport{
 		DisableKeepAlives: true,
@@ -397,7 +406,60 @@ func measureOutboundDelay(
 		Transport: transport,
 		Timeout:   httpTimeout,
 	}
-	return nodep.PingHTTPRequest(client, targetURL, timeout)
+	delay, err := nodep.PingHTTPRequest(client, targetURL, timeout)
+	result := PingBatchResult{Success: true, Delay: delay}
+	if err != nil {
+		result = failedPingBatchResult(delay, err)
+	}
+	if locationURL != "" {
+		location, err := probeLocation(client, locationURL)
+		if err != nil {
+			result.LocationError = err.Error()
+		} else {
+			result.Location = location
+		}
+	}
+	return result
+}
+
+func probeLocation(client *http.Client, locationURL string) (*PingLocation, error) {
+	response, err := client.Get(locationURL)
+	if err != nil {
+		// Do not include a provider URL, credentials or response body in errors.
+		return nil, errors.New("location request failed")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("location request returned HTTP %d", response.StatusCode)
+	}
+	const maxLocationBytes = 64 * 1024
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxLocationBytes+1))
+	if err != nil || len(body) > maxLocationBytes {
+		return nil, errors.New("unable to read location response")
+	}
+	// Cloudflare's location response and the equivalent normalized pair are
+	// supported; an unavailable or invalid country is not guessed from the IP.
+	var location struct {
+		IP          string `json:"ip"`
+		CountryCode string `json:"countryCode"`
+		IPAddress   string `json:"ip_address"`
+		Country     string `json:"country"`
+	}
+	if err := json.Unmarshal(body, &location); err != nil {
+		return nil, errors.New("invalid location response")
+	}
+	if location.IP == "" {
+		location.IP = location.IPAddress
+	}
+	if location.CountryCode == "" {
+		location.CountryCode = location.Country
+	}
+	code := strings.ToUpper(strings.TrimSpace(location.CountryCode))
+	ip := net.ParseIP(strings.TrimSpace(location.IP))
+	if ip == nil || len(code) != 2 || code[0] < 'A' || code[0] > 'Z' || code[1] < 'A' || code[1] > 'Z' {
+		return nil, errors.New("location response requires an IP and two-letter country code")
+	}
+	return &PingLocation{IP: ip.String(), CountryCode: code}, nil
 }
 
 func failedPingBatchResult(delay int64, err error) PingBatchResult {

@@ -302,6 +302,24 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 转换 VMessQRCode 为 Xray Json。
 
+#### 可选解析数量
+
+给 `convertShareLinksToXrayJson` 传入 `payload.includeStats: true` 时，返回
+`data: {"config":{"outbounds":[...]},"usableCount":2,"failedCount":1}`。
+省略或设为 `false` 时，保留原来的 `data.outbounds` 响应和转换行为。
+
+数量只描述本次输入，不区分新增和更新。JSON 根 `outbounds` 的每个元素、YAML
+`proxies` 的每个元素各算一个候选。已识别的分享链接列表中，每条 URI 形式的行
+算一个候选，空行、注释和文本标题忽略。Base64 / age 包装使用内部格式的候选
+数量。统计模式逐项跳过类型错误，不丢弃其余有效元素。`usableCount` 与最终投影且
+可构建的 outbound 数量相同；解析失败、构建失败和投影不支持的候选均计入
+`failedCount`。不做节点 hash 比较或去重。
+
+已识别容器中没有可用节点时，返回 `success: false`，保留结构化数量和
+`config: {"outbounds":[]}`。无法识别格式、整份文档语法错误、容器错误或解密
+失败时返回 `data: null`，不猜测数量。错误文案不含被拒绝的候选或解密明文。
+调用方不得在可用节点为零时导入或覆盖订阅。
+
 ### age 加密订阅
 
 `convertShareLinksToXrayJson` 接受可选的 age 原生私钥。仅支持 X25519
@@ -373,7 +391,8 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
       }
     ],
     "timeout": 5,
-    "url": "https://cp.cloudflare.com/"
+    "url": "https://cp.cloudflare.com/",
+    "locationUrl": "https://ip-check-perf.radar.cloudflare.com/"
   }
 }
 ```
@@ -384,8 +403,23 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 批次请求本身被接受时，顶层 response 为成功；每个配置通过自己的结果表示成功或
 失败。`delay` 为 `10000` 表示错误，`11000` 表示超时。结果数组与输入配置数组
 长度相同且顺序一致。
+`delay` 始终输出，包含成功的 0 毫秒结果。
 通过 `streamSettings.sockopt.dialerProxy` 或 `proxySettings.tag` 引用的
 outbound 依赖会被自动包含。
+
+`locationUrl` 为可选的绝对 HTTP(S) 地址。省略时不请求位置、不返回位置字段；
+传入时，每个完成准备的配置先执行测速 HEAD，再执行位置 GET，两者使用同一个
+强制经过当前所选 outbound 及其依赖的 client。每个请求各有一次配置的超时，
+因此单项最多可能使用两倍超时时间。位置请求时间不计入 `delay`；两个结果独立：
+`success`、`delay`、`error` 只表示延迟结果，位置失败不影响成功的延迟，延迟
+失败后仍尝试位置 GET。
+
+GET 成功后增加 `location: {"ip":"203.0.113.1","countryCode":"JP"}`。
+数据源必须返回 HTTP 200、最大 64 KiB 的 JSON，字段为 Cloudflare 的
+`ip_address` / `country`，或规范化的 `ip` / `countryCode`。IP 必须有效，
+地区代码为两个 ASCII 字母并统一返回大写。缺失或无效的位置改为返回
+`locationError`，错误不回显 URL、凭据或响应正文。无效 outbound 保留原有
+逐项失败结果，不发出这两个请求。
 
 ### testXray
 

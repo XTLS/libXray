@@ -4,6 +4,7 @@ package libXray
 import (
 	"encoding/json"
 
+	"github.com/xtls/libxray/share"
 	"github.com/xtls/libxray/xray"
 )
 
@@ -45,9 +46,12 @@ type AgeDecryptConfig struct {
 }
 
 type ConvertShareLinksToXrayJsonRequest struct {
-	Text string            `json:"text,omitempty"`
-	Age  *AgeDecryptConfig `json:"age,omitempty"`
+	Text         string            `json:"text,omitempty"`
+	Age          *AgeDecryptConfig `json:"age,omitempty"`
+	IncludeStats bool              `json:"includeStats,omitempty"`
 }
+
+type ConvertShareLinksToXrayJsonResponse = share.ParseStats
 
 type AgeKeyType string
 
@@ -80,9 +84,10 @@ type CountGeoDataRequest struct {
 }
 
 type PingBatchRequest struct {
-	Configs []PingBatchItemRequest `json:"configs,omitempty"`
-	Timeout int                    `json:"timeout,omitempty"`
-	URL     string                 `json:"url,omitempty"`
+	Configs     []PingBatchItemRequest `json:"configs,omitempty"`
+	Timeout     int                    `json:"timeout,omitempty"`
+	URL         string                 `json:"url,omitempty"`
+	LocationURL string                 `json:"locationUrl,omitempty"`
 }
 
 type PingBatchItemRequest struct {
@@ -95,9 +100,11 @@ type PingBatchResponse struct {
 }
 
 type PingBatchItemResponse struct {
-	Success bool   `json:"success"`
-	Delay   int64  `json:"delay,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Success       bool               `json:"success"`
+	Delay         int64              `json:"delay"`
+	Error         string             `json:"error,omitempty"`
+	Location      *xray.PingLocation `json:"location,omitempty"`
+	LocationError string             `json:"locationError,omitempty"`
 }
 
 type RunXrayRequest struct {

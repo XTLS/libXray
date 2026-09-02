@@ -141,6 +141,10 @@ func invokeConvertShareLinksToXrayJson(payload json.RawMessage) string {
 	if request.Age != nil {
 		secretKey = request.Age.SecretKey
 	}
+	if request.IncludeStats {
+		result, err := share.ConvertShareLinksToXrayJsonWithStats(request.Text, secretKey)
+		return encodeInvokeResponse(result, err)
+	}
 	config, err := share.ConvertShareLinksToXrayJsonWithAge(request.Text, secretKey)
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
@@ -202,10 +206,11 @@ func invokePingBatch(payload json.RawMessage) string {
 		}
 	}
 
-	results, err := xray.PingBatch(
+	results, err := xray.PingBatchWithLocation(
 		configs,
 		request.Timeout,
 		request.URL,
+		request.LocationURL,
 	)
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
@@ -214,9 +219,11 @@ func invokePingBatch(payload json.RawMessage) string {
 	responseResults := make([]PingBatchItemResponse, len(results))
 	for i, result := range results {
 		responseResults[i] = PingBatchItemResponse{
-			Success: result.Success,
-			Delay:   result.Delay,
-			Error:   result.Error,
+			Success:       result.Success,
+			Delay:         result.Delay,
+			Error:         result.Error,
+			Location:      result.Location,
+			LocationError: result.LocationError,
 		}
 	}
 	return encodeInvokeResponse(&PingBatchResponse{Results: responseResults}, nil)

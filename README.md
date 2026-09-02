@@ -399,6 +399,29 @@ convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
 convert VMessQRCode to Xray Json.
 
+#### Optional parsing counts
+
+Set `payload.includeStats: true` on `convertShareLinksToXrayJson` to return
+`data: {"config":{"outbounds":[...]},"usableCount":2,"failedCount":1}`.
+Omitting it (or setting it to `false`) preserves the original `data.outbounds`
+response and conversion behavior.
+
+Counts describe this input only, not added/changed nodes. Each root JSON
+`outbounds` element or YAML `proxies` element is one candidate. In detected
+share-link lists, each URI-like row is one candidate; blank lines, comments and
+text headers are ignored. Base64 and age wrappers use the inner format's
+candidates. Stats mode skips malformed individual elements without discarding
+other valid elements. `usableCount` equals the final projected, buildable
+outbound count; parse, build and unsupported-projection failures count toward
+`failedCount`. No per-node hash comparison or deduplication is performed.
+
+A recognized container with zero usable nodes returns `success: false` with
+structured counts and `config: {"outbounds":[]}`. An unrecognized format,
+malformed whole document, invalid container or decryption failure returns
+`data: null`; counts are not guessed. Error text never includes rejected
+candidates or decrypted subscription text. Callers must not import/replace a
+subscription when no usable nodes remain.
+
 ### age-encrypted subscriptions
 
 `convertShareLinksToXrayJson` accepts an optional native age secret key. Only
@@ -472,7 +495,8 @@ by the `proxy` tag, and finally by the first outbound.
       }
     ],
     "timeout": 5,
-    "url": "https://cp.cloudflare.com/"
+    "url": "https://cp.cloudflare.com/",
+    "locationUrl": "https://ip-check-perf.radar.cloudflare.com/"
   }
 }
 ```
@@ -483,10 +507,29 @@ fail before any configuration is tested.
 
 The top-level response succeeds when the batch itself was accepted. Each item
 has its own result; `delay` is `10000` for an error and `11000` for a timeout.
+`delay` is always present, including a successful zero-millisecond result.
 The result array has the same length and order as the input config array.
 Outbound dependencies referenced by
 `streamSettings.sockopt.dialerProxy` or `proxySettings.tag` are included
 automatically.
+
+`locationUrl` is optional and must be an absolute HTTP(S) URL. When omitted,
+no location request is made and no location fields are returned. When supplied,
+each prepared item sends its latency HEAD and then its location GET using the
+same client forced through that item's selected outbound and dependencies.
+Each request has the configured timeout (so an item may take up to twice it).
+Location time is not included in `delay`, and the two results are independent:
+`success`, `delay` and `error` describe latency only; a location failure does not
+invalidate a successful latency result, and GET is still attempted after a
+latency failure.
+
+A successful GET adds `location: {"ip":"203.0.113.1","countryCode":"JP"}`.
+The provider must return HTTP 200 and at most 64 KiB of JSON containing
+Cloudflare's `ip_address`/`country` pair or normalized `ip`/`countryCode`.
+The IP must be valid and the country code must be two ASCII letters (returned
+uppercase). An invalid/missing location instead adds `locationError`; errors
+do not echo the URL, credentials or response body. Invalid outbound configs
+retain their ordinary per-item failure and do not perform either request.
 
 ### testXray
 
