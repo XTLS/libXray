@@ -212,6 +212,15 @@ func TestRuntimeConfigAndStateBoundary(t *testing.T) {
 		func(c *RuntimeConfig) { c.InboundTag = "" },
 		func(c *RuntimeConfig) { c.PlanID = " " },
 		func(c *RuntimeConfig) { c.PlanID = strings.Repeat("x", 257) },
+		func(c *RuntimeConfig) { c.Listen = "127.0.0.1:12345" },
+		func(c *RuntimeConfig) { c.Token = strings.Repeat("a", 32) },
+		func(c *RuntimeConfig) { c.Listen, c.Token = "0.0.0.0:12345", strings.Repeat("a", 32) },
+		func(c *RuntimeConfig) { c.Listen, c.Token = "localhost:12345", strings.Repeat("a", 32) },
+		func(c *RuntimeConfig) { c.Listen, c.Token = "[::1]:12345", strings.Repeat("a", 32) },
+		func(c *RuntimeConfig) { c.Listen, c.Token = "127.0.0.1:0", strings.Repeat("a", 32) },
+		func(c *RuntimeConfig) { c.Listen, c.Token = "127.0.0.1:65536", strings.Repeat("a", 32) },
+		func(c *RuntimeConfig) { c.Listen, c.Token = "127.0.0.1:12345", strings.Repeat("A", 32) },
+		func(c *RuntimeConfig) { c.Listen, c.Token = "127.0.0.1:12345", "secret" },
 	} {
 		invalid := config
 		mutate(&invalid)
@@ -240,7 +249,7 @@ func TestRuntimeConfigAndStateBoundary(t *testing.T) {
 
 func TestManagedRuntimeStartFailureAndStop(t *testing.T) {
 	t.Cleanup(func() { _ = StopXray() })
-	config := runtimeConfig(t)
+	config := runtimeHTTPConfig(t)
 	if err := RunXrayWithRuntime(minimalConfig, &config); err == nil || GetXrayState() {
 		t.Fatal("missing statistics were accepted")
 	}
@@ -255,6 +264,14 @@ func TestManagedRuntimeStartFailureAndStop(t *testing.T) {
 		t.Fatal("occupied inbound port did not fail startup")
 	}
 	_ = listener.Close()
+	statisticsListener, err := net.Listen("tcp4", config.Listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := RunXrayWithRuntime(xrayJSON, &config); err == nil || GetXrayState() {
+		t.Fatal("occupied statistics port did not close the constructed core")
+	}
+	_ = statisticsListener.Close()
 	validPath := config.StatePath
 	config.StatePath = filepath.Join(filepath.Dir(validPath), "missing", "runtime.json")
 	if err := RunXrayWithRuntime(xrayJSON, &config); err == nil || GetXrayState() {
@@ -273,6 +290,11 @@ func TestManagedRuntimeStartFailureAndStop(t *testing.T) {
 	if err := StopXray(); err == nil || GetXrayState() {
 		t.Fatalf("failed final save did not close core: %v", err)
 	}
+	statisticsListener, err = net.Listen("tcp4", config.Listen)
+	if err != nil {
+		t.Fatalf("failed final save leaked the statistics listener: %v", err)
+	}
+	_ = statisticsListener.Close()
 	next, err := prepareRuntime(&config)
 	if err != nil {
 		t.Fatalf("stop did not release ownership: %v", err)

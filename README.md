@@ -591,7 +591,9 @@ with this object (also the complete content of the desktop `-runtime` file):
 {
   "statePath": "/private/app/run/runtime.json",
   "planId": "opaque-plan-id",
-  "inboundTag": "tunIn"
+  "inboundTag": "tunIn",
+  "listen": "127.0.0.1:49228",
+  "token": "538fc3253a3e433491bc2d653fc74214"
 }
 ```
 
@@ -600,8 +602,12 @@ The host supplies an existing private directory and an absolute `statePath`.
 opaque and must not contain credentials. Metadata stays separate from Xray
 JSON, so user configuration cannot override it. The named inbound must exist,
 with uplink/downlink system statistics and a statistics manager enabled.
-Invalid metadata, corrupt saved state, an archive failure, or an initial save
-failure rejects startup; any constructed core is closed.
+`listen` and `token` may both be omitted to save snapshots without HTTP. When
+enabled, `listen` must be `127.0.0.1:<port>` with port 1–65535, and the host must
+generate a fresh random 32-character lowercase hex `token`. Keep it private;
+do not reuse the example token. Invalid metadata, an occupied HTTP port, corrupt
+saved state, an archive failure, or an initial save failure rejects startup;
+any constructed core and statistics listener are closed.
 
 The saved file contains only the current session's raw inbound counter values:
 
@@ -635,7 +641,7 @@ counter rollback is recorded as the smaller raw value, not a synthetic delta.
 Missing or negative counters set `available: false` and
 `error: "counters_unavailable"`, retaining the last valid nonnegative values.
 Idle valid counters report available zero. There are no application-wide totals,
-reset generations, runtime HTTP endpoints, control ports, or tokens.
+reset generations, or VPN control HTTP methods.
 `resetRuntime` is not an Invoke method. Applications may read existing Xray
 metrics for live rates; their own totals/reset policy stays outside libXray.
 
@@ -645,8 +651,9 @@ snapshot is atomically archived beside it as
 timestamps, and any unset ending; it does not infer missing traffic or a crash
 time. Repeated unsuccessful starts reuse the same archive filename. A failed
 preparation may therefore leave the same session in both current and archive;
-consumers must identify sessions by ID, not count files. Archives are never
-cleaned up by libXray, and their counters are never carried into the new session.
+consumers must identify sessions by ID, not count files. Archives are retained
+until the App explicitly acknowledges them; their counters are never carried
+into the new session.
 The archive directory rejects symlinks/non-directories and is created mode 0700.
 
 Snapshot files use a mode-0600 same-directory temporary file, sync, and atomic
@@ -654,7 +661,8 @@ replacement (Windows uses `MoveFileEx` with replace-existing and write-through).
 The private parent directory/Windows ACL remains the host's responsibility.
 Failed saves leave the previous complete disk snapshot for later retry; a final
 save error is returned but never prevents core shutdown. An error after rename
-can have an uncertain persistence outcome, so consumers must re-read the file.
+can have an uncertain persistence outcome, so consumers must re-read saved
+snapshots through HTTP when available.
 This is reference data, not billing: crashes/forced termination can lose the
 tail after the last successful save, with no strict 30-second loss bound. A
 restart archives only that last saved tail and does not fabricate final values.
@@ -662,10 +670,40 @@ restart archives only that last saved tail and does not fabricate final values.
 A nonblocking OS lock on `statePath + ".lock"` is held until core close,
 preventing another process from writing the same current/archive sequence.
 Hosts must use one consistent canonical path and leave the lock file in place.
-UI code reads snapshots but does not write them while the host owns the path.
-This does not solve macOS System Extension root-owned file access or provide
-graceful final settlement when Windows forcibly terminates a job. Those platform
-boundaries remain the integrating application's responsibility.
+App code reads snapshots through HTTP instead of opening the host's files, so
+macOS System Extension files can remain root-owned. This does not provide
+graceful final settlement when Windows forcibly terminates a job.
+
+#### Snapshot HTTP
+
+The optional statistics listener starts with the managed session and closes on
+stop, including when the final save fails. It uses a separate loopback port
+from Xray's native metrics; it provides no VPN start/stop/configuration methods.
+Every request requires `Authorization: Bearer <token>`. Responses use
+`Cache-Control: no-store`; CORS is not enabled.
+
+- `GET /runtime` returns `{"current": <snapshot-or-null>, "archived": [<snapshot>, ...]}`.
+- `POST /runtime/ack` accepts `{"removeSessionIds": ["<session-id>", ...]}` and
+  returns the same shape with the remaining archives. IDs must be 32-character
+  lowercase hex. Unknown IDs are harmless, repeated acknowledgment is safe,
+  and the current session is never deleted, including its duplicate archive.
+
+Requests read the host's saved atomic snapshots, without sampling, resetting
+counters, or updating the save time. Use native metrics for live rates. The App
+must durably save its totals/session watermarks **before** acknowledging archives;
+if the HTTP request fails, retain the watermarks and retry. Failed deletions
+remain in the returned archive list. Only valid snapshot files immediately in
+the host's own `runtime-sessions` directory are eligible; request paths and
+symlinks are rejected. A corrupt snapshot makes the request fail rather than
+silently lose accounting data.
+
+Acknowledgment bodies are limited to 64 KiB and responses to 16 MiB; requests
+have bounded read/write timeouts. There is no pagination. If unacknowledged
+archives exceed the response limit, the request fails and the App retains its
+last known data. While stopped, HTTP is unavailable: the App can show its own
+persisted last-known snapshot/totals, retain reset watermarks, and reconcile
+saved tails and archives on the next connection. libXray never owns App totals
+or clear/reset policy.
 
 ### metrics
 

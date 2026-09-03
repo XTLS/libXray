@@ -98,8 +98,10 @@ until `stopXray` closes the current instance.
 Optional `runXray.payload.runtime` saves only the current session's inbound
 counters periodically and on normal stop. Before replacing the current file,
 the previous session is archived for the App to reconcile. The App owns device
-totals and reset; live reads use Xray's native metrics endpoint. Read README.md's
-"Managed runtime accounting" section before changing session persistence.
+totals and reset; live reads use Xray's native metrics endpoint. Optional runtime
+`listen`/`token` expose saved snapshots and archive acknowledgments over an
+authenticated loopback HTTP listener. Read README.md's "Managed runtime
+accounting" section before changing persistence, acknowledgment, or HTTP access.
 
 `testXray` (default `buildOnly: false`) and `pingBatch` create temporary Xray
 instances. Xray-core has process-wide DNS client and outbound manager state.
@@ -203,9 +205,9 @@ manually.
 
 # Development Rules
 
-1. Use `Invoke` for typed commands and Xray metrics for live counters. Session
-   persistence does not introduce a second HTTP server. Platform-only controller
-   APIs remain isolated by build tags.
+1. Use `Invoke` for typed commands, Xray metrics for live counters, and runtime
+   HTTP only for saved snapshots/archive acknowledgments. Keep App totals/reset
+   outside libXray and platform-only controller APIs isolated by build tags.
 2. Define request and response fields as typed Go models in `invoke_model.go`.
    Do not pass unstructured maps into package business logic.
 3. Treat method names, JSON keys, response shapes, and `apiVersion` as a public

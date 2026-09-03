@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xtls/xray-core/core"
@@ -23,6 +26,8 @@ type RuntimeConfig struct {
 	StatePath  string `json:"statePath"`
 	PlanID     string `json:"planId"`
 	InboundTag string `json:"inboundTag"`
+	Listen     string `json:"listen,omitempty"`
+	Token      string `json:"token,omitempty"`
 }
 
 type RuntimeSession struct {
@@ -51,6 +56,10 @@ type managedRuntime struct {
 	manager              stats.Manager
 	stateLock            *os.File
 	stopTicker, tickDone chan struct{}
+	httpServer           *http.Server
+	httpListener         net.Listener
+	httpMu               sync.Mutex
+	httpClosed           bool
 }
 
 func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
@@ -60,6 +69,9 @@ func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
 	if !filepath.IsAbs(config.StatePath) || strings.TrimSpace(config.PlanID) == "" || len(config.PlanID) > 256 ||
 		strings.TrimSpace(config.InboundTag) == "" || len(config.InboundTag) > 256 {
 		return nil, errors.New("runtime requires an absolute statePath, planId, and inboundTag")
+	}
+	if err := validateRuntimeHTTP(config); err != nil {
+		return nil, err
 	}
 	stateLock, err := lockRuntimeState(config.StatePath)
 	if err != nil {
@@ -139,9 +151,19 @@ func (r *managedRuntime) counterName(direction string) string {
 }
 
 func (r *managedRuntime) start() error {
+	listener, err := r.listenHTTP()
+	if err != nil {
+		return err
+	}
 	r.sample()
 	if err := r.save(); err != nil {
+		if listener != nil {
+			_ = listener.Close()
+		}
 		return err
+	}
+	if listener != nil {
+		r.serveHTTP(listener)
 	}
 	r.stopTicker, r.tickDone = make(chan struct{}), make(chan struct{})
 	go func() {
@@ -199,13 +221,26 @@ func (r *managedRuntime) stop() error {
 	if r.stopTicker == nil {
 		return nil
 	}
+	var httpErr error
+	if r.httpServer != nil {
+		httpErr = r.httpServer.Close()
+		// Close also covers an immediate stop before Serve registers the listener.
+		_ = r.httpListener.Close()
+		r.httpServer = nil
+		r.httpListener = nil
+		// Close connections, then finish any filesystem request before releasing
+		// the session owner lock. Queued handlers cannot acknowledge after stop.
+		r.httpMu.Lock()
+		r.httpClosed = true
+		r.httpMu.Unlock()
+	}
 	close(r.stopTicker)
 	<-r.tickDone
 	r.stopTicker = nil
 	// The ticker has exited, so the final sample/write cannot race a periodic one.
 	r.sample()
 	r.snapshot.Session.EndedAtMs = time.Now().UnixMilli()
-	return r.save()
+	return errors.Join(httpErr, r.save())
 }
 
 func readRuntimeState(path string) (RuntimeSnapshot, error) {

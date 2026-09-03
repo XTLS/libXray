@@ -474,14 +474,19 @@ API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留�
 {
   "statePath": "/private/app/run/runtime.json",
   "planId": "opaque-plan-id",
-  "inboundTag": "tunIn"
+  "inboundTag": "tunIn",
+  "listen": "127.0.0.1:49228",
+  "token": "538fc3253a3e433491bc2d653fc74214"
 }
 ```
 
 宿主提供已存在的私有目录和绝对 `statePath`。`planId` / `inboundTag` 非空且
 各不超过 256 字节；`planId` 是不包含凭据的不透明标识。元数据独立于 Xray JSON，
 用户配置不能覆盖。指定入站必须存在，并启用上下行系统统计和 stats manager。
-元数据无效、已有快照损坏、归档失败或首次保存失败均拒绝启动，并关闭已构建的核心。
+`listen` / `token` 可同时省略，保留仅落盘、不启用 HTTP 的行为。启用时 `listen`
+只能是 `127.0.0.1:<port>`，端口范围 1–65535；宿主须生成新的 32 位小写十六进制
+随机 `token` 并保密，不能复用示例值。元数据无效、HTTP 端口被占用、已有快照损坏、
+归档失败或首次保存失败均拒绝启动，并关闭已构建的核心和统计监听器。
 
 落盘文件仅包含本次会话的原始入站计数：
 
@@ -511,28 +516,50 @@ API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留�
 采样直接读取指定入站的 `Value()`，不重置计数，不叠加节点或 outbound 计数。
 重复采样不累加字节；非负计数回退时保存实际较小值，不合成差额。计数缺失或为负时，
 `available: false`、`error: "counters_unavailable"`，保留上次合法的非负值。
-有效入站尚无流量时为可用的 0。不维护 App 总量、重置代次、runtime HTTP 接口、
-控制端口或 token。`resetRuntime` 不是 Invoke method。App 可通过已有 Xray metrics
+有效入站尚无流量时为可用的 0。不维护 App 总量、重置代次，也不提供 VPN 控制 HTTP
+方法。`resetRuntime` 不是 Invoke method。App 可通过已有 Xray metrics
 读取实时速率；App 累计与重置策略由 App 自行管理，不属于 libXray。
 
 新会话覆盖 `runtime.json` 前，先将已有合法快照原子归档到同级目录
 `runtime-sessions/<session-id>.json`。归档保留原始计数、时间及可能未设置的结束
 时间，不推测丢失流量或崩溃时间。重复启动失败使用同一个归档文件名；准备失败时，
 当前文件和归档可能同时存在相同会话，消费者必须按 session ID 识别，不能按文件数
-重复计入。libXray 不清理归档，也不把旧计数继承到新会话。归档目录以 0700 创建，
+重复计入。归档保留至 App 显式确认结算，不把旧计数继承到新会话。归档目录以 0700 创建，
 拒绝符号链接和非目录对象。
 
 快照文件使用同目录 0600 临时文件，sync 后原子替换；Windows 使用
 `MoveFileEx` 的替换和 write-through 标志。私有父目录/Windows ACL 由宿主管理。
 保存失败保留上次完整磁盘快照供后续重试；最终保存失败向调用方报告，但仍关闭核心。
-rename 后发生 I/O 错误时结果可能不确定，消费者应重新读取文件。这是参考数据，
+rename 后发生 I/O 错误时结果可能不确定，消费者应在 HTTP 可用时重新读取已保存的快照。这是参考数据，
 不是计费账本：崩溃/强杀允许丢失最后成功保存后的尾部，不承诺严格 30 秒丢失上限。
 下次启动只归档已有快照，不伪造最终计数。
 
 `statePath + ".lock"` 的非阻塞操作系统文件锁保持至核心关闭，防止跨进程同时
-改写当前快照和归档。宿主须使用一致的规范路径并保留锁文件。UI 只读快照，不能在
-宿主持有路径期间直接写入。此能力不解决 macOS System Extension 的 root 文件访问
-权限，也不能让 Windows Job 强制终止获得正常最终结算；这些平台边界仍由接入方处理。
+改写当前快照和归档。宿主须使用一致的规范路径并保留锁文件。App 经 HTTP 读取快照，
+无需打开宿主文件，因此 macOS System Extension 文件可继续归 root 所有。此能力
+不能让 Windows Job 强制终止获得正常最终结算。
+
+#### 快照 HTTP
+
+可选统计监听器随托管会话启动，在停止时关闭，最终保存失败也会关闭。它使用独立于
+Xray 原生 metrics 的回环端口，不提供 VPN 启停或配置方法。所有请求必须携带
+`Authorization: Bearer <token>`；响应使用 `Cache-Control: no-store`，不启用 CORS。
+
+- `GET /runtime` 返回 `{"current": <snapshot 或 null>, "archived": [<snapshot>, ...]}`。
+- `POST /runtime/ack` 接收 `{"removeSessionIds": ["<session-id>", ...]}`，返回相同结构，
+  其中只保留剩余归档。ID 必须为 32 位小写十六进制；不存在的 ID 无副作用，支持重复确认；
+  当前会话及其重复归档永不删除。
+
+请求只读取宿主已保存的原子快照，不触发采样、计数重置或保存时间更新；实时速率仍使用
+原生 metrics。App 必须**先持久保存累计值及会话水位，再确认归档**；HTTP 请求失败时
+保留水位并重试。删除失败的归档仍出现在响应列表。仅宿主自身 `runtime-sessions`
+目录直接包含的合法快照文件可被清理，不接受请求路径，拒绝符号链接。快照损坏会使
+请求失败，不静默丢弃统计数据。
+
+确认请求体限制 64 KiB，响应限制 16 MiB，读写有超时限制，不提供分页。未确认归档超出
+响应上限时请求失败，App 保留最后已知数据。停止期间 HTTP 不可用：App 可展示自身
+持久化的最后已知快照及累计值，保留清零水位，在下次连接时补结算保存的尾部与归档。
+libXray 不维护 App 累计值或清零策略。
 
 ### metrics
 
