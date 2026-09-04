@@ -10,18 +10,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ParseStats counts source candidates, not lines or changes to a subscription.
+// ConvertShareLinksResult counts source candidates, not lines or changes to a subscription.
 // Config contains exactly the projected, buildable outbounds counted as usable.
-type ParseStats struct {
+type ConvertShareLinksResult struct {
 	Config      json.RawMessage `json:"config"`
 	UsableCount int             `json:"usableCount"`
 	FailedCount int             `json:"failedCount"`
 }
 
-// ConvertShareLinksToXrayJsonWithStats leaves the legacy conversion API intact.
+// ConvertShareLinksToXrayJson parses share links or an Age-encrypted subscription.
 // A recognized candidate container with no usable nodes returns both its counts
 // and an error. Whole-document/decryption failures return no invented counts.
-func ConvertShareLinksToXrayJsonWithStats(links, secretKey string) (*ParseStats, error) {
+func ConvertShareLinksToXrayJson(links, secretKey string) (*ConvertShareLinksResult, error) {
 	text, encrypted, err := decryptShareText(links, secretKey)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func ConvertShareLinksToXrayJsonWithStats(links, secretKey string) (*ParseStats,
 		}
 		return nil, err
 	}
-	result := &ParseStats{Config: json.RawMessage(`{"outbounds":[]}`), FailedCount: candidates}
+	result := &ConvertShareLinksResult{Config: json.RawMessage(`{"outbounds":[]}`), FailedCount: candidates}
 	config, err = filterBuildableOutbounds(config)
 	if err == nil {
 		var raw json.RawMessage

@@ -175,7 +175,7 @@ The request is a JSON object:
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -195,7 +195,7 @@ The response is a JSON object:
 
 Design notes:
 
-1. Invoke currently accepts only `apiVersion: 4`. Xray configurations are
+1. Invoke currently accepts only `apiVersion: 5`. Xray configurations are
    passed as UTF-8 JSON text in `xrayJson`; libXray does not read configuration
    file paths.
 2. A top-level `env` field is ignored and has no effect. Xray-core runtime
@@ -216,6 +216,8 @@ Design notes:
    fields supported by libXray share links; unsupported and generated empty
    fields are omitted. Opaque XHTTP `extra` and FinalMask mask `settings` JSON
    remain unchanged.
+   Every successful response returns the projected config together with
+   `usableCount` and `failedCount`.
    Its optional `age.secretKey` decrypts official age ASCII armor in memory
    before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in
@@ -277,13 +279,13 @@ The lifecycle lock and managed-instance overlap rejection still apply.
 
 ### Draft route checking
 
-In API version 4, `checkRoute` accepts a complete draft in
+In API version 5, `checkRoute` accepts a complete draft in
 `xrayJson` and calls the pinned Xray-core Router, without starting the temporary
 instance or dispatching traffic to the supplied target:
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "checkRoute",
   "payload": {
     "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
@@ -429,19 +431,18 @@ convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
 convert VMessQRCode to Xray Json.
 
-#### Optional parsing counts
+#### Parsing result
 
-Set `payload.includeStats: true` on `convertShareLinksToXrayJson` to return
+`convertShareLinksToXrayJson` has one response shape. Its payload contains
+`text` and optional `age`. Every successful conversion returns
 `data: {"config":{"outbounds":[...]},"usableCount":2,"failedCount":1}`.
-Omitting it (or setting it to `false`) preserves the original `data.outbounds`
-response and conversion behavior.
 
 Counts describe this input only, not added/changed nodes. Each root JSON
 `outbounds` element or YAML `proxies` element is one candidate. In detected
 share-link lists, each URI-like row is one candidate; blank lines, comments and
 text headers are ignored. Base64 and age wrappers use the inner format's
-candidates. Stats mode skips malformed individual elements without discarding
-other valid elements. `usableCount` equals the final projected, buildable
+candidates. Malformed individual elements are skipped without discarding other
+valid elements. `usableCount` equals the final projected, buildable
 outbound count; parse, build and unsupported-projection failures count toward
 `failedCount`. No per-node hash comparison or deduplication is performed.
 
@@ -461,7 +462,7 @@ decrypted in memory and limited to 16 MiB of plaintext.
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -479,7 +480,7 @@ Generate a new keypair with `keyType` set to `x25519` or `hybrid`. An omitted
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -512,7 +513,7 @@ by the `proxy` tag, and finally by the first outbound.
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -567,7 +568,7 @@ configuration file:
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -582,7 +583,7 @@ to stop that instance. `runXrayFromJson` is no longer a separate method.
 
 ### Managed runtime accounting
 
-`runXray.payload.runtime` is optional API v4 host metadata. Omitting it
+`runXray.payload.runtime` is optional API v5 host metadata. Omitting it
 preserves the original lifecycle and writes no runtime snapshots. Hosts opt in
 with this object (also the complete content of the desktop `-runtime` file):
 

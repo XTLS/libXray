@@ -32,12 +32,12 @@ the generic API.
 
 # Invoke API Contract
 
-The current API version is `4`. Requests using an omitted or different
+The current API version is `5`. Requests using an omitted or different
 `apiVersion` are rejected.
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -79,6 +79,12 @@ native key generation, in-memory armor decryption, and parsing. Integrating
 applications own HTTP headers, persistence of both generated keys, and refresh
 behavior. Never log age secret keys, decrypted subscription text, or complete
 Invoke requests containing those values.
+
+`convertShareLinksToXrayJson` accepts `text` and optional `age` fields and has
+one result shape. Every successful call returns a data object containing
+`config`, `usableCount`, and `failedCount`. A recognized container with no
+usable nodes returns the same object with `success: false`; whole-document and
+decryption failures return `data: null` because counts are unknown.
 
 `pingBatch`, `testXray`, `checkRoute`, and `runXray` receive serialized Xray
 configuration text through `xrayJson`. They must not accept or read an application-provided

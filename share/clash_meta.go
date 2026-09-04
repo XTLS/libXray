@@ -3,16 +3,10 @@ package share
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/xtls/xray-core/infra/conf"
 )
 
 // https://github.com/MetaCubeX/mihomo/blob/Alpha/docs/config.yaml
-
-type ClashYaml struct {
-	Proxies []ClashProxy `yaml:"proxies,omitempty"`
-}
 
 type ClashProxy struct {
 	Name       string `yaml:"name,omitempty"`
@@ -126,30 +120,6 @@ type ClashProxyXhttpOptsDownloadSettings struct {
 	Fingerprint       string                 `yaml:"fingerprint,omitempty"`
 	Servername        string                 `yaml:"servername,omitempty"`
 	ClientFingerprint string                 `yaml:"client-fingerprint,omitempty"`
-}
-
-func tryToParseClashYaml(text string) (*conf.Config, error) {
-	var clash ClashYaml
-	if err := yaml.Unmarshal([]byte(text), &clash); err != nil {
-		return nil, err
-	}
-	config := clash.toXrayConfig()
-	if len(config.OutboundConfigs) == 0 {
-		return nil, fmt.Errorf("no valid outbound found")
-	}
-	return config, nil
-}
-
-func (clash ClashYaml) toXrayConfig() *conf.Config {
-	outbounds := make([]conf.OutboundDetourConfig, 0, len(clash.Proxies))
-	for _, proxy := range clash.Proxies {
-		outbound, err := proxy.outbound()
-		if err != nil {
-			continue
-		}
-		outbounds = append(outbounds, *outbound)
-	}
-	return &conf.Config{OutboundConfigs: outbounds}
 }
 
 func (proxy ClashProxy) outbound() (*conf.OutboundDetourConfig, error) {

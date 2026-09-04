@@ -7,7 +7,6 @@ import (
 
 	"github.com/metacubex/age"
 	"github.com/metacubex/age/armor"
-	"github.com/xtls/xray-core/infra/conf"
 )
 
 const (
@@ -60,18 +59,6 @@ func GenerateAgeKeyPair(keyType AgeKeyType) (*AgeKeyPair, error) {
 	default:
 		return nil, ErrAgeKeyTypeUnsupported
 	}
-}
-
-func ConvertShareLinksToXrayJsonWithAge(links, secretKey string) (*conf.Config, error) {
-	text, encrypted, err := decryptShareText(links, secretKey)
-	if err != nil {
-		return nil, err
-	}
-	config, err := ConvertShareLinksToXrayJson(text)
-	if err != nil && encrypted {
-		return nil, ErrAgePlaintextUnsupported
-	}
-	return config, err
 }
 
 func decryptShareText(links, secretKey string) (string, bool, error) {

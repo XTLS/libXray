@@ -77,6 +77,16 @@ func decodeDataObject[T any](t *testing.T, response testResponse) T {
 	return value
 }
 
+func decodeShareConfig(t *testing.T, response testResponse) (ConvertShareLinksToXrayJsonResponse, conf.Config) {
+	t.Helper()
+	result := decodeDataObject[ConvertShareLinksToXrayJsonResponse](t, response)
+	var config conf.Config
+	if err := json.Unmarshal(result.Config, &config); err != nil {
+		t.Fatal(err)
+	}
+	return result, config
+}
+
 func writeGeoSiteDatForTest(t *testing.T, path string) {
 	t.Helper()
 	data, err := proto.Marshal(&geodata.GeoSiteList{
@@ -285,7 +295,7 @@ func TestInvokeCheckRoute(t *testing.T) {
 	if response.Success || string(response.Data) != "null" {
 		t.Fatalf("invalid target should fail without evidence: %+v", response)
 	}
-	response = invokeRawForTest(t, `{"apiVersion":4,"method":"checkRoute","payload":{"port":"443"}}`)
+	response = invokeRawForTest(t, `{"apiVersion":5,"method":"checkRoute","payload":{"port":"443"}}`)
 	if response.Success {
 		t.Fatal("invalid typed field accepted")
 	}
@@ -345,7 +355,7 @@ func TestInvokeRunXrayRuntimeIsOptionalTypedMetadata(t *testing.T) {
 	if response.Success || !strings.Contains(response.Err, "absolute statePath") {
 		t.Fatalf("runtime validation was bypassed: %+v", response)
 	}
-	response = invokeRawForTest(t, `{"apiVersion":4,"method":"runXray","payload":{"xrayJson":"{}","runtime":"invalid"}}`)
+	response = invokeRawForTest(t, `{"apiVersion":5,"method":"runXray","payload":{"xrayJson":"{}","runtime":"invalid"}}`)
 	if response.Success {
 		t.Fatal("untyped runtime metadata was accepted")
 	}
@@ -456,7 +466,10 @@ func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
 	if !response.Success {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
 	}
-	config := decodeDataObject[conf.Config](t, response)
+	result, config := decodeShareConfig(t, response)
+	if result.UsableCount != 1 || result.FailedCount != 1 {
+		t.Fatalf("result = %+v, want 1 usable and 1 failed", result)
+	}
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
@@ -482,23 +495,23 @@ func TestInvokeConvertShareLinksReturnsProjectedObject(t *testing.T) {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
 	}
 
+	result, config := decodeShareConfig(t, response)
 	var root map[string]json.RawMessage
-	if err := json.Unmarshal(response.Data, &root); err != nil {
-		t.Fatalf("data is not an object: %s", response.Data)
+	if err := json.Unmarshal(result.Config, &root); err != nil {
+		t.Fatalf("config is not an object: %s", result.Config)
 	}
 	if len(root) != 1 || root["outbounds"] == nil {
-		t.Fatalf("data root = %s, want only outbounds", response.Data)
+		t.Fatalf("config root = %s, want only outbounds", result.Config)
 	}
 	for _, field := range []string{"publicKey", "target", "dest", "proxySettings", "sockopt"} {
-		if bytes.Contains(response.Data, []byte(`"`+field+`"`)) {
-			t.Fatalf("data contains unsupported field %q: %s", field, response.Data)
+		if bytes.Contains(result.Config, []byte(`"`+field+`"`)) {
+			t.Fatalf("config contains unsupported field %q: %s", field, result.Config)
 		}
 	}
-	if !bytes.Contains(response.Data, []byte(`"password":"`+publicKey+`"`)) {
-		t.Fatalf("data did not canonicalize REALITY password: %s", response.Data)
+	if !bytes.Contains(result.Config, []byte(`"password":"`+publicKey+`"`)) {
+		t.Fatalf("config did not canonicalize REALITY password: %s", result.Config)
 	}
 
-	config := decodeDataObject[conf.Config](t, response)
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
@@ -553,7 +566,10 @@ func TestInvokeAgeKeyGenerationAndConversion(t *testing.T) {
 	if !converted.Success {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", converted.Err)
 	}
-	config := decodeDataObject[conf.Config](t, converted)
+	result, config := decodeShareConfig(t, converted)
+	if result.UsableCount != 1 || result.FailedCount != 0 {
+		t.Fatalf("result = %+v, want 1 usable and 0 failed", result)
+	}
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
@@ -602,8 +618,9 @@ func TestInvokeConvertShareLinksFailsWhenAllOutboundsAreBuildInvalid(t *testing.
 	if !strings.Contains(response.Err, "no valid outbound found") {
 		t.Fatalf("error = %q", response.Err)
 	}
-	if got := string(response.Data); got != "null" {
-		t.Fatalf("data = %s, want null", got)
+	result, config := decodeShareConfig(t, response)
+	if result.UsableCount != 0 || result.FailedCount != 1 || len(config.OutboundConfigs) != 0 {
+		t.Fatalf("result = %+v, config = %+v", result, config)
 	}
 }
 
@@ -734,7 +751,7 @@ func TestInvokeRemovedMethods(t *testing.T) {
 	for _, method := range []string{"ping", "runXrayFromJson", "deriveAgePublicKey"} {
 		response := invokeRawForTest(
 			t,
-			`{"apiVersion":4,"method":"`+method+`","payload":{}}`,
+			`{"apiVersion":5,"method":"`+method+`","payload":{}}`,
 		)
 		if response.Success {
 			t.Fatalf("removed method %q should fail", method)
@@ -786,17 +803,17 @@ func TestInvokeAPIVersion(t *testing.T) {
 		t.Fatal("omitted apiVersion should fail")
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":3,"method":"xrayVersion"}`)
+	response = invokeRawForTest(t, `{"apiVersion":4,"method":"xrayVersion"}`)
 	if response.Success {
-		t.Fatal("v3 apiVersion should fail")
+		t.Fatal("v4 apiVersion should fail")
 	}
 	if got := string(response.Data); got != "null" {
 		t.Fatalf("data = %s, want null", got)
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":4,"method":"xrayVersion"}`)
+	response = invokeRawForTest(t, `{"apiVersion":5,"method":"xrayVersion"}`)
 	if !response.Success {
-		t.Fatalf("v4 apiVersion should succeed: %s", response.Err)
+		t.Fatalf("v5 apiVersion should succeed: %s", response.Err)
 	}
 }
 
@@ -807,7 +824,7 @@ func TestInvokeNoDataResponseShape(t *testing.T) {
 	}
 	requireNoDataObject(t, response)
 
-	response = invokeRawForTest(t, `{"apiVersion":4,"method":"runXray","payload":"invalid"}`)
+	response = invokeRawForTest(t, `{"apiVersion":5,"method":"runXray","payload":"invalid"}`)
 	if response.Success {
 		t.Fatal("invalid runXray payload should fail")
 	}
@@ -820,7 +837,7 @@ func TestInvokeIgnoresTopLevelEnv(t *testing.T) {
 	const key = "XRAY_LIBXRAY_UNKNOWN_ENV_TEST"
 	_ = os.Unsetenv(key)
 	t.Cleanup(func() { _ = os.Unsetenv(key) })
-	requestJSON := `{"apiVersion":4,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
+	requestJSON := `{"apiVersion":5,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
 	var response testResponse
 	if err := json.Unmarshal([]byte(Invoke(requestJSON)), &response); err != nil {
 		t.Fatal(err)

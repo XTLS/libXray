@@ -39,12 +39,12 @@ func TestGenerateAgeKeyPairRejectsUnsupportedType(t *testing.T) {
 	}
 }
 
-func TestConvertShareLinksToXrayJsonWithAgePlaintext(t *testing.T) {
+func TestConvertShareLinksToXrayJsonPlaintext(t *testing.T) {
 	pair, err := GenerateAgeKeyPair(AgeKeyTypeX25519)
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := ConvertShareLinksToXrayJsonWithAge(ageTestShareLink, pair.SecretKey)
+	config, err := convertShareLinksWithKeyForTest(ageTestShareLink, pair.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestConvertShareLinksToXrayJsonWithAgePlaintext(t *testing.T) {
 	}
 }
 
-func TestConvertShareLinksToXrayJsonWithAgeEncrypted(t *testing.T) {
+func TestConvertShareLinksToXrayJsonEncrypted(t *testing.T) {
 	for _, keyType := range []AgeKeyType{AgeKeyTypeX25519, AgeKeyTypeHybrid} {
 		t.Run(string(keyType), func(t *testing.T) {
 			pair, err := GenerateAgeKeyPair(keyType)
@@ -61,7 +61,7 @@ func TestConvertShareLinksToXrayJsonWithAgeEncrypted(t *testing.T) {
 				t.Fatal(err)
 			}
 			armored := encryptAgeForTest(t, pair, ageTestShareLink)
-			config, err := ConvertShareLinksToXrayJsonWithAge(armored, pair.SecretKey)
+			config, err := convertShareLinksWithKeyForTest(armored, pair.SecretKey)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -72,14 +72,14 @@ func TestConvertShareLinksToXrayJsonWithAgeEncrypted(t *testing.T) {
 	}
 }
 
-func TestConvertShareLinksToXrayJsonWithAgeErrors(t *testing.T) {
+func TestConvertShareLinksToXrayJsonErrors(t *testing.T) {
 	pair, err := GenerateAgeKeyPair(AgeKeyTypeX25519)
 	if err != nil {
 		t.Fatal(err)
 	}
 	armored := encryptAgeForTest(t, pair, ageTestShareLink)
 
-	_, err = ConvertShareLinksToXrayJsonWithAge(armored, "")
+	_, err = convertShareLinksWithKeyForTest(armored, "")
 	if !errors.Is(err, ErrAgeSecretKeyMissing) {
 		t.Fatalf("missing key error = %v", err)
 	}
@@ -88,7 +88,7 @@ func TestConvertShareLinksToXrayJsonWithAgeErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ConvertShareLinksToXrayJsonWithAge(armored, wrongPair.SecretKey)
+	_, err = convertShareLinksWithKeyForTest(armored, wrongPair.SecretKey)
 	if !errors.Is(err, ErrAgeDecryptFailed) {
 		t.Fatalf("wrong key error = %v", err)
 	}
@@ -96,13 +96,13 @@ func TestConvertShareLinksToXrayJsonWithAgeErrors(t *testing.T) {
 		t.Fatal("decryption error contains the secret key")
 	}
 
-	_, err = ConvertShareLinksToXrayJsonWithAge(ageArmorHeader+"\ninvalid", pair.SecretKey)
+	_, err = convertShareLinksWithKeyForTest(ageArmorHeader+"\ninvalid", pair.SecretKey)
 	if !errors.Is(err, ErrAgeArmorMalformed) {
 		t.Fatalf("malformed armor error = %v", err)
 	}
 }
 
-func TestConvertShareLinksToXrayJsonWithAgeRejectsLargePlaintext(t *testing.T) {
+func TestConvertShareLinksToXrayJsonRejectsLargePlaintext(t *testing.T) {
 	pair, err := GenerateAgeKeyPair(AgeKeyTypeX25519)
 	if err != nil {
 		t.Fatal(err)
@@ -112,20 +112,20 @@ func TestConvertShareLinksToXrayJsonWithAgeRejectsLargePlaintext(t *testing.T) {
 		pair,
 		strings.Repeat("x", maxAgePlaintextBytes+1),
 	)
-	_, err = ConvertShareLinksToXrayJsonWithAge(armored, pair.SecretKey)
+	_, err = convertShareLinksWithKeyForTest(armored, pair.SecretKey)
 	if !errors.Is(err, ErrAgePlaintextTooLarge) {
 		t.Fatalf("large plaintext error = %v", err)
 	}
 }
 
-func TestConvertShareLinksToXrayJsonWithAgeSanitizesParserErrors(t *testing.T) {
+func TestConvertShareLinksToXrayJsonSanitizesParserErrors(t *testing.T) {
 	pair, err := GenerateAgeKeyPair(AgeKeyTypeX25519)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sensitivePlaintext := "unsupported://user:password@example.com"
 	armored := encryptAgeForTest(t, pair, sensitivePlaintext)
-	_, err = ConvertShareLinksToXrayJsonWithAge(armored, pair.SecretKey)
+	_, err = convertShareLinksWithKeyForTest(armored, pair.SecretKey)
 	if !errors.Is(err, ErrAgePlaintextUnsupported) {
 		t.Fatalf("unsupported plaintext error = %v", err)
 	}

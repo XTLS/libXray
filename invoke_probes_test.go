@@ -19,7 +19,7 @@ func TestInvokeShareStatsResponseShape(t *testing.T) {
 		{validLink + "\nvless://bad@example.com:443", 1, 1, true},
 		{"vless://bad@example.com:443", 0, 1, false},
 	} {
-		response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson, ConvertShareLinksToXrayJsonRequest{Text: test.text, IncludeStats: true})
+		response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson, ConvertShareLinksToXrayJsonRequest{Text: test.text})
 		if response.Success != test.success {
 			t.Fatalf("success = %v, error = %s", response.Success, response.Err)
 		}
@@ -39,7 +39,7 @@ func TestInvokeShareStatsResponseShape(t *testing.T) {
 		}
 	}
 	for _, text := range []string{`{"outbounds":`, "-----BEGIN AGE ENCRYPTED FILE-----\ninvalid"} {
-		response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson, ConvertShareLinksToXrayJsonRequest{Text: text, IncludeStats: true})
+		response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson, ConvertShareLinksToXrayJsonRequest{Text: text})
 		if response.Success || string(response.Data) != "null" {
 			t.Fatalf("response = %+v", response)
 		}

@@ -10,7 +10,7 @@ import (
 
 type LibXrayMethod string
 
-const LibXrayAPIVersion = 4
+const LibXrayAPIVersion = 5
 
 const (
 	LibXrayMethodGetFreePorts                LibXrayMethod = "getFreePorts"
@@ -46,12 +46,11 @@ type AgeDecryptConfig struct {
 }
 
 type ConvertShareLinksToXrayJsonRequest struct {
-	Text         string            `json:"text,omitempty"`
-	Age          *AgeDecryptConfig `json:"age,omitempty"`
-	IncludeStats bool              `json:"includeStats,omitempty"`
+	Text string            `json:"text,omitempty"`
+	Age  *AgeDecryptConfig `json:"age,omitempty"`
 }
 
-type ConvertShareLinksToXrayJsonResponse = share.ParseStats
+type ConvertShareLinksToXrayJsonResponse = share.ConvertShareLinksResult
 
 type AgeKeyType string
 

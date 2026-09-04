@@ -10,7 +10,7 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 )
 
-func TestMarshalShareConfigJSONProjectsSupportedFields(t *testing.T) {
+func TestMarshalShareConfigProjectsSupportedFields(t *testing.T) {
 	const input = `{
 		"log":{"loglevel":"warning"},
 		"outbounds":[
@@ -53,7 +53,7 @@ func TestMarshalShareConfigJSONProjectsSupportedFields(t *testing.T) {
 
 	var config conf.Config
 	require.NoError(t, json.Unmarshal([]byte(input), &config))
-	raw, err := MarshalShareConfigJSON(&config)
+	raw, _, err := marshalShareConfigJSON(&config)
 	require.NoError(t, err)
 
 	const expected = `{
@@ -73,12 +73,12 @@ func TestMarshalShareConfigJSONProjectsSupportedFields(t *testing.T) {
 	requireProjectedOutboundsBuild(t, raw)
 }
 
-func TestMarshalShareConfigJSONPreservesHysteriaPortHopping(t *testing.T) {
-	config, err := ConvertShareLinksToXrayJson(
+func TestMarshalShareConfigPreservesHysteriaPortHopping(t *testing.T) {
+	config, err := convertShareLinksForTest(
 		"hy2://auth@host:443?up=50+mbps&down=100+mbps&ports=20000-40000&hop-interval=30&sni=example.com&fp=chrome",
 	)
 	require.NoError(t, err)
-	raw, err := MarshalShareConfigJSON(config)
+	raw, _, err := marshalShareConfigJSON(config)
 	require.NoError(t, err)
 
 	var document map[string]any
@@ -93,12 +93,12 @@ func TestMarshalShareConfigJSONPreservesHysteriaPortHopping(t *testing.T) {
 	requireProjectedOutboundsBuild(t, raw)
 }
 
-func TestMarshalShareConfigJSONKeepsKCPWithoutSettings(t *testing.T) {
+func TestMarshalShareConfigKeepsKCPWithoutSettings(t *testing.T) {
 	qr := `{"ps":"k","add":"kcp.host","port":"8391","id":"` + testShareUUID + `","net":"kcp","path":"seedval","type":"wireguard"}`
 	link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
-	config, err := ConvertShareLinksToXrayJson(link)
+	config, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
-	raw, err := MarshalShareConfigJSON(config)
+	raw, _, err := marshalShareConfigJSON(config)
 	require.NoError(t, err)
 
 	assert.Contains(t, string(raw), `"network":"kcp"`)
@@ -108,7 +108,7 @@ func TestMarshalShareConfigJSONKeepsKCPWithoutSettings(t *testing.T) {
 	requireProjectedOutboundsBuild(t, raw)
 }
 
-func TestMarshalShareConfigJSONSupportedProtocolsBuild(t *testing.T) {
+func TestMarshalShareConfigSupportedProtocolsBuild(t *testing.T) {
 	tests := map[string]string{
 		"shadowsocks": "ss://" + ssUserB64("chacha20-ietf-poly1305", "password") + "@10.0.0.1:8388",
 		"vmess":       "vmess://" + testShareUUID + "@vm.example:443?encryption=auto&type=raw",
@@ -119,9 +119,9 @@ func TestMarshalShareConfigJSONSupportedProtocolsBuild(t *testing.T) {
 	}
 	for protocol, link := range tests {
 		t.Run(protocol, func(t *testing.T) {
-			config, err := ConvertShareLinksToXrayJson(link)
+			config, err := convertShareLinksForTest(link)
 			require.NoError(t, err)
-			raw, err := MarshalShareConfigJSON(config)
+			raw, _, err := marshalShareConfigJSON(config)
 			require.NoError(t, err)
 			requireProjectedOutboundsBuild(t, raw)
 		})

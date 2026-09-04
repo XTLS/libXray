@@ -22,7 +22,7 @@ func clashHysteria2YAML(fields string) string {
 
 func parseClashHy2(t *testing.T, yaml string) *conf.OutboundDetourConfig {
 	t.Helper()
-	config, err := tryToParseClashYaml(yaml)
+	config, err := parseShareCandidatesForTest(yaml)
 	require.NoError(t, err)
 	require.Len(t, config.OutboundConfigs, 1)
 	assert.Equal(t, "test-hy2", config.OutboundConfigs[0].Tag)
@@ -32,7 +32,7 @@ func parseClashHy2(t *testing.T, yaml string) *conf.OutboundDetourConfig {
 
 func parseClashYAML(t *testing.T, yaml string) *conf.Config {
 	t.Helper()
-	cfg, err := tryToParseClashYaml(yaml)
+	cfg, err := parseShareCandidatesForTest(yaml)
 	require.NoError(t, err)
 	return cfg
 }

@@ -2,7 +2,6 @@ package share
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -42,53 +41,6 @@ func decodeBase64Text(text string) (string, error) {
 }
 
 // https://github.com/XTLS/Xray-core/discussions/716
-
-// ConvertShareLinksToXrayJson parses:
-//   - a single Xray JSON object (starts with '{'; only root outbounds are retained)
-//   - plain v2rayN-style lines (vless/vmess/ss/socks/trojan/hy2…)
-//   - one base64 blob that decodes to Xray JSON, share lines, or Clash YAML
-//   - Clash / Clash.Meta YAML (proxies:)
-func ConvertShareLinksToXrayJson(links string) (*conf.Config, error) {
-	config, err := convertShareLinksToXrayJson(links, true)
-	if err != nil {
-		return nil, err
-	}
-	return filterBuildableOutbounds(config)
-}
-
-func convertShareLinksToXrayJson(links string, allowBase64 bool) (*conf.Config, error) {
-	text := strings.TrimSpace(FixWindowsReturn(links))
-	if text == "" {
-		return nil, fmt.Errorf("unsupported share format")
-	}
-	if strings.HasPrefix(text, "{") {
-		return parseXrayJSONConfig(text)
-	}
-	if hasShareSchemeLine(text) {
-		return parsePlainShareLines(text)
-	}
-	if allowBase64 {
-		decoded, err := decodeBase64Text(text)
-		if err == nil {
-			return convertShareLinksToXrayJson(decoded, false)
-		}
-	}
-	if hasTopLevelClashProxiesKey(text) {
-		return tryToParseClashYaml(text)
-	}
-	return nil, fmt.Errorf("unsupported share format")
-}
-
-func parseXrayJSONConfig(text string) (*conf.Config, error) {
-	var xray *conf.Config
-	if err := json.Unmarshal([]byte(text), &xray); err != nil {
-		return nil, err
-	}
-	if len(xray.OutboundConfigs) == 0 {
-		return nil, fmt.Errorf("no valid outbounds")
-	}
-	return &conf.Config{OutboundConfigs: xray.OutboundConfigs}, nil
-}
 
 var shareSchemes = []string{
 	"vless://", "vmess://", "socks://", "ss://", "trojan://",
@@ -138,31 +90,6 @@ func forEachLine(text string, visit func(string) bool) {
 		}
 		text = rest
 	}
-}
-
-func parsePlainShareLines(text string) (*conf.Config, error) {
-	outbounds := make([]conf.OutboundDetourConfig, 0)
-	forEachLine(text, func(raw string) bool {
-		line := strings.TrimSpace(raw)
-		if line == "" {
-			return true
-		}
-		u, err := url.Parse(line)
-		if err != nil {
-			return true
-		}
-		sl := xrayShareLink{link: u, rawText: line}
-		ob, err := sl.outbound()
-		if err != nil {
-			return true
-		}
-		outbounds = append(outbounds, *ob)
-		return true
-	})
-	if len(outbounds) == 0 {
-		return nil, fmt.Errorf("no valid outbound found")
-	}
-	return &conf.Config{OutboundConfigs: outbounds}, nil
 }
 
 type xrayShareLink struct {

@@ -10,12 +10,6 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 )
 
-// MarshalShareConfigJSON returns the Xray JSON subset supported by share links.
-func MarshalShareConfigJSON(config *conf.Config) (json.RawMessage, error) {
-	raw, _, err := marshalShareConfigJSON(config)
-	return raw, err
-}
-
 func marshalShareConfigJSON(config *conf.Config) (json.RawMessage, int, error) {
 	if config == nil {
 		return nil, 0, fmt.Errorf("no valid outbound found")

@@ -9,7 +9,7 @@ import (
 
 const statsValidOutbound = `{"protocol":"vless","tag":"Keep","settings":{"address":"example.com","port":443,"id":"12345678-abcd-abcd-abcd-123456789abc","encryption":"none"},"streamSettings":{"security":"tls","tlsSettings":{"serverName":"example.com"}}}`
 
-func TestShareStatsCountActualCandidates(t *testing.T) {
+func TestConvertShareLinksCountActualCandidates(t *testing.T) {
 	jsonText := `{"outbounds":[` + statsValidOutbound + `,{"protocol":"freedom"},{"protocol":42},null,{"protocol":"vless","settings":{"id":"invalid"}}]}`
 	yamlText := `proxies:
   - {name: Keep, type: vless, server: example.com, port: 443, uuid: 12345678-abcd-abcd-abcd-123456789abc, tls: true, servername: example.com}
@@ -30,7 +30,7 @@ func TestShareStatsCountActualCandidates(t *testing.T) {
 		{"base64 links", base64.StdEncoding.EncodeToString([]byte(ageTestShareLink + "\nvless://bad@example.com:443")), 1, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := ConvertShareLinksToXrayJsonWithStats(test.text, "")
+			result, err := ConvertShareLinksToXrayJson(test.text, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -39,31 +39,31 @@ func TestShareStatsCountActualCandidates(t *testing.T) {
 	}
 }
 
-func TestShareStatsAllInvalidRetainsCountsWithoutSource(t *testing.T) {
+func TestConvertShareLinksAllInvalidRetainsCountsWithoutSource(t *testing.T) {
 	for _, input := range []string{
 		`{"outbounds":[{"protocol":"freedom"}]}`,
 		"vless://secret-not-a-uuid@example.com:443?encryption=none",
 		"proxies:\n - {type: unsupported, password: private-password}",
 	} {
-		result, err := ConvertShareLinksToXrayJsonWithStats(input, "")
+		result, err := ConvertShareLinksToXrayJson(input, "")
 		if err == nil || err.Error() != "no valid outbound found" {
 			t.Fatalf("error = %v", err)
 		}
 		assertShareStats(t, result, 0, 1)
 	}
-	result, err := ConvertShareLinksToXrayJsonWithStats(`{"outbounds":[]}`, "")
+	result, err := ConvertShareLinksToXrayJson(`{"outbounds":[]}`, "")
 	if err == nil {
 		t.Fatal("empty array succeeded")
 	}
 	assertShareStats(t, result, 0, 0)
 }
 
-func TestShareStatsMalformedDocumentHasNoCounts(t *testing.T) {
+func TestConvertShareLinksMalformedDocumentHasNoCounts(t *testing.T) {
 	for _, input := range []string{
 		`{"outbounds":[`, `{"outbounds":"private-source"}`, `{"outbounds":null}`,
 		"proxies: [", "proxies: private-source", "not a subscription",
 	} {
-		result, err := ConvertShareLinksToXrayJsonWithStats(input, "")
+		result, err := ConvertShareLinksToXrayJson(input, "")
 		if err == nil || result != nil {
 			t.Fatalf("result = %+v, error = %v", result, err)
 		}
@@ -73,7 +73,7 @@ func TestShareStatsMalformedDocumentHasNoCounts(t *testing.T) {
 	}
 }
 
-func TestShareStatsAgeCountsInnerCandidatesAndRedactsErrors(t *testing.T) {
+func TestConvertShareLinksAgeCountsInnerCandidatesAndRedactsErrors(t *testing.T) {
 	pair, err := GenerateAgeKeyPair(AgeKeyTypeX25519)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestShareStatsAgeCountsInnerCandidatesAndRedactsErrors(t *testing.T) {
 		ageTestShareLink + "\nvless://secret-not-a-uuid@example.com:443",
 		`{"outbounds":[` + statsValidOutbound + `,{"protocol":false}]}`,
 	} {
-		result, err := ConvertShareLinksToXrayJsonWithStats(encryptAgeForTest(t, pair, input), pair.SecretKey)
+		result, err := ConvertShareLinksToXrayJson(encryptAgeForTest(t, pair, input), pair.SecretKey)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -95,7 +95,7 @@ func TestShareStatsAgeCountsInnerCandidatesAndRedactsErrors(t *testing.T) {
 		{"vless://secret-not-a-uuid@example.com:443", true},
 		{`{"outbounds":"private-source"}`, false},
 	} {
-		result, err := ConvertShareLinksToXrayJsonWithStats(encryptAgeForTest(t, pair, test.text), pair.SecretKey)
+		result, err := ConvertShareLinksToXrayJson(encryptAgeForTest(t, pair, test.text), pair.SecretKey)
 		if err != ErrAgePlaintextUnsupported {
 			t.Fatalf("error = %v", err)
 		}
@@ -106,31 +106,13 @@ func TestShareStatsAgeCountsInnerCandidatesAndRedactsErrors(t *testing.T) {
 			assertShareStats(t, result, 0, 1)
 		}
 	}
-	result, err := ConvertShareLinksToXrayJsonWithStats(encryptAgeForTest(t, pair, ageTestShareLink), "private-invalid-key")
+	result, err := ConvertShareLinksToXrayJson(encryptAgeForTest(t, pair, ageTestShareLink), "private-invalid-key")
 	if err != ErrAgeSecretKeyInvalid || result != nil {
 		t.Fatalf("result = %+v, error = %v", result, err)
 	}
 }
 
-func TestShareStatsPreservesLegacyProjectedConfig(t *testing.T) {
-	config, err := ConvertShareLinksToXrayJson(ageTestShareLink)
-	if err != nil {
-		t.Fatal(err)
-	}
-	legacy, err := MarshalShareConfigJSON(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := ConvertShareLinksToXrayJsonWithStats(ageTestShareLink, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(result.Config) != string(legacy) {
-		t.Fatal("stats changed projected config")
-	}
-}
-
-func assertShareStats(t *testing.T, result *ParseStats, usable, failed int) {
+func assertShareStats(t *testing.T, result *ConvertShareLinksResult, usable, failed int) {
 	t.Helper()
 	if result == nil || result.UsableCount != usable || result.FailedCount != failed {
 		t.Fatalf("stats = %+v, want usable %d failed %d", result, usable, failed)

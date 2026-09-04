@@ -134,7 +134,7 @@ void CGoFree(char* value);
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -154,12 +154,12 @@ void CGoFree(char* value);
 
 设计决定：
 
-1. Invoke 当前只接受 `apiVersion: 4`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
+1. Invoke 当前只接受 `apiVersion: 5`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
 2. 顶层 `env` 字段会被忽略且不会生效。Xray-core 运行时环境项应写入 Xray 配置根 `env` 对象。
 3. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
 4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 5. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
-6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。Xray JSON 输入仅作为节点来源，只保留根级 `outbounds`，忽略其他根字段。响应仅包含 libXray 分享链接支持的字段，不支持的字段和生成的空字段会被省略；XHTTP `extra` 与 FinalMask mask `settings` 中的原始 JSON 保持不变。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
+6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。Xray JSON 输入仅作为节点来源，只保留根级 `outbounds`，忽略其他根字段。响应仅包含 libXray 分享链接支持的字段，不支持的字段和生成的空字段会被省略；XHTTP `extra` 与 FinalMask mask `settings` 中的原始 JSON 保持不变。每次成功响应都会返回投影后的配置及 `usableCount` 和 `failedCount`。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
 7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。`pingBatch`、`testXray`（含 `buildOnly`）、`checkRoute` 及对应导出的 Go 入口均取得受管理生命周期锁，在加载/构建配置前拒绝同进程已运行的 `runXray` instance。批量测速在全部 worker 和临时核心关闭后才释放锁，这些临时操作也彼此串行。由管理 API 之外创建的 instance 不在检测或恢复范围内；可能与它们重叠的调用仍须使用独立进程。
 
 支持的 method：
@@ -205,13 +205,13 @@ reverse，不调用临时 instance 的 Start，也不发布为活动核心。结
 
 ### 草稿路由检查
 
-API version 4 的 `checkRoute` 通过 `xrayJson` 接收完整草稿，
+API version 5 的 `checkRoute` 通过 `xrayJson` 接收完整草稿，
 调用当前锁定版本 Xray-core 的 Router；不启动临时 instance，也不向输入的目标
 派发访问流量：
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "checkRoute",
   "payload": {
     "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
@@ -326,16 +326,16 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 转换 VMessQRCode 为 Xray Json。
 
-#### 可选解析数量
+#### 解析结果
 
-给 `convertShareLinksToXrayJson` 传入 `payload.includeStats: true` 时，返回
+`convertShareLinksToXrayJson` 只有一种响应结构。payload 包含 `text` 和可选的
+`age`。每次转换成功均返回
 `data: {"config":{"outbounds":[...]},"usableCount":2,"failedCount":1}`。
-省略或设为 `false` 时，保留原来的 `data.outbounds` 响应和转换行为。
 
 数量只描述本次输入，不区分新增和更新。JSON 根 `outbounds` 的每个元素、YAML
 `proxies` 的每个元素各算一个候选。已识别的分享链接列表中，每条 URI 形式的行
 算一个候选，空行、注释和文本标题忽略。Base64 / age 包装使用内部格式的候选
-数量。统计模式逐项跳过类型错误，不丢弃其余有效元素。`usableCount` 与最终投影且
+数量。类型错误的单项会被跳过，不丢弃其余有效元素。`usableCount` 与最终投影且
 可构建的 outbound 数量相同；解析失败、构建失败和投影不支持的候选均计入
 `failedCount`。不做节点 hash 比较或去重。
 
@@ -353,7 +353,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -371,7 +371,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -402,7 +402,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -449,7 +449,7 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 
 ```json
 {
-  "apiVersion": 4,
+  "apiVersion": 5,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -464,7 +464,7 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 
 ### 托管运行统计
 
-API v4 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
+API v5 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
 不写运行快照。宿主传入以下对象；Desktop 的 `-runtime` 文件也直接使用此对象，
 不含外层 `runtime`，原始 Xray 配置仍通过独立的 `-config` 传入。
 
