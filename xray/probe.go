@@ -23,25 +23,25 @@ func ProbeXray(xrayJSON, targetURL string, timeout int, inboundTag string) (int6
 	uri, err := url.ParseRequestURI(targetURL)
 	if err != nil || uri.Host == "" || uri.User != nil ||
 		(uri.Scheme != "http" && uri.Scheme != "https") || timeout < 1 || timeout > 60 {
-		return 0, errors.New("testXray requires an HTTP(S) URL and a timeout of 1–60 seconds")
+		return 0, errors.New("configuration probe requires an HTTP(S) URL and a timeout of 1–60 seconds")
 	}
 	coreServerMu.Lock()
 	defer coreServerMu.Unlock()
 	if coreServer != nil {
-		return 0, errors.New("testXray requires an isolated process without a managed Xray instance")
+		return 0, errors.New("configuration probe requires an isolated process without a managed Xray instance")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 	config, err := core.LoadConfig("json", strings.NewReader(xrayJSON))
 	if err != nil {
-		return 0, errors.New("testXray configuration could not be built")
+		return 0, errors.New("configuration probe could not build the configuration")
 	}
 	if _, _, err = prepareRouteCheck(config); err != nil {
 		return 0, err
 	}
 	server, err := core.NewWithContext(ctx, config)
 	if err != nil {
-		return 0, errors.New("testXray configuration could not be constructed")
+		return 0, errors.New("configuration probe could not construct the Xray instance")
 	}
 	defer server.Close()
 	transport := &http.Transport{
@@ -62,7 +62,7 @@ func ProbeXray(xrayJSON, targetURL string, timeout int, inboundTag string) (int6
 	}, targetURL, timeout)
 	if err != nil {
 		// HTTP errors may include a credential-bearing URL. Keep them local.
-		return 0, errors.New("testXray URL request failed")
+		return 0, errors.New("configuration probe URL request failed")
 	}
 	return delay, nil
 }

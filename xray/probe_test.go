@@ -30,8 +30,8 @@ func TestProbeXrayUsesDraftDNSAndRoutingWithoutListening(t *testing.T) {
 	if delay, err := ProbeXray(config, target, 2, "tunIn"); err != nil || delay < 0 {
 		t.Fatalf("routed probe: delay=%d err=%v", delay, err)
 	}
-	if _, err := ProbeXray(config, target, 1, "other"); err == nil {
-		t.Fatal("ignoring the draft routing incorrectly reached the target")
+	if _, err := ProbeXray(config, target, 1, "other"); err == nil || !strings.HasPrefix(err.Error(), "configuration probe ") {
+		t.Fatalf("ignoring the draft routing: %v", err)
 	}
 	if GetXrayState() {
 		t.Fatal("probe published a managed instance")
@@ -41,7 +41,7 @@ func TestProbeXrayUsesDraftDNSAndRoutingWithoutListening(t *testing.T) {
 func TestProbeXrayRejectsUnsafeRequestWithoutLeakingURL(t *testing.T) {
 	for _, target := range []string{"file:///secret", "https://user:secret@example.com/"} {
 		_, err := ProbeXray(`{}`, target, 1, "")
-		if err == nil || strings.Contains(err.Error(), "secret") {
+		if err == nil || !strings.HasPrefix(err.Error(), "configuration probe ") || strings.Contains(err.Error(), "secret") {
 			t.Fatalf("unsafe error: %v", err)
 		}
 	}

@@ -60,8 +60,8 @@ func TestPingBatchLocationFailureDoesNotFailLatency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-		if !results[0].Success || results[0].LocationJSON != nil || results[0].LocationError != "" {
-			t.Fatalf("latency-only result = %+v", results[0])
+	if !results[0].Success || results[0].LocationJSON != nil || results[0].LocationError != "" {
+		t.Fatalf("latency-only result = %+v", results[0])
 	}
 }
 
