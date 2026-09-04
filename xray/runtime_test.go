@@ -45,7 +45,7 @@ func runtimeFixture(t *testing.T, config RuntimeConfig) (*managedRuntime, stats.
 	return runtime, up, down
 }
 
-func saveRuntimeSample(t *testing.T, runtime *managedRuntime) RuntimeSnapshot {
+func saveRuntimeSample(t *testing.T, runtime *managedRuntime) runtimeSnapshot {
 	t.Helper()
 	runtime.sample()
 	if err := runtime.save(); err != nil {
@@ -54,7 +54,7 @@ func saveRuntimeSample(t *testing.T, runtime *managedRuntime) RuntimeSnapshot {
 	return savedRuntime(t, runtime.config.StatePath)
 }
 
-func savedRuntime(t *testing.T, path string) RuntimeSnapshot {
+func savedRuntime(t *testing.T, path string) runtimeSnapshot {
 	t.Helper()
 	snapshot, err := readRuntimeState(path)
 	if err != nil || snapshot.Version != 1 {

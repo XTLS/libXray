@@ -113,7 +113,6 @@ type RunXrayRequest struct {
 }
 
 type RuntimeConfig = xray.RuntimeConfig
-type RuntimeSnapshot = xray.RuntimeSnapshot
 
 type TestXrayRequest struct {
 	XrayJson   string `json:"xrayJson,omitempty"`

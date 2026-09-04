@@ -28,7 +28,7 @@ type RuntimeConfig struct {
 	Token      string `json:"token,omitempty"`
 }
 
-type RuntimeSession struct {
+type runtimeSession struct {
 	ID          string `json:"id"`
 	StartedAtMs int64  `json:"startedAtMs"`
 	EndedAtMs   int64  `json:"endedAtMs"`
@@ -36,11 +36,11 @@ type RuntimeSession struct {
 	Downlink    int64  `json:"downlink"`
 }
 
-// RuntimeSnapshot contains only this session's raw inbound counter values.
+// runtimeSnapshot contains only this session's raw inbound counter values.
 // It contains no application totals, configuration, credentials, or control API.
-type RuntimeSnapshot struct {
+type runtimeSnapshot struct {
 	Version     int            `json:"version"`
-	Session     RuntimeSession `json:"session"`
+	Session     runtimeSession `json:"session"`
 	Available   bool           `json:"available"`
 	SampledAtMs int64          `json:"sampledAtMs"`
 	SavedAtMs   int64          `json:"savedAtMs"`
@@ -49,7 +49,7 @@ type RuntimeSnapshot struct {
 
 type managedRuntime struct {
 	config               RuntimeConfig
-	snapshot             RuntimeSnapshot
+	snapshot             runtimeSnapshot
 	manager              stats.Manager
 	stateLock            *os.File
 	stopTicker, tickDone chan struct{}
@@ -84,9 +84,9 @@ func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
 	prepared = true
 	return &managedRuntime{
 		config: *config, stateLock: stateLock,
-		snapshot: RuntimeSnapshot{
+		snapshot: runtimeSnapshot{
 			Version: 1,
-			Session: RuntimeSession{ID: hex.EncodeToString(id[:]), StartedAtMs: time.Now().UnixMilli()},
+			Session: runtimeSession{ID: hex.EncodeToString(id[:]), StartedAtMs: time.Now().UnixMilli()},
 		},
 	}, nil
 }
@@ -223,8 +223,8 @@ func (r *managedRuntime) stop() error {
 	return errors.Join(httpErr, r.save())
 }
 
-func readRuntimeState(path string) (RuntimeSnapshot, error) {
-	var state RuntimeSnapshot
+func readRuntimeState(path string) (runtimeSnapshot, error) {
+	var state runtimeSnapshot
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return state, nil
@@ -253,7 +253,7 @@ func readRuntimeState(path string) (RuntimeSnapshot, error) {
 	return state, nil
 }
 
-func writeRuntimeState(path string, state RuntimeSnapshot) error {
+func writeRuntimeState(path string, state runtimeSnapshot) error {
 	if info, err := os.Lstat(path); err == nil && !info.Mode().IsRegular() || err != nil && !errors.Is(err, os.ErrNotExist) {
 		return errors.New("runtime state is not a regular file")
 	}

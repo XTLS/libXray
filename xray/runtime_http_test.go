@@ -25,7 +25,7 @@ func runtimeHTTPConfig(t *testing.T) RuntimeConfig {
 	return config
 }
 
-func requestRuntime(t *testing.T, config RuntimeConfig, method, path, token string, status int) RuntimeSnapshot {
+func requestRuntime(t *testing.T, config RuntimeConfig, method, path, token string, status int) runtimeSnapshot {
 	t.Helper()
 	request, err := http.NewRequest(method, "http://"+config.Listen+path, nil)
 	if err != nil {
@@ -50,7 +50,7 @@ func requestRuntime(t *testing.T, config RuntimeConfig, method, path, token stri
 	if strings.Contains(string(data), config.StatePath) || strings.Contains(string(data), config.Token) {
 		t.Fatal("runtime HTTP exposed host metadata")
 	}
-	var snapshot RuntimeSnapshot
+	var snapshot runtimeSnapshot
 	if status == http.StatusOK {
 		if response.Header.Get("Content-Type") != "application/json" || json.Unmarshal(data, &snapshot) != nil || snapshot.Version != 1 {
 			t.Fatalf("invalid runtime response: %s", data)
