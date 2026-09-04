@@ -75,8 +75,17 @@ func TestInvokePingLocationAndZeroDelayWireFields(t *testing.T) {
 	if string(raw) != `{"success":true,"delay":0}` {
 		t.Fatalf("zero latency response = %s", raw)
 	}
+	empty := ""
+	raw, err = json.Marshal(PingBatchItemResponse{Success: true, Delay: 0, LocationJSON: &empty})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != `{"success":true,"delay":0,"locationJson":""}` {
+		t.Fatalf("empty location response = %s", raw)
+	}
+	locationBody := `{"ip_address":"203.0.113.1","country":"SG"}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"ip_address":"203.0.113.1","country":"SG"}`)
+		fmt.Fprint(w, locationBody)
 	}))
 	defer server.Close()
 	request := PingBatchRequest{
@@ -88,12 +97,18 @@ func TestInvokePingLocationAndZeroDelayWireFields(t *testing.T) {
 		t.Fatalf("error = %s", response.Err)
 	}
 	result := decodeDataObject[PingBatchResponse](t, response).Results[0]
-	if !result.Success || result.Location == nil || result.Location.CountryCode != "SG" || result.Location.IP != "203.0.113.1" {
+	if !result.Success || result.LocationJSON == nil || *result.LocationJSON != `{"ip_address":"203.0.113.1","country":"SG"}` {
 		t.Fatalf("result = %+v", result)
+	}
+	locationBody = ""
+	response = invokeForTest(t, LibXrayMethodPingBatch, request)
+	result = decodeDataObject[PingBatchResponse](t, response).Results[0]
+	if !response.Success || result.LocationJSON == nil || *result.LocationJSON != "" {
+		t.Fatalf("empty location response = %+v", response)
 	}
 	request.LocationURL = ""
 	response = invokeForTest(t, LibXrayMethodPingBatch, request)
 	if !response.Success || strings.Contains(string(response.Data), "location") {
-		t.Fatalf("legacy response = %+v", response)
+		t.Fatalf("latency-only response = %+v", response)
 	}
 }

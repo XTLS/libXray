@@ -34,13 +34,8 @@ type PingBatchResult struct {
 	Success       bool
 	Delay         int64
 	Error         string
-	Location      *PingLocation
+	LocationJSON  *string
 	LocationError string
-}
-
-type PingLocation struct {
-	IP          string `json:"ip"`
-	CountryCode string `json:"countryCode"`
 }
 
 type pingOutboundConfig struct {
@@ -412,54 +407,32 @@ func probeOutbound(
 		result = failedPingBatchResult(delay, err)
 	}
 	if locationURL != "" {
-		location, err := probeLocation(client, locationURL)
+		locationJSON, err := probeLocation(client, locationURL)
 		if err != nil {
 			result.LocationError = err.Error()
 		} else {
-			result.Location = location
+			result.LocationJSON = &locationJSON
 		}
 	}
 	return result
 }
 
-func probeLocation(client *http.Client, locationURL string) (*PingLocation, error) {
+func probeLocation(client *http.Client, locationURL string) (string, error) {
 	response, err := client.Get(locationURL)
 	if err != nil {
 		// Do not include a provider URL, credentials or response body in errors.
-		return nil, errors.New("location request failed")
+		return "", errors.New("location request failed")
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("location request returned HTTP %d", response.StatusCode)
+		return "", fmt.Errorf("location request returned HTTP %d", response.StatusCode)
 	}
 	const maxLocationBytes = 64 * 1024
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxLocationBytes+1))
 	if err != nil || len(body) > maxLocationBytes {
-		return nil, errors.New("unable to read location response")
+		return "", errors.New("unable to read location response")
 	}
-	// Cloudflare's location response and the equivalent normalized pair are
-	// supported; an unavailable or invalid country is not guessed from the IP.
-	var location struct {
-		IP          string `json:"ip"`
-		CountryCode string `json:"countryCode"`
-		IPAddress   string `json:"ip_address"`
-		Country     string `json:"country"`
-	}
-	if err := json.Unmarshal(body, &location); err != nil {
-		return nil, errors.New("invalid location response")
-	}
-	if location.IP == "" {
-		location.IP = location.IPAddress
-	}
-	if location.CountryCode == "" {
-		location.CountryCode = location.Country
-	}
-	code := strings.ToUpper(strings.TrimSpace(location.CountryCode))
-	ip := net.ParseIP(strings.TrimSpace(location.IP))
-	if ip == nil || len(code) != 2 || code[0] < 'A' || code[0] > 'Z' || code[1] < 'A' || code[1] > 'Z' {
-		return nil, errors.New("location response requires an IP and two-letter country code")
-	}
-	return &PingLocation{IP: ip.String(), CountryCode: code}, nil
+	return string(body), nil
 }
 
 func failedPingBatchResult(delay int64, err error) PingBatchResult {

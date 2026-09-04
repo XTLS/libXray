@@ -29,10 +29,10 @@ func TestPingBatchLocationUsesEachForcedOutbound(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, second := results[0], results[1]
-	if !first.Success || first.Location == nil || first.Location.IP != "203.0.113.9" || first.Location.CountryCode != "JP" || first.LocationError != "" {
+	if !first.Success || first.LocationJSON == nil || *first.LocationJSON != `{"ip_address":"203.0.113.9","country":"jp"}` || first.LocationError != "" {
 		t.Fatalf("first result = %+v", first)
 	}
-	if second.Success || second.Location != nil || second.LocationError == "" {
+	if second.Success || second.LocationJSON != nil || second.LocationError == "" {
 		t.Fatalf("blocked outbound escaped through another client: %+v", second)
 	}
 	if heads.Load() != 1 || gets.Load() != 1 {
@@ -53,15 +53,15 @@ func TestPingBatchLocationFailureDoesNotFailLatency(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := results[0]
-	if !result.Success || result.Error != "" || result.Location != nil || result.LocationError != "location request returned HTTP 503" {
+	if !result.Success || result.Error != "" || result.LocationJSON != nil || result.LocationError != "location request returned HTTP 503" {
 		t.Fatalf("result = %+v", result)
 	}
 	results, err = PingBatch(items, 1, server.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !results[0].Success || results[0].Location != nil || results[0].LocationError != "" {
-		t.Fatalf("legacy result = %+v", results[0])
+		if !results[0].Success || results[0].LocationJSON != nil || results[0].LocationError != "" {
+			t.Fatalf("latency-only result = %+v", results[0])
 	}
 }
 
@@ -74,34 +74,45 @@ func TestPingBatchLocationCanSucceedWhenLatencyFails(t *testing.T) {
 			}
 			return
 		}
-		fmt.Fprint(w, `{"ip":"2001:db8::1","countryCode":"US"}`)
+		fmt.Fprint(w, `{"ip_address":"2001:db8::1","country":"US"}`)
 	}))
 	defer server.Close()
 	results, err := PingBatchWithLocation([]PingBatchItem{{XrayJSON: `{"outbounds":[{"protocol":"freedom"}]}`}}, 1, server.URL, server.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if results[0].Success || results[0].Location == nil || results[0].LocationError != "" {
+	if results[0].Success || results[0].LocationJSON == nil || *results[0].LocationJSON != `{"ip_address":"2001:db8::1","country":"US"}` || results[0].LocationError != "" {
 		t.Fatalf("result = %+v", results[0])
 	}
 }
 
-func TestProbeLocationRejectsInvalidResponsesWithoutLeakingInput(t *testing.T) {
-	for _, body := range []string{
-		`{"ip":"203.0.113.9","countryCode":"Japan"}`,
-		`{"ip":"private-source","countryCode":"JP"}`,
-		`{"ip":"203.0.113.9"}`, `private-source`, strings.Repeat("x", 64*1024+1),
-	} {
+func TestProbeLocationReturnsOriginalBody(t *testing.T) {
+	for _, body := range []string{"", " \n{\"provider_specific\": true}\n", strings.Repeat("x", 64*1024)} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) }))
-		location, err := probeLocation(server.Client(), server.URL)
+		locationJSON, err := probeLocation(server.Client(), server.URL)
 		server.Close()
-		if err == nil || location != nil {
-			t.Fatalf("location = %+v, error = %v", location, err)
-		}
-		if strings.Contains(err.Error(), "private-source") {
-			t.Fatal("response body leaked")
+		if err != nil || locationJSON != body {
+			t.Fatalf("location JSON length = %d, error = %v", len(locationJSON), err)
 		}
 	}
+}
+
+func TestProbeLocationRejectsOversizedResponseWithoutLeakingInput(t *testing.T) {
+	body := "private-source" + strings.Repeat("x", 64*1024+1-len("private-source"))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+	locationJSON, err := probeLocation(server.Client(), server.URL)
+	if err == nil || locationJSON != "" {
+		t.Fatalf("location JSON = %q, error = %v", locationJSON, err)
+	}
+	if strings.Contains(err.Error(), "private-source") {
+		t.Fatal("response body leaked")
+	}
+}
+
+func TestProbeLocationHidesURLAndCredentialsOnRequestFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() }))
 	defer server.Close()
 	client := server.Client()

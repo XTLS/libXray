@@ -100,11 +100,11 @@ type PingBatchResponse struct {
 }
 
 type PingBatchItemResponse struct {
-	Success       bool               `json:"success"`
-	Delay         int64              `json:"delay"`
-	Error         string             `json:"error,omitempty"`
-	Location      *xray.PingLocation `json:"location,omitempty"`
-	LocationError string             `json:"locationError,omitempty"`
+	Success       bool    `json:"success"`
+	Delay         int64   `json:"delay"`
+	Error         string  `json:"error,omitempty"`
+	LocationJSON  *string `json:"locationJson,omitempty"`
+	LocationError string  `json:"locationError,omitempty"`
 }
 
 type RunXrayRequest struct {

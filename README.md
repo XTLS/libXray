@@ -553,13 +553,12 @@ Location time is not included in `delay`, and the two results are independent:
 invalidate a successful latency result, and GET is still attempted after a
 latency failure.
 
-A successful GET adds `location: {"ip":"203.0.113.1","countryCode":"JP"}`.
-The provider must return HTTP 200 and at most 64 KiB of JSON containing
-Cloudflare's `ip_address`/`country` pair or normalized `ip`/`countryCode`.
-The IP must be valid and the country code must be two ASCII letters (returned
-uppercase). An invalid/missing location instead adds `locationError`; errors
-do not echo the URL, credentials or response body. Invalid outbound configs
-retain their ordinary per-item failure and do not perform either request.
+A successful GET adds the unmodified response body as the `locationJson`
+string. The App owns JSON parsing and provider-specific field handling. The
+provider must return HTTP 200 and at most 64 KiB; transport or body-read
+failures instead add `locationError`. Errors do not echo the URL, credentials
+or response body. Invalid outbound configs retain their ordinary per-item
+failure and do not perform either request.
 
 ### testXray
 

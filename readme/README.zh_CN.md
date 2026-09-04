@@ -438,12 +438,10 @@ outbound 依赖会被自动包含。
 `success`、`delay`、`error` 只表示延迟结果，位置失败不影响成功的延迟，延迟
 失败后仍尝试位置 GET。
 
-GET 成功后增加 `location: {"ip":"203.0.113.1","countryCode":"JP"}`。
-数据源必须返回 HTTP 200、最大 64 KiB 的 JSON，字段为 Cloudflare 的
-`ip_address` / `country`，或规范化的 `ip` / `countryCode`。IP 必须有效，
-地区代码为两个 ASCII 字母并统一返回大写。缺失或无效的位置改为返回
-`locationError`，错误不回显 URL、凭据或响应正文。无效 outbound 保留原有
-逐项失败结果，不发出这两个请求。
+GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析和数据源专属字段
+处理由 App 负责。数据源必须返回 HTTP 200，正文最大 64 KiB；传输或正文读取失败
+改为返回 `locationError`。错误不回显 URL、凭据或响应正文。无效 outbound 保留
+原有逐项失败结果，不发出这两个请求。
 
 ### testXray
 

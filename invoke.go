@@ -222,7 +222,7 @@ func invokePingBatch(payload json.RawMessage) string {
 			Success:       result.Success,
 			Delay:         result.Delay,
 			Error:         result.Error,
-			Location:      result.Location,
+			LocationJSON:  result.LocationJSON,
 			LocationError: result.LocationError,
 		}
 	}

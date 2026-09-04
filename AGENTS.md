@@ -88,7 +88,9 @@ GeoData files directly and receives `datDir` in its payload.
 The complete UTF-8 Invoke request and response envelopes are limited to 16 MiB.
 `pingBatch` accepts at most five configurations. It parses only `outbounds`,
 ignores other root fields, and includes outbound dependencies referenced by
-`streamSettings.sockopt.dialerProxy` or `proxySettings.tag`.
+`streamSettings.sockopt.dialerProxy` or `proxySettings.tag`. Its optional
+location request returns the response body unchanged in `locationJson`; the App
+owns JSON parsing and provider-specific semantics.
 
 # Runtime Semantics
 
