@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/xtls/xray-core/core"
@@ -24,7 +23,6 @@ import (
 // RuntimeConfig is host metadata, never part of the Xray configuration.
 type RuntimeConfig struct {
 	StatePath  string `json:"statePath"`
-	PlanID     string `json:"planId"`
 	InboundTag string `json:"inboundTag"`
 	Listen     string `json:"listen,omitempty"`
 	Token      string `json:"token,omitempty"`
@@ -32,7 +30,6 @@ type RuntimeConfig struct {
 
 type RuntimeSession struct {
 	ID          string `json:"id"`
-	PlanID      string `json:"planId"`
 	StartedAtMs int64  `json:"startedAtMs"`
 	EndedAtMs   int64  `json:"endedAtMs"`
 	Uplink      int64  `json:"uplink"`
@@ -58,17 +55,14 @@ type managedRuntime struct {
 	stopTicker, tickDone chan struct{}
 	httpServer           *http.Server
 	httpListener         net.Listener
-	httpMu               sync.Mutex
-	httpClosed           bool
 }
 
 func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
 	if config == nil {
 		return nil, nil
 	}
-	if !filepath.IsAbs(config.StatePath) || strings.TrimSpace(config.PlanID) == "" || len(config.PlanID) > 256 ||
-		strings.TrimSpace(config.InboundTag) == "" || len(config.InboundTag) > 256 {
-		return nil, errors.New("runtime requires an absolute statePath, planId, and inboundTag")
+	if !filepath.IsAbs(config.StatePath) || strings.TrimSpace(config.InboundTag) == "" || len(config.InboundTag) > 256 {
+		return nil, errors.New("runtime requires an absolute statePath and inboundTag")
 	}
 	if err := validateRuntimeHTTP(config); err != nil {
 		return nil, err
@@ -83,15 +77,6 @@ func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
 			_ = stateLock.Close()
 		}
 	}()
-	previous, err := readRuntimeState(config.StatePath)
-	if err != nil {
-		return nil, err
-	}
-	// Archive before any new session can replace the previous saved snapshot.
-	// Repeated failed starts write the same session filename, not duplicate records.
-	if err := archiveRuntimeState(config.StatePath, previous); err != nil {
-		return nil, err
-	}
 	var id [16]byte
 	if _, err = rand.Read(id[:]); err != nil {
 		return nil, err
@@ -101,7 +86,7 @@ func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
 		config: *config, stateLock: stateLock,
 		snapshot: RuntimeSnapshot{
 			Version: 1,
-			Session: RuntimeSession{ID: hex.EncodeToString(id[:]), PlanID: config.PlanID, StartedAtMs: time.Now().UnixMilli()},
+			Session: RuntimeSession{ID: hex.EncodeToString(id[:]), StartedAtMs: time.Now().UnixMilli()},
 		},
 	}, nil
 }
@@ -228,11 +213,6 @@ func (r *managedRuntime) stop() error {
 		_ = r.httpListener.Close()
 		r.httpServer = nil
 		r.httpListener = nil
-		// Close connections, then finish any filesystem request before releasing
-		// the session owner lock. Queued handlers cannot acknowledge after stop.
-		r.httpMu.Lock()
-		r.httpClosed = true
-		r.httpMu.Unlock()
 	}
 	close(r.stopTicker)
 	<-r.tickDone
@@ -258,6 +238,7 @@ func readRuntimeState(path string) (RuntimeSnapshot, error) {
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(io.LimitReader(file, 64*1024))
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&state); err != nil {
 		return state, errors.New("runtime state is invalid")
 	}
@@ -265,29 +246,11 @@ func readRuntimeState(path string) (RuntimeSnapshot, error) {
 	id, idErr := hex.DecodeString(state.Session.ID)
 	if decoder.Decode(&extra) != io.EOF || state.Version != 1 || idErr != nil || len(id) != 16 ||
 		state.Session.ID != strings.ToLower(state.Session.ID) ||
-		strings.TrimSpace(state.Session.PlanID) == "" || len(state.Session.PlanID) > 256 ||
 		state.Session.StartedAtMs <= 0 || state.Session.EndedAtMs < 0 || state.SampledAtMs <= 0 || state.SavedAtMs <= 0 ||
 		state.Session.Uplink < 0 || state.Session.Downlink < 0 {
 		return state, errors.New("runtime state is invalid")
 	}
 	return state, nil
-}
-
-func archiveRuntimeState(path string, previous RuntimeSnapshot) error {
-	if previous.Version == 0 {
-		return nil
-	}
-	directory := filepath.Join(filepath.Dir(path), "runtime-sessions")
-	if err := os.Mkdir(directory, 0700); err != nil && !errors.Is(err, os.ErrExist) {
-		return errors.New("runtime archive directory is unavailable")
-	}
-	if info, err := os.Lstat(directory); err != nil || !info.IsDir() {
-		return errors.New("runtime archive directory is unavailable")
-	}
-	if err := writeRuntimeState(filepath.Join(directory, previous.Session.ID+".json"), previous); err != nil {
-		return errors.New("runtime archive write failed")
-	}
-	return nil
 }
 
 func writeRuntimeState(path string, state RuntimeSnapshot) error {

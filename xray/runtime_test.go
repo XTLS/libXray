@@ -20,8 +20,8 @@ import (
 func runtimeConfig(t *testing.T) RuntimeConfig {
 	t.Helper()
 	return RuntimeConfig{
-		StatePath: filepath.Join(t.TempDir(), "runtime.json"),
-		PlanID:    "opaque-plan", InboundTag: "tunIn",
+		StatePath:  filepath.Join(t.TempDir(), "runtime.json"),
+		InboundTag: "tunIn",
 	}
 }
 
@@ -103,12 +103,12 @@ func TestRuntimeStoresRawCountersWithoutResetOrTotals(t *testing.T) {
 	metadata, _ := json.Marshal(config)
 	var metadataFields map[string]json.RawMessage
 	_ = json.Unmarshal(metadata, &metadataFields)
-	if len(metadataFields) != 3 || metadataFields["controlAddress"] != nil || metadataFields["controlToken"] != nil {
+	if len(metadataFields) != 2 || metadataFields["planId"] != nil || metadataFields["controlAddress"] != nil || metadataFields["controlToken"] != nil {
 		t.Fatalf("runtime metadata exposed a control surface: %s", metadata)
 	}
 }
 
-func TestRuntimeArchivesEachPreviousSessionBeforeReplacement(t *testing.T) {
+func TestRuntimeReplacesPreviousSessionOnStart(t *testing.T) {
 	config := runtimeConfig(t)
 	runtime, up, down := runtimeFixture(t, config)
 	if err := runtime.start(); err != nil {
@@ -128,8 +128,7 @@ func TestRuntimeArchivesEachPreviousSessionBeforeReplacement(t *testing.T) {
 		t.Fatalf("stop did not save final raw counters: %+v", stopped)
 	}
 	_ = runtime.stateLock.Close()
-	// Preparation alone cannot overwrite the current snapshot. Repeating it must
-	// not create multiple records for the same session or change its timestamps.
+	// Preparation alone cannot overwrite the current snapshot.
 	for range 2 {
 		next, err := prepareRuntime(&config)
 		if err != nil {
@@ -140,25 +139,20 @@ func TestRuntimeArchivesEachPreviousSessionBeforeReplacement(t *testing.T) {
 			t.Fatal("preparation replaced the previous current snapshot")
 		}
 	}
-	archive := filepath.Join(filepath.Dir(config.StatePath), "runtime-sessions")
-	entries, err := os.ReadDir(archive)
-	if err != nil || len(entries) != 1 || savedRuntime(t, filepath.Join(archive, stopped.Session.ID+".json")) != stopped {
-		t.Fatalf("archive duplicated or changed previous session: %v %v", entries, err)
-	}
 	next, _, _ := runtimeFixture(t, config)
 	if err := next.start(); err != nil {
 		t.Fatal(err)
 	}
 	current := savedRuntime(t, config.StatePath)
-	if current.Session.ID == stopped.Session.ID || current.Session.PlanID != config.PlanID || current.Session.Uplink != 0 || current.Session.Downlink != 0 {
+	if current.Session.ID == stopped.Session.ID || current.Session.Uplink != 0 || current.Session.Downlink != 0 {
 		t.Fatalf("restart reused a session or inherited totals: %+v", current)
 	}
-	if savedRuntime(t, filepath.Join(archive, stopped.Session.ID+".json")) != stopped {
-		t.Fatal("new current snapshot overwrote the archived session")
+	if _, err := os.Lstat(filepath.Join(filepath.Dir(config.StatePath), "runtime-sessions")); !os.IsNotExist(err) {
+		t.Fatal("restart created a runtime session archive")
 	}
 }
 
-func TestRuntimeWriteAndArchiveFailuresPreserveSavedFile(t *testing.T) {
+func TestRuntimeWriteFailuresPreserveSavedFile(t *testing.T) {
 	config := runtimeConfig(t)
 	runtime, up, _ := runtimeFixture(t, config)
 	up.Add(20)
@@ -178,31 +172,6 @@ func TestRuntimeWriteAndArchiveFailuresPreserveSavedFile(t *testing.T) {
 	if recovered.Session.Uplink != 33 || recovered.Error != "" {
 		t.Fatalf("retry synthesized or lost raw bytes: %+v", recovered)
 	}
-	_ = runtime.stateLock.Close()
-	archive := filepath.Join(filepath.Dir(config.StatePath), "runtime-sessions")
-	if err := os.WriteFile(archive, []byte("blocks archive directory"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if next, err := prepareRuntime(&config); err == nil {
-		_ = next.stateLock.Close()
-		t.Fatal("archive failure permitted a new owner")
-	}
-	if savedRuntime(t, config.StatePath) != recovered {
-		t.Fatal("archive failure overwrote the previous saved session")
-	}
-	if err := os.Remove(archive); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(t.TempDir(), archive); err != nil {
-		t.Skipf("symbolic links unavailable on this test host: %v", err)
-	}
-	if next, err := prepareRuntime(&config); err == nil {
-		_ = next.stateLock.Close()
-		t.Fatal("archive directory symlink was followed")
-	}
-	if savedRuntime(t, config.StatePath) != recovered {
-		t.Fatal("archive symlink rejection changed the saved session")
-	}
 }
 
 func TestRuntimeConfigAndStateBoundary(t *testing.T) {
@@ -210,8 +179,6 @@ func TestRuntimeConfigAndStateBoundary(t *testing.T) {
 	for _, mutate := range []func(*RuntimeConfig){
 		func(c *RuntimeConfig) { c.StatePath = "relative.json" },
 		func(c *RuntimeConfig) { c.InboundTag = "" },
-		func(c *RuntimeConfig) { c.PlanID = " " },
-		func(c *RuntimeConfig) { c.PlanID = strings.Repeat("x", 257) },
 		func(c *RuntimeConfig) { c.Listen = "127.0.0.1:12345" },
 		func(c *RuntimeConfig) { c.Token = strings.Repeat("a", 32) },
 		func(c *RuntimeConfig) { c.Listen, c.Token = "0.0.0.0:12345", strings.Repeat("a", 32) },
@@ -231,20 +198,25 @@ func TestRuntimeConfigAndStateBoundary(t *testing.T) {
 	}
 	for _, text := range []string{
 		`{`, `{"version":9}`,
-		`{"version":1,"session":{"id":"../../outside","planId":"plan","startedAtMs":1},"sampledAtMs":1,"savedAtMs":1}`,
-		`{"version":1,"session":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","planId":"plan","startedAtMs":1,"uplink":-1},"sampledAtMs":1,"savedAtMs":1}`,
+		`{"version":1,"session":{"id":"../../outside","startedAtMs":1},"sampledAtMs":1,"savedAtMs":1}`,
+		`{"version":1,"session":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","startedAtMs":1,"uplink":-1},"sampledAtMs":1,"savedAtMs":1}`,
+		`{"version":1,"session":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","planId":"old","startedAtMs":1},"sampledAtMs":1,"savedAtMs":1}`,
 	} {
 		if err := os.WriteFile(config.StatePath, []byte(text), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if r, err := prepareRuntime(&config); err == nil {
-			_ = r.stateLock.Close()
+		if _, err := readRuntimeState(config.StatePath); err == nil {
 			t.Fatal("invalid saved session was accepted")
 		}
 		if saved, err := os.ReadFile(config.StatePath); err != nil || string(saved) != text {
 			t.Fatal("invalid saved session was overwritten")
 		}
 	}
+	runtime, err := prepareRuntime(&config)
+	if err != nil {
+		t.Fatalf("saved state unnecessarily blocked preparation: %v", err)
+	}
+	_ = runtime.stateLock.Close()
 }
 
 func TestManagedRuntimeStartFailureAndStop(t *testing.T) {
@@ -336,7 +308,7 @@ func TestRuntimePeriodicSaveAndSingleOwner(t *testing.T) {
 	t.Fatal("host timer did not save counters without any UI/control request")
 }
 
-func TestRuntimeKilledOwnerKeepsOnlySavedTail(t *testing.T) {
+func TestRuntimeKilledOwnerStateIsReplacedOnRestart(t *testing.T) {
 	config := runtimeConfig(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -376,12 +348,11 @@ func TestRuntimeKilledOwnerKeepsOnlySavedTail(t *testing.T) {
 	if err := runtime.start(); err != nil {
 		t.Fatal(err)
 	}
-	archive := filepath.Join(filepath.Dir(config.StatePath), "runtime-sessions", saved.Session.ID+".json")
-	if savedRuntime(t, archive) != saved {
-		t.Fatal("restart did not preserve the killed owner's last saved snapshot")
-	}
 	if current := savedRuntime(t, config.StatePath); current.Session.ID == saved.Session.ID || current.Session.Uplink != 0 || current.Session.Downlink != 0 {
 		t.Fatalf("restart reused killed owner's counters: %+v", current)
+	}
+	if _, err := os.Lstat(filepath.Join(filepath.Dir(config.StatePath), "runtime-sessions")); !os.IsNotExist(err) {
+		t.Fatal("restart archived the killed owner's saved state")
 	}
 }
 
@@ -390,7 +361,7 @@ func TestRuntimeChild(t *testing.T) {
 	if path == "" {
 		return
 	}
-	config := RuntimeConfig{StatePath: path, PlanID: "child-plan", InboundTag: "tunIn"}
+	config := RuntimeConfig{StatePath: path, InboundTag: "tunIn"}
 	if os.Getenv("LIBXRAY_TEST_RUNTIME_ACTION") == "lock" {
 		if other, err := prepareRuntime(&config); err == nil || err.Error() != "runtime state is in use" {
 			if other != nil {

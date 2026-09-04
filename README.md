@@ -175,7 +175,7 @@ The request is a JSON object:
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -195,7 +195,7 @@ The response is a JSON object:
 
 Design notes:
 
-1. Invoke currently accepts only `apiVersion: 3`. Xray configurations are
+1. Invoke currently accepts only `apiVersion: 4`. Xray configurations are
    passed as UTF-8 JSON text in `xrayJson`; libXray does not read configuration
    file paths.
 2. A top-level `env` field is ignored and has no effect. Xray-core runtime
@@ -277,13 +277,13 @@ The lifecycle lock and managed-instance overlap rejection still apply.
 
 ### Draft route checking
 
-`checkRoute` is additive to API version 3. It accepts a complete draft in
+In API version 4, `checkRoute` accepts a complete draft in
 `xrayJson` and calls the pinned Xray-core Router, without starting the temporary
 instance or dispatching traffic to the supplied target:
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "checkRoute",
   "payload": {
     "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
@@ -461,7 +461,7 @@ decrypted in memory and limited to 16 MiB of plaintext.
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -479,7 +479,7 @@ Generate a new keypair with `keyType` set to `x25519` or `hybrid`. An omitted
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -512,7 +512,7 @@ by the `proxy` tag, and finally by the first outbound.
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -567,7 +567,7 @@ configuration file:
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -582,14 +582,13 @@ to stop that instance. `runXrayFromJson` is no longer a separate method.
 
 ### Managed runtime accounting
 
-`runXray.payload.runtime` is optional API v3 host metadata. Omitting it
+`runXray.payload.runtime` is optional API v4 host metadata. Omitting it
 preserves the original lifecycle and writes no runtime snapshots. Hosts opt in
 with this object (also the complete content of the desktop `-runtime` file):
 
 ```json
 {
   "statePath": "/private/app/run/runtime.json",
-  "planId": "opaque-plan-id",
   "inboundTag": "tunIn",
   "listen": "127.0.0.1:49228",
   "token": "538fc3253a3e433491bc2d653fc74214"
@@ -597,16 +596,15 @@ with this object (also the complete content of the desktop `-runtime` file):
 ```
 
 The host supplies an existing private directory and an absolute `statePath`.
-`planId` and `inboundTag` must be nonempty and at most 256 bytes. `planId` is
-opaque and must not contain credentials. Metadata stays separate from Xray
-JSON, so user configuration cannot override it. The named inbound must exist,
-with uplink/downlink system statistics and a statistics manager enabled.
+`inboundTag` must be nonempty and at most 256 bytes. Metadata stays separate
+from Xray JSON, so user configuration cannot override it. The named inbound
+must exist, with uplink/downlink system statistics and a statistics manager enabled.
 `listen` and `token` may both be omitted to save snapshots without HTTP. When
 enabled, `listen` must be `127.0.0.1:<port>` with port 1–65535, and the host must
 generate a fresh random 32-character lowercase hex `token`. Keep it private;
-do not reuse the example token. Invalid metadata, an occupied HTTP port, corrupt
-saved state, an archive failure, or an initial save failure rejects startup;
-any constructed core and statistics listener are closed.
+do not reuse the example token. Invalid metadata, an occupied HTTP port, or an
+initial save failure rejects startup; any constructed core and statistics
+listener are closed.
 
 The saved file contains only the current session's raw inbound counter values:
 
@@ -615,7 +613,6 @@ The saved file contains only the current session's raw inbound counter values:
   "version": 1,
   "session": {
     "id": "2a7e2e49b947a802d8b39af4fbc48f52",
-    "planId": "opaque-plan-id",
     "startedAtMs": 1788300000000,
     "endedAtMs": 0,
     "uplink": 120,
@@ -644,16 +641,10 @@ reset generations, or VPN control HTTP methods.
 `resetRuntime` is not an Invoke method. Applications may read existing Xray
 metrics for live rates; their own totals/reset policy stays outside libXray.
 
-Before a new session can replace `runtime.json`, the previous valid saved
-snapshot is atomically archived beside it as
-`runtime-sessions/<session-id>.json`. The archive preserves its raw counters,
-timestamps, and any unset ending; it does not infer missing traffic or a crash
-time. Repeated unsuccessful starts reuse the same archive filename. A failed
-preparation may therefore leave the same session in both current and archive;
-consumers must identify sessions by ID, not count files. Archives are retained
-until the App explicitly acknowledges them; their counters are never carried
-into the new session.
-The archive directory rejects symlinks/non-directories and is created mode 0700.
+Starting a new session atomically replaces the previous `runtime.json`; libXray
+does not archive or merge earlier sessions. Traffic not read by the App before
+replacement is intentionally lost. Each session starts from zero and receives a
+new ID.
 
 Snapshot files use a mode-0600 same-directory temporary file, sync, and atomic
 replacement (Windows uses `MoveFileEx` with replace-existing and write-through).
@@ -662,12 +653,11 @@ Failed saves leave the previous complete disk snapshot for later retry; a final
 save error is returned but never prevents core shutdown. An error after rename
 can have an uncertain persistence outcome, so consumers must re-read saved
 snapshots through HTTP when available.
-This is reference data, not billing: crashes/forced termination can lose the
-tail after the last successful save, with no strict 30-second loss bound. A
-restart archives only that last saved tail and does not fabricate final values.
+This is reference data, not billing: crashes, forced termination, or replacement
+before the App reads the file can lose traffic, with no strict loss bound.
 
 A nonblocking OS lock on `statePath + ".lock"` is held until core close,
-preventing another process from writing the same current/archive sequence.
+preventing another process from writing the current session.
 Hosts must use one consistent canonical path and leave the lock file in place.
 App code reads snapshots through HTTP instead of opening the host's files, so
 macOS System Extension files can remain root-owned. This does not provide
@@ -681,28 +671,13 @@ from Xray's native metrics; it provides no VPN start/stop/configuration methods.
 Every request requires `Authorization: Bearer <token>`. Responses use
 `Cache-Control: no-store`; CORS is not enabled.
 
-- `GET /runtime` returns `{"current": <snapshot-or-null>, "archived": [<snapshot>, ...]}`.
-- `POST /runtime/ack` accepts `{"removeSessionIds": ["<session-id>", ...]}` and
-  returns the same shape with the remaining archives. IDs must be 32-character
-  lowercase hex. Unknown IDs are harmless, repeated acknowledgment is safe,
-  and the current session is never deleted, including its duplicate archive.
+- `GET /runtime` returns the current saved snapshot directly.
 
-Requests read the host's saved atomic snapshots, without sampling, resetting
-counters, or updating the save time. Use native metrics for live rates. The App
-must durably save its totals/session watermarks **before** acknowledging archives;
-if the HTTP request fails, retain the watermarks and retry. Failed deletions
-remain in the returned archive list. Only valid snapshot files immediately in
-the host's own `runtime-sessions` directory are eligible; request paths and
-symlinks are rejected. A corrupt snapshot makes the request fail rather than
-silently lose accounting data.
-
-Acknowledgment bodies are limited to 64 KiB and responses to 16 MiB; requests
-have bounded read/write timeouts. There is no pagination. If unacknowledged
-archives exceed the response limit, the request fails and the App retains its
-last known data. While stopped, HTTP is unavailable: the App can show its own
-persisted last-known snapshot/totals, retain reset watermarks, and reconcile
-saved tails and archives on the next connection. libXray never owns App totals
-or clear/reset policy.
+Requests read the host's saved atomic snapshot without sampling, resetting
+counters, or updating the save time. Use native metrics for live rates. A
+missing, corrupt, or non-regular snapshot returns service unavailable. Requests
+have bounded read/write timeouts. While stopped, HTTP is unavailable; libXray
+never owns App totals or clear/reset policy.
 
 ### metrics
 

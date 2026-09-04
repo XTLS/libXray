@@ -32,12 +32,12 @@ the generic API.
 
 # Invoke API Contract
 
-The current API version is `3`. Requests using an omitted or different
+The current API version is `4`. Requests using an omitted or different
 `apiVersion` are rejected.
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -98,12 +98,12 @@ owns JSON parsing and provider-specific semantics.
 until `stopXray` closes the current instance.
 
 Optional `runXray.payload.runtime` saves only the current session's inbound
-counters periodically and on normal stop. Before replacing the current file,
-the previous session is archived for the App to reconcile. The App owns device
-totals and reset; live reads use Xray's native metrics endpoint. Optional runtime
-`listen`/`token` expose saved snapshots and archive acknowledgments over an
-authenticated loopback HTTP listener. Read README.md's "Managed runtime
-accounting" section before changing persistence, acknowledgment, or HTTP access.
+counters periodically and on normal stop. A new session replaces the previous
+saved session without archiving it. The App owns device totals and reset; live
+reads use Xray's native metrics endpoint. Optional runtime `listen`/`token`
+expose the current saved snapshot over an authenticated loopback HTTP listener.
+Read README.md's "Managed runtime accounting" section before changing
+persistence or HTTP access.
 
 `testXray` (default `buildOnly: false`) and `pingBatch` create temporary Xray
 instances. Xray-core has process-wide DNS client and outbound manager state.
@@ -208,7 +208,7 @@ manually.
 # Development Rules
 
 1. Use `Invoke` for typed commands, Xray metrics for live counters, and runtime
-   HTTP only for saved snapshots/archive acknowledgments. Keep App totals/reset
+   HTTP only for the current saved snapshot. Keep App totals/reset
    outside libXray and platform-only controller APIs isolated by build tags.
 2. Define request and response fields as typed Go models in `invoke_model.go`.
    Do not pass unstructured maps into package business logic.

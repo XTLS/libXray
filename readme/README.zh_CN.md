@@ -134,7 +134,7 @@ void CGoFree(char* value);
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -154,7 +154,7 @@ void CGoFree(char* value);
 
 设计决定：
 
-1. Invoke 当前只接受 `apiVersion: 3`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
+1. Invoke 当前只接受 `apiVersion: 4`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
 2. 顶层 `env` 字段会被忽略且不会生效。Xray-core 运行时环境项应写入 Xray 配置根 `env` 对象。
 3. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
 4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
@@ -205,13 +205,13 @@ reverse，不调用临时 instance 的 Start，也不发布为活动核心。结
 
 ### 草稿路由检查
 
-`checkRoute` 是 API version 3 的增量方法。通过 `xrayJson` 接收完整草稿，
+API version 4 的 `checkRoute` 通过 `xrayJson` 接收完整草稿，
 调用当前锁定版本 Xray-core 的 Router；不启动临时 instance，也不向输入的目标
 派发访问流量：
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "checkRoute",
   "payload": {
     "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
@@ -353,7 +353,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -371,7 +371,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -402,7 +402,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -449,7 +449,7 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 
 ```json
 {
-  "apiVersion": 3,
+  "apiVersion": 4,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -464,27 +464,26 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 
 ### 托管运行统计
 
-API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
+API v4 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
 不写运行快照。宿主传入以下对象；Desktop 的 `-runtime` 文件也直接使用此对象，
 不含外层 `runtime`，原始 Xray 配置仍通过独立的 `-config` 传入。
 
 ```json
 {
   "statePath": "/private/app/run/runtime.json",
-  "planId": "opaque-plan-id",
   "inboundTag": "tunIn",
   "listen": "127.0.0.1:49228",
   "token": "538fc3253a3e433491bc2d653fc74214"
 }
 ```
 
-宿主提供已存在的私有目录和绝对 `statePath`。`planId` / `inboundTag` 非空且
-各不超过 256 字节；`planId` 是不包含凭据的不透明标识。元数据独立于 Xray JSON，
-用户配置不能覆盖。指定入站必须存在，并启用上下行系统统计和 stats manager。
+宿主提供已存在的私有目录和绝对 `statePath`。`inboundTag` 非空且不超过 256 字节。
+元数据独立于 Xray JSON，用户配置不能覆盖。指定入站必须存在，并启用上下行系统统计
+和 stats manager。
 `listen` / `token` 可同时省略，保留仅落盘、不启用 HTTP 的行为。启用时 `listen`
 只能是 `127.0.0.1:<port>`，端口范围 1–65535；宿主须生成新的 32 位小写十六进制
-随机 `token` 并保密，不能复用示例值。元数据无效、HTTP 端口被占用、已有快照损坏、
-归档失败或首次保存失败均拒绝启动，并关闭已构建的核心和统计监听器。
+随机 `token` 并保密，不能复用示例值。元数据无效、HTTP 端口被占用或首次保存失败
+均拒绝启动，并关闭已构建的核心和统计监听器。
 
 落盘文件仅包含本次会话的原始入站计数：
 
@@ -493,7 +492,6 @@ API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留�
   "version": 1,
   "session": {
     "id": "2a7e2e49b947a802d8b39af4fbc48f52",
-    "planId": "opaque-plan-id",
     "startedAtMs": 1788300000000,
     "endedAtMs": 0,
     "uplink": 120,
@@ -518,22 +516,18 @@ API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留�
 方法。`resetRuntime` 不是 Invoke method。App 可通过已有 Xray metrics
 读取实时速率；App 累计与重置策略由 App 自行管理，不属于 libXray。
 
-新会话覆盖 `runtime.json` 前，先将已有合法快照原子归档到同级目录
-`runtime-sessions/<session-id>.json`。归档保留原始计数、时间及可能未设置的结束
-时间，不推测丢失流量或崩溃时间。重复启动失败使用同一个归档文件名；准备失败时，
-当前文件和归档可能同时存在相同会话，消费者必须按 session ID 识别，不能按文件数
-重复计入。归档保留至 App 显式确认结算，不把旧计数继承到新会话。归档目录以 0700 创建，
-拒绝符号链接和非目录对象。
+启动新会话时会原子覆盖之前的 `runtime.json`；libXray 不归档或合并旧会话。
+若 App 未在覆盖前读取流量，该数据将直接丢失。每个会话都从零开始，并生成新的 ID。
 
 快照文件使用同目录 0600 临时文件，sync 后原子替换；Windows 使用
 `MoveFileEx` 的替换和 write-through 标志。私有父目录/Windows ACL 由宿主管理。
 保存失败保留上次完整磁盘快照供后续重试；最终保存失败向调用方报告，但仍关闭核心。
 rename 后发生 I/O 错误时结果可能不确定，消费者应在 HTTP 可用时重新读取已保存的快照。这是参考数据，
-不是计费账本：崩溃/强杀允许丢失最后成功保存后的尾部，不承诺严格 30 秒丢失上限。
-下次启动只归档已有快照，不伪造最终计数。
+不是计费账本：崩溃、强杀或 App 读取前被新会话覆盖都可能丢失流量，不承诺严格的
+丢失上限。
 
 `statePath + ".lock"` 的非阻塞操作系统文件锁保持至核心关闭，防止跨进程同时
-改写当前快照和归档。宿主须使用一致的规范路径并保留锁文件。App 经 HTTP 读取快照，
+改写当前会话。宿主须使用一致的规范路径并保留锁文件。App 经 HTTP 读取快照，
 无需打开宿主文件，因此 macOS System Extension 文件可继续归 root 所有。此能力
 不能让 Windows Job 强制终止获得正常最终结算。
 
@@ -543,21 +537,11 @@ rename 后发生 I/O 错误时结果可能不确定，消费者应在 HTTP 可�
 Xray 原生 metrics 的回环端口，不提供 VPN 启停或配置方法。所有请求必须携带
 `Authorization: Bearer <token>`；响应使用 `Cache-Control: no-store`，不启用 CORS。
 
-- `GET /runtime` 返回 `{"current": <snapshot 或 null>, "archived": [<snapshot>, ...]}`。
-- `POST /runtime/ack` 接收 `{"removeSessionIds": ["<session-id>", ...]}`，返回相同结构，
-  其中只保留剩余归档。ID 必须为 32 位小写十六进制；不存在的 ID 无副作用，支持重复确认；
-  当前会话及其重复归档永不删除。
+- `GET /runtime` 直接返回当前已保存的快照。
 
 请求只读取宿主已保存的原子快照，不触发采样、计数重置或保存时间更新；实时速率仍使用
-原生 metrics。App 必须**先持久保存累计值及会话水位，再确认归档**；HTTP 请求失败时
-保留水位并重试。删除失败的归档仍出现在响应列表。仅宿主自身 `runtime-sessions`
-目录直接包含的合法快照文件可被清理，不接受请求路径，拒绝符号链接。快照损坏会使
-请求失败，不静默丢弃统计数据。
-
-确认请求体限制 64 KiB，响应限制 16 MiB，读写有超时限制，不提供分页。未确认归档超出
-响应上限时请求失败，App 保留最后已知数据。停止期间 HTTP 不可用：App 可展示自身
-持久化的最后已知快照及累计值，保留清零水位，在下次连接时补结算保存的尾部与归档。
-libXray 不维护 App 累计值或清零策略。
+原生 metrics。快照缺失、损坏或不是常规文件时返回服务不可用。请求有读写超时限制。
+停止期间 HTTP 不可用；libXray 不维护 App 累计值或清零策略。
 
 ### metrics
 

@@ -10,7 +10,7 @@ import (
 
 type LibXrayMethod string
 
-const LibXrayAPIVersion = 3
+const LibXrayAPIVersion = 4
 
 const (
 	LibXrayMethodGetFreePorts                LibXrayMethod = "getFreePorts"
