@@ -22,20 +22,13 @@ func filterBuildableOutbounds(config *conf.Config) (*conf.Config, error) {
 	restoreNilRawMessages(reflect.ValueOf(&validationOutbounds))
 
 	validOutbounds := make([]conf.OutboundDetourConfig, 0, len(config.OutboundConfigs))
-	var firstBuildError error
 	for index := range validationOutbounds {
 		if _, err := validationOutbounds[index].Build(); err != nil {
-			if firstBuildError == nil {
-				firstBuildError = err
-			}
 			continue
 		}
 		validOutbounds = append(validOutbounds, config.OutboundConfigs[index])
 	}
 	if len(validOutbounds) == 0 {
-		if firstBuildError != nil {
-			return nil, fmt.Errorf("no valid outbound found: %w", firstBuildError)
-		}
 		return nil, fmt.Errorf("no valid outbound found")
 	}
 

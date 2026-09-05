@@ -67,21 +67,14 @@ func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
 	if err := validateRuntimeHTTP(config); err != nil {
 		return nil, err
 	}
+	var id [16]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return nil, err
+	}
 	stateLock, err := lockRuntimeState(config.StatePath)
 	if err != nil {
 		return nil, err
 	}
-	prepared := false
-	defer func() {
-		if !prepared {
-			_ = stateLock.Close()
-		}
-	}()
-	var id [16]byte
-	if _, err = rand.Read(id[:]); err != nil {
-		return nil, err
-	}
-	prepared = true
 	return &managedRuntime{
 		config: *config, stateLock: stateLock,
 		snapshot: runtimeSnapshot{
@@ -181,10 +174,6 @@ func (r *managedRuntime) sample() {
 			r.snapshot.Session.Uplink, r.snapshot.Session.Downlink = u, d
 		}
 	}
-	r.snapshot.Error = ""
-	if !r.snapshot.Available {
-		r.snapshot.Error = "counters_unavailable"
-	}
 }
 
 func (r *managedRuntime) save() error {
@@ -226,9 +215,6 @@ func (r *managedRuntime) stop() error {
 func readRuntimeState(path string) (runtimeSnapshot, error) {
 	var state runtimeSnapshot
 	info, err := os.Lstat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return state, nil
-	}
 	if err != nil || !info.Mode().IsRegular() || info.Size() > 64*1024 {
 		return state, errors.New("runtime state is not a readable regular file")
 	}

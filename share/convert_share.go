@@ -72,25 +72,24 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, int, er
 	}
 	if hasShareSchemeLine(text) {
 		candidates := 0
-		forEachLine(text, func(raw string) bool {
+		for raw := range strings.SplitSeq(text, "\n") {
 			line := strings.TrimSpace(raw)
 			// Subscription comments/headers are not node candidates. A URI-like
 			// row is one candidate, including an unsupported or malformed URI.
 			scheme, _, found := strings.Cut(line, "://")
 			if !found || strings.ContainsAny(scheme, " \t#") {
-				return true
+				continue
 			}
 			candidates++
 			parsed, err := url.Parse(line)
 			if err != nil {
-				return true
+				continue
 			}
 			outbound, err := (xrayShareLink{link: parsed, rawText: line}).outbound()
 			if err == nil {
 				config.OutboundConfigs = append(config.OutboundConfigs, *outbound)
 			}
-			return true
-		})
+		}
 		return config, candidates, nil
 	}
 	if allowBase64 {

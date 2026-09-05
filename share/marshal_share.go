@@ -16,7 +16,6 @@ func marshalShareConfigJSON(config *conf.Config) (json.RawMessage, int, error) {
 	}
 
 	outbounds := make([]map[string]any, 0, len(config.OutboundConfigs))
-	var firstBuildError error
 	for _, outbound := range config.OutboundConfigs {
 		source, err := marshalShareJSONObject(outbound)
 		if err != nil {
@@ -27,18 +26,12 @@ func marshalShareConfigJSON(config *conf.Config) (json.RawMessage, int, error) {
 			continue
 		}
 		if err := validateProjectedShareOutbound(projected); err != nil {
-			if firstBuildError == nil {
-				firstBuildError = err
-			}
 			continue
 		}
 		outbounds = append(outbounds, projected)
 	}
 
 	if len(outbounds) == 0 {
-		if firstBuildError != nil {
-			return nil, 0, fmt.Errorf("no valid outbound found: %w", firstBuildError)
-		}
 		return nil, 0, fmt.Errorf("no valid outbound found")
 	}
 

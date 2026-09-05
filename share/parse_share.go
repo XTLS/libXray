@@ -48,48 +48,29 @@ var shareSchemes = []string{
 }
 
 func hasShareSchemeLine(text string) bool {
-	found := false
-	forEachLine(text, func(raw string) bool {
+	for raw := range strings.SplitSeq(text, "\n") {
 		line := strings.TrimSpace(raw)
 		for _, p := range shareSchemes {
 			if strings.HasPrefix(line, p) {
-				found = true
-				return false
+				return true
 			}
 		}
-		return true
-	})
-	return found
+	}
+	return false
 }
 
 func hasTopLevelClashProxiesKey(text string) bool {
-	found := false
-	forEachLine(text, func(raw string) bool {
+	for raw := range strings.SplitSeq(text, "\n") {
 		line := strings.TrimRight(raw, " \t")
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || trimmed == "---" || strings.HasPrefix(trimmed, "#") {
-			return true
+			continue
 		}
 		if strings.HasPrefix(line, "proxies:") {
-			found = true
-			return false
+			return true
 		}
-		return true
-	})
-	return found
-}
-
-func forEachLine(text string, visit func(string) bool) {
-	for {
-		line, rest, ok := strings.Cut(text, "\n")
-		if !visit(line) {
-			return
-		}
-		if !ok {
-			return
-		}
-		text = rest
 	}
+	return false
 }
 
 type xrayShareLink struct {

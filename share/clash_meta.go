@@ -125,44 +125,17 @@ type ClashProxyXhttpOptsDownloadSettings struct {
 func (proxy ClashProxy) outbound() (*conf.OutboundDetourConfig, error) {
 	switch proxy.Type {
 	case "ss":
-		outbound, err := proxy.shadowsocksOutbound()
-		if err != nil {
-			return nil, err
-		}
-		return outbound, nil
-
+		return proxy.shadowsocksOutbound()
 	case "vmess":
-		outbound, err := proxy.vmessOutbound()
-		if err != nil {
-			return nil, err
-		}
-		return outbound, nil
-
+		return proxy.vmessOutbound()
 	case "vless":
-		outbound, err := proxy.vlessOutbound()
-		if err != nil {
-			return nil, err
-		}
-		return outbound, nil
-
+		return proxy.vlessOutbound()
 	case "socks5":
-		outbound, err := proxy.socksOutbound()
-		if err != nil {
-			return nil, err
-		}
-		return outbound, nil
+		return proxy.socksOutbound()
 	case "trojan":
-		outbound, err := proxy.trojanOutbound()
-		if err != nil {
-			return nil, err
-		}
-		return outbound, nil
+		return proxy.trojanOutbound()
 	case "hysteria2":
-		outbound, err := proxy.hysteria2Outbound()
-		if err != nil {
-			return nil, err
-		}
-		return outbound, nil
+		return proxy.hysteria2Outbound()
 	}
 	return nil, fmt.Errorf("unsupported proxy type: %s", proxy.Type)
 }

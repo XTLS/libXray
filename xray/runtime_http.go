@@ -72,7 +72,7 @@ func (r *managedRuntime) handleHTTP(w http.ResponseWriter, request *http.Request
 		return
 	}
 	snapshot, err := readRuntimeState(r.config.StatePath)
-	if err != nil || snapshot.Version == 0 {
+	if err != nil {
 		http.Error(w, "runtime snapshot unavailable", http.StatusServiceUnavailable)
 		return
 	}

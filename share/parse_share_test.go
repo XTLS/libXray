@@ -221,8 +221,7 @@ func TestConvertShareLinksToXrayJson_AllBuildInvalidOutbounds(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no valid outbound found")
-	assert.Contains(t, err.Error(), "invalid byte")
+	assert.EqualError(t, err, "no valid outbound found")
 }
 
 func TestConvertShareLinksToXrayJson_Base64EncodedLines(t *testing.T) {
