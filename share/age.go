@@ -7,7 +7,6 @@ import (
 
 	"github.com/metacubex/age"
 	"github.com/metacubex/age/armor"
-	"github.com/xtls/xray-core/infra/conf"
 )
 
 const (
@@ -62,40 +61,36 @@ func GenerateAgeKeyPair(keyType AgeKeyType) (*AgeKeyPair, error) {
 	}
 }
 
-func ConvertShareLinksToXrayJsonWithAge(links, secretKey string) (*conf.Config, error) {
+func decryptShareText(links, secretKey string) (string, bool, error) {
 	text := strings.TrimSpace(FixWindowsReturn(links))
 	if !strings.HasPrefix(text, ageArmorHeader) {
-		return ConvertShareLinksToXrayJson(links)
+		return links, false, nil
 	}
 	if strings.TrimSpace(secretKey) == "" {
-		return nil, ErrAgeSecretKeyMissing
+		return "", true, ErrAgeSecretKeyMissing
 	}
 
 	identity, _, err := parseNativeAgeIdentity(secretKey)
 	if err != nil {
-		return nil, err
+		return "", true, err
 	}
 	reader, err := age.Decrypt(armor.NewReader(strings.NewReader(text)), identity)
 	if err != nil {
 		var noMatch *age.NoIdentityMatchError
 		if errors.As(err, &noMatch) {
-			return nil, ErrAgeDecryptFailed
+			return "", true, ErrAgeDecryptFailed
 		}
-		return nil, ErrAgeArmorMalformed
+		return "", true, ErrAgeArmorMalformed
 	}
 
 	plaintext, err := io.ReadAll(io.LimitReader(reader, maxAgePlaintextBytes+1))
 	if err != nil {
-		return nil, ErrAgeArmorMalformed
+		return "", true, ErrAgeArmorMalformed
 	}
 	if len(plaintext) > maxAgePlaintextBytes {
-		return nil, ErrAgePlaintextTooLarge
+		return "", true, ErrAgePlaintextTooLarge
 	}
-	config, err := ConvertShareLinksToXrayJson(string(plaintext))
-	if err != nil {
-		return nil, ErrAgePlaintextUnsupported
-	}
-	return config, nil
+	return string(plaintext), true, nil
 }
 
 func parseNativeAgeIdentity(secretKey string) (age.Identity, age.Recipient, error) {

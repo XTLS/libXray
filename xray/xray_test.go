@@ -2,6 +2,8 @@ package xray
 
 import (
 	"errors"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -11,6 +13,32 @@ const minimalConfig = `{
   "inbounds": [],
   "outbounds": [{"protocol": "freedom", "tag": "direct"}]
 }`
+
+func TestTemporaryOperationsRejectManagedOverlap(t *testing.T) {
+	if err := RunXray(minimalConfig); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = StopXray() })
+	const key = "XRAY_LIBXRAY_TEMPORARY_OVERLAP_TEST"
+	t.Setenv(key, "original")
+	config := `{"env":{"` + key + `":"changed"},"outbounds":[{"protocol":"freedom"}]}`
+	for name, operation := range map[string]func() error{
+		"testXray": func() error { return TestXray(config) },
+		"pingBatch": func() error {
+			_, err := PingBatch([]PingBatchItem{{XrayJSON: config}}, 10, "http://127.0.0.1:1/")
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := operation(); err == nil || !strings.Contains(err.Error(), "isolated process") {
+				t.Fatalf("managed overlap was not rejected: %v", err)
+			}
+			if os.Getenv(key) != "original" || !GetXrayState() {
+				t.Fatal("temporary operation changed the active instance or process environment")
+			}
+		})
+	}
+}
 
 func TestRunXrayRejectsDuplicateStart(t *testing.T) {
 	t.Cleanup(func() {

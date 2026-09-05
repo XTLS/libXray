@@ -77,6 +77,16 @@ func decodeDataObject[T any](t *testing.T, response testResponse) T {
 	return value
 }
 
+func decodeShareConfig(t *testing.T, response testResponse) (ConvertShareLinksToXrayJsonResponse, conf.Config) {
+	t.Helper()
+	result := decodeDataObject[ConvertShareLinksToXrayJsonResponse](t, response)
+	var config conf.Config
+	if err := json.Unmarshal(result.Config, &config); err != nil {
+		t.Fatal(err)
+	}
+	return result, config
+}
+
 func writeGeoSiteDatForTest(t *testing.T, path string) {
 	t.Helper()
 	data, err := proto.Marshal(&geodata.GeoSiteList{
@@ -206,6 +216,38 @@ func TestInvokeTestXray(t *testing.T) {
 	requireNoDataObject(t, response)
 }
 
+func TestInvokeTestXrayDoesNotCreateRuntimeResources(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "not-created", "error.log")
+	config, err := json.Marshal(map[string]any{
+		"log": map[string]any{"error": logPath, "loglevel": "debug"},
+		"inbounds": []any{
+			map[string]any{"tag": "tunIn", "protocol": "tun", "settings": map[string]any{"name": "TestXrayMustNotCreate", "mtu": 1500}},
+		},
+		"outbounds": []any{
+			map[string]any{"protocol": "wireguard", "settings": map[string]any{
+				"secretKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+				"address":   []string{"10.0.0.2/32"},
+				"peers":     []any{map[string]any{"publicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "endpoint": "127.0.0.1:9"}},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: string(config)})
+	if !response.Success {
+		t.Fatalf("testXray must accept structurally valid TUN/WireGuard without construction: %s", response.Err)
+	}
+	requireNoDataObject(t, response)
+	if _, err := os.Stat(filepath.Dir(logPath)); !os.IsNotExist(err) {
+		t.Fatalf("testXray created a runtime log directory: %v", err)
+	}
+	response = invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: `{"outbounds":[{"protocol":"unknown"}]}`})
+	if response.Success || string(response.Data) != "null" {
+		t.Fatalf("testXray must still reject invalid core configuration: %+v", response)
+	}
+}
+
 func TestInvokeTestXrayDoesNotReadConfigPath(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "xray.json")
 	configJSON, err := json.Marshal(testXrayConfig(t))
@@ -242,6 +284,43 @@ func TestInvokeRunXray(t *testing.T) {
 		t.Fatalf("RunXray failed: %s", response.Err)
 	}
 	requireNoDataObject(t, response)
+}
+
+func TestInvokeRunXrayRuntimeIsOptionalTypedMetadata(t *testing.T) {
+	defer xrayStopForTest(t)
+	request := RunXrayRequest{
+		XrayJson: `{"log":{"loglevel":"none"},"outbounds":[{"protocol":"freedom"}]}`,
+		Runtime: &RuntimeConfig{
+			StatePath: "relative.json", InboundTag: "tunIn",
+		},
+	}
+	encoded, err := json.Marshal(request)
+	if err != nil || !strings.Contains(string(encoded), `"runtime":{"statePath":`) {
+		t.Fatalf("runtime metadata is missing from the request: %v", err)
+	}
+	response := invokeForTest(t, LibXrayMethodRunXray, request)
+	if response.Success || !strings.Contains(response.Err, "absolute statePath") {
+		t.Fatalf("runtime validation was bypassed: %+v", response)
+	}
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"runXray","payload":{"xrayJson":"{}","runtime":"invalid"}}`)
+	if response.Success {
+		t.Fatal("untyped runtime metadata was accepted")
+	}
+}
+
+func TestInvokeRejectsRemovedRuntimeControl(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runtime.json")
+	data := []byte(`{"fixture":"must not change"}`)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	response := invokeForTest(t, LibXrayMethod("resetRuntime"), map[string]string{"statePath": path})
+	if response.Success || response.Err != "unknown method" || string(response.Data) != "null" {
+		t.Fatalf("removed runtime control was accepted: %+v", response)
+	}
+	if saved, err := os.ReadFile(path); err != nil || !bytes.Equal(saved, data) {
+		t.Fatalf("unknown method modified a file: %s %v", saved, err)
+	}
 }
 
 func TestInvokeRunXrayAppliesConfigEnv(t *testing.T) {
@@ -334,12 +413,18 @@ func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
 	if !response.Success {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
 	}
-	config := decodeDataObject[conf.Config](t, response)
+	result, config := decodeShareConfig(t, response)
+	if result.UsableCount != 1 || result.FailedCount != 1 {
+		t.Fatalf("result = %+v, want 1 usable and 1 failed", result)
+	}
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
-	if config.OutboundConfigs[0].SendThrough == nil || *config.OutboundConfigs[0].SendThrough != validName {
-		t.Fatalf("sendThrough = %v, want %q", config.OutboundConfigs[0].SendThrough, validName)
+	if config.OutboundConfigs[0].Tag != validName {
+		t.Fatalf("tag = %q, want %q", config.OutboundConfigs[0].Tag, validName)
+	}
+	if config.OutboundConfigs[0].SendThrough != nil {
+		t.Fatalf("sendThrough = %v, want nil", config.OutboundConfigs[0].SendThrough)
 	}
 }
 
@@ -357,27 +442,26 @@ func TestInvokeConvertShareLinksReturnsProjectedObject(t *testing.T) {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
 	}
 
+	result, config := decodeShareConfig(t, response)
 	var root map[string]json.RawMessage
-	if err := json.Unmarshal(response.Data, &root); err != nil {
-		t.Fatalf("data is not an object: %s", response.Data)
+	if err := json.Unmarshal(result.Config, &root); err != nil {
+		t.Fatalf("config is not an object: %s", result.Config)
 	}
 	if len(root) != 1 || root["outbounds"] == nil {
-		t.Fatalf("data root = %s, want only outbounds", response.Data)
+		t.Fatalf("config root = %s, want only outbounds", result.Config)
 	}
 	for _, field := range []string{"publicKey", "target", "dest", "proxySettings", "sockopt"} {
-		if bytes.Contains(response.Data, []byte(`"`+field+`"`)) {
-			t.Fatalf("data contains unsupported field %q: %s", field, response.Data)
+		if bytes.Contains(result.Config, []byte(`"`+field+`"`)) {
+			t.Fatalf("config contains unsupported field %q: %s", field, result.Config)
 		}
 	}
-	if !bytes.Contains(response.Data, []byte(`"password":"`+publicKey+`"`)) {
-		t.Fatalf("data did not canonicalize REALITY password: %s", response.Data)
+	if !bytes.Contains(result.Config, []byte(`"password":"`+publicKey+`"`)) {
+		t.Fatalf("config did not canonicalize REALITY password: %s", result.Config)
 	}
 
-	config := decodeDataObject[conf.Config](t, response)
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
-	config.OutboundConfigs[0].SendThrough = nil
 	if _, err := config.OutboundConfigs[0].Build(); err != nil {
 		t.Fatalf("projected outbound does not build: %v", err)
 	}
@@ -429,7 +513,10 @@ func TestInvokeAgeKeyGenerationAndConversion(t *testing.T) {
 	if !converted.Success {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", converted.Err)
 	}
-	config := decodeDataObject[conf.Config](t, converted)
+	result, config := decodeShareConfig(t, converted)
+	if result.UsableCount != 1 || result.FailedCount != 0 {
+		t.Fatalf("result = %+v, want 1 usable and 0 failed", result)
+	}
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
@@ -478,8 +565,9 @@ func TestInvokeConvertShareLinksFailsWhenAllOutboundsAreBuildInvalid(t *testing.
 	if !strings.Contains(response.Err, "no valid outbound found") {
 		t.Fatalf("error = %q", response.Err)
 	}
-	if got := string(response.Data); got != "null" {
-		t.Fatalf("data = %s, want null", got)
+	result, config := decodeShareConfig(t, response)
+	if result.UsableCount != 0 || result.FailedCount != 1 || len(config.OutboundConfigs) != 0 {
+		t.Fatalf("result = %+v, config = %+v", result, config)
 	}
 }
 
@@ -607,10 +695,10 @@ func TestInvokeUnknownMethod(t *testing.T) {
 }
 
 func TestInvokeRemovedMethods(t *testing.T) {
-	for _, method := range []string{"ping", "runXrayFromJson", "deriveAgePublicKey"} {
+	for _, method := range []string{"ping", "runXrayFromJson", "deriveAgePublicKey", "checkRoute"} {
 		response := invokeRawForTest(
 			t,
-			`{"apiVersion":2,"method":"`+method+`","payload":{}}`,
+			`{"apiVersion":3,"method":"`+method+`","payload":{}}`,
 		)
 		if response.Success {
 			t.Fatalf("removed method %q should fail", method)
@@ -662,17 +750,19 @@ func TestInvokeAPIVersion(t *testing.T) {
 		t.Fatal("omitted apiVersion should fail")
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":1,"method":"xrayVersion"}`)
-	if response.Success {
-		t.Fatal("v1 apiVersion should fail")
-	}
-	if got := string(response.Data); got != "null" {
-		t.Fatalf("data = %s, want null", got)
+	for _, version := range []string{"2", "4", "5"} {
+		response = invokeRawForTest(t, `{"apiVersion":`+version+`,"method":"xrayVersion"}`)
+		if response.Success {
+			t.Fatalf("v%s apiVersion should fail", version)
+		}
+		if got := string(response.Data); got != "null" {
+			t.Fatalf("data = %s, want null", got)
+		}
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":2,"method":"xrayVersion"}`)
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"xrayVersion"}`)
 	if !response.Success {
-		t.Fatalf("v2 apiVersion should succeed: %s", response.Err)
+		t.Fatalf("v3 apiVersion should succeed: %s", response.Err)
 	}
 }
 
@@ -683,7 +773,7 @@ func TestInvokeNoDataResponseShape(t *testing.T) {
 	}
 	requireNoDataObject(t, response)
 
-	response = invokeRawForTest(t, `{"apiVersion":2,"method":"runXray","payload":"invalid"}`)
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"runXray","payload":"invalid"}`)
 	if response.Success {
 		t.Fatal("invalid runXray payload should fail")
 	}
@@ -696,7 +786,7 @@ func TestInvokeIgnoresTopLevelEnv(t *testing.T) {
 	const key = "XRAY_LIBXRAY_UNKNOWN_ENV_TEST"
 	_ = os.Unsetenv(key)
 	t.Cleanup(func() { _ = os.Unsetenv(key) })
-	requestJSON := `{"apiVersion":2,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
+	requestJSON := `{"apiVersion":3,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
 	var response testResponse
 	if err := json.Unmarshal([]byte(Invoke(requestJSON)), &response); err != nil {
 		t.Fatal(err)

@@ -31,9 +31,11 @@ type PingBatchItem struct {
 }
 
 type PingBatchResult struct {
-	Success bool
-	Delay   int64
-	Error   string
+	Success       bool
+	Delay         int64
+	Error         string
+	LocationJSON  *string
+	LocationError string
 }
 
 type pingOutboundConfig struct {
@@ -50,8 +52,24 @@ func PingBatch(
 	timeout int,
 	targetURL string,
 ) ([]PingBatchResult, error) {
+	return PingBatchWithLocation(items, timeout, targetURL, "")
+}
+
+// PingBatchWithLocation uses the same forced-outbound client for latency and
+// optional location probes. The two probe results are independent.
+func PingBatchWithLocation(items []PingBatchItem, timeout int, targetURL, locationURL string) ([]PingBatchResult, error) {
 	if err := validatePingBatchRequest(items, timeout, targetURL); err != nil {
 		return nil, err
+	}
+	if locationURL != "" {
+		if err := validatePingBatchRequest(items, timeout, locationURL); err != nil {
+			return nil, errors.New("ping batch location URL must be an absolute HTTP or HTTPS URL")
+		}
+	}
+	coreServerMu.Lock()
+	defer coreServerMu.Unlock()
+	if coreServer != nil {
+		return nil, errors.New("pingBatch requires an isolated process without a managed Xray instance")
 	}
 
 	results := make([]PingBatchResult, len(items))
@@ -99,23 +117,13 @@ func PingBatch(
 		go func() {
 			defer workers.Done()
 			for item := range jobs {
-				delay, err := measureOutboundDelay(
+				results[item.resultIndex] = probeOutbound(
 					server,
 					item.outboundTag,
 					timeout,
 					targetURL,
+					locationURL,
 				)
-				if err != nil {
-					results[item.resultIndex] = failedPingBatchResult(
-						delay,
-						err,
-					)
-					continue
-				}
-				results[item.resultIndex] = PingBatchResult{
-					Success: true,
-					Delay:   delay,
-				}
 			}
 		}()
 	}
@@ -361,12 +369,13 @@ func startPingBatchServer(
 	return server, nil
 }
 
-func measureOutboundDelay(
+func probeOutbound(
 	server *core.Instance,
 	outboundTag string,
 	timeout int,
 	targetURL string,
-) (int64, error) {
+	locationURL string,
+) PingBatchResult {
 	httpTimeout := time.Second * time.Duration(timeout)
 	transport := &http.Transport{
 		DisableKeepAlives: true,
@@ -392,7 +401,38 @@ func measureOutboundDelay(
 		Transport: transport,
 		Timeout:   httpTimeout,
 	}
-	return nodep.PingHTTPRequest(client, targetURL, timeout)
+	delay, err := nodep.PingHTTPRequest(client, targetURL, timeout)
+	result := PingBatchResult{Success: true, Delay: delay}
+	if err != nil {
+		result = failedPingBatchResult(delay, err)
+	}
+	if locationURL != "" {
+		locationJSON, err := probeLocation(client, locationURL)
+		if err != nil {
+			result.LocationError = err.Error()
+		} else {
+			result.LocationJSON = &locationJSON
+		}
+	}
+	return result
+}
+
+func probeLocation(client *http.Client, locationURL string) (string, error) {
+	response, err := client.Get(locationURL)
+	if err != nil {
+		// Do not include a provider URL, credentials or response body in errors.
+		return "", errors.New("location request failed")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("location request returned HTTP %d", response.StatusCode)
+	}
+	const maxLocationBytes = 64 * 1024
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxLocationBytes+1))
+	if err != nil || len(body) > maxLocationBytes {
+		return "", errors.New("unable to read location response")
+	}
+	return string(body), nil
 }
 
 func failedPingBatchResult(delay int64, err error) PingBatchResult {

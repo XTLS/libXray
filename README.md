@@ -66,15 +66,21 @@ python3 build/main.py windows local
 
 ```
 
+Builds restore `go.mod` and `go.sum` on success or failure. Gomobile builds
+resolve `latest` by default; set `LIBXRAY_GOMOBILE_VERSION` to select a Go module
+version. Both `gomobile` and `gobind` use that resolved version.
+
 Linux and Windows builds also produce `bin/xray` or `bin/xray.exe`. This
 session Core protects Go DNS lookups from the VPN route and accepts only:
 
 ```shell
-xray run -dns <IP:port> -interface <name> -config <xray.json>
+xray run -dns <IP:port> -interface <name> -config <xray.json> [-runtime <runtime.json>]
 ```
 
 All three options are required. `-dns` must be an IP endpoint, and `-config`
 points directly to the Xray JSON configuration.
+Optional `-runtime` reads the host metadata object described under "Managed
+runtime accounting", without a wrapping `runtime` key; it does not replace `-config`.
 
 > [!WARNING]
 > **Use only one Go runtime per process.** Go does not support loading multiple
@@ -157,7 +163,7 @@ The request is a JSON object:
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -177,9 +183,10 @@ The response is a JSON object:
 
 Design notes:
 
-1. Invoke currently accepts only `apiVersion: 2`. Xray configurations are
-   passed as UTF-8 JSON text in `xrayJson`; libXray does not read configuration
-   file paths.
+1. Invoke accepts only `apiVersion: 3`; the API version remains fixed at 3.
+   Contract changes require synchronized consumers and documentation within
+   that version. Xray configurations are passed as UTF-8 JSON text in
+   `xrayJson`; libXray does not read configuration file paths.
 2. A top-level `env` field is ignored and has no effect. Xray-core runtime
    environment options belong in the root `env` object of the Xray config.
 3. `SetTunFd` has been removed. When the fd is only known at runtime, write
@@ -198,16 +205,18 @@ Design notes:
    fields supported by libXray share links; unsupported and generated empty
    fields are omitted. Opaque XHTTP `extra` and FinalMask mask `settings` JSON
    remain unchanged.
+   Every successful response returns the projected config together with
+   `usableCount` and `failedCount`.
    Its optional `age.secretKey` decrypts official age ASCII armor in memory
    before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in
-   process-wide state. Creating another Xray instance through `pingBatch`,
-   `testXray`, or the exported Go APIs while `runXray` is active may replace
-   that state and affect the running
-   instance. Closing the temporary instance does not restore the previous
-   state. libXray does not serialize, isolate, or restore concurrent instances;
-   callers that require overlapping instances must place them in separate
-   processes.
+   process-wide state. `pingBatch`, `testXray`, and their exported Go
+   entrypoints take the managed lifecycle lock and reject an active `runXray`
+   instance before loading/building config.
+   A batch holds the lock through all workers and temporary-core close. This
+   also serializes these operations with one another. Instances
+   created outside the managed APIs are not detected or restored; callers
+   requiring overlap with them must still use separate processes.
 
 Supported methods:
 
@@ -299,7 +308,8 @@ Get free ports.
 
 ## share
 
-libXray uses `sendThrough` to store outbound names.
+libXray stores outbound names in `tag`. `sendThrough` keeps its native Xray
+meaning as the local bind address.
 
 ### clash_meta
 
@@ -315,6 +325,28 @@ convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
 convert VMessQRCode to Xray Json.
 
+#### Parsing result
+
+`convertShareLinksToXrayJson` has one response shape. Its payload contains
+`text` and optional `age`. Every successful conversion returns
+`data: {"config":{"outbounds":[...]},"usableCount":2,"failedCount":1}`.
+
+Counts describe this input only, not added/changed nodes. Each root JSON
+`outbounds` element or YAML `proxies` element is one candidate. In detected
+share-link lists, each URI-like row is one candidate; blank lines, comments and
+text headers are ignored. Base64 and age wrappers use the inner format's
+candidates. Malformed individual elements are skipped without discarding other
+valid elements. `usableCount` equals the final projected, buildable
+outbound count; parse, build and unsupported-projection failures count toward
+`failedCount`. No per-node hash comparison or deduplication is performed.
+
+A recognized container with zero usable nodes returns `success: false` with
+structured counts and `config: {"outbounds":[]}`. An unrecognized format,
+malformed whole document, invalid container or decryption failure returns
+`data: null`; counts are not guessed. Error text never includes rejected
+candidates or decrypted subscription text. Callers must not import/replace a
+subscription when no usable nodes remain.
+
 ### age-encrypted subscriptions
 
 `convertShareLinksToXrayJson` accepts an optional native age secret key. Only
@@ -324,7 +356,7 @@ decrypted in memory and limited to 16 MiB of plaintext.
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -342,7 +374,7 @@ Generate a new keypair with `keyType` set to `x25519` or `hybrid`. An omitted
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -375,7 +407,7 @@ by the `proxy` tag, and finally by the first outbound.
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -388,7 +420,8 @@ by the `proxy` tag, and finally by the first outbound.
       }
     ],
     "timeout": 5,
-    "url": "https://cp.cloudflare.com/"
+    "url": "https://cp.cloudflare.com/",
+    "locationUrl": "https://ip-check-perf.radar.cloudflare.com/"
   }
 }
 ```
@@ -399,19 +432,37 @@ fail before any configuration is tested.
 
 The top-level response succeeds when the batch itself was accepted. Each item
 has its own result; `delay` is `10000` for an error and `11000` for a timeout.
+`delay` is always present, including a successful zero-millisecond result.
 The result array has the same length and order as the input config array.
 Outbound dependencies referenced by
 `streamSettings.sockopt.dialerProxy` or `proxySettings.tag` are included
 automatically.
 
+`locationUrl` is optional and must be an absolute HTTP(S) URL. When omitted,
+no location request is made and no location fields are returned. When supplied,
+each prepared item sends its latency HEAD and then its location GET using the
+same client forced through that item's selected outbound and dependencies.
+Each request has the configured timeout (so an item may take up to twice it).
+Location time is not included in `delay`, and the two results are independent:
+`success`, `delay` and `error` describe latency only; a location failure does not
+invalidate a successful latency result, and GET is still attempted after a
+latency failure.
+
+A successful GET adds the unmodified response body as the `locationJson`
+string. The App owns JSON parsing and provider-specific field handling. The
+provider must return HTTP 200 and at most 64 KiB; transport or body-read
+failures instead add `locationError`. Errors do not echo the URL, credentials
+or response body. Invalid outbound configs retain their ordinary per-item
+failure and do not perform either request.
+
 ### testXray
 
-Validates an Xray configuration from the supplied JSON text without reading a
-configuration file:
+Loads and builds the complete configuration from the supplied JSON text. The
+payload contains only `xrayJson`; success returns `data: {}`:
 
 ```json
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -419,10 +470,121 @@ configuration file:
 }
 ```
 
+The Go entrypoint `TestXray` uses `core.LoadConfig` without constructing or
+starting an Xray instance or runtime handlers. It validates configuration
+structure, including TUN/WireGuard definitions, without creating devices,
+listeners, log files, or background connections. The builder can still read
+local GeoData/certificates and apply the root `env` to the current process.
+Geodata asset declarations validate HTTPS URLs and existing local files; their
+downloader/cron does not run during validation.
+
+A successful check establishes that the configuration builds. It does not
+prove that runtime resources are available, that an instance can start, or
+that the network is reachable. Callers must handle actual startup failures.
+
 ### runXray
 
 Starts the managed Xray instance from the supplied JSON text. Use `stopXray`
 to stop that instance. `runXrayFromJson` is no longer a separate method.
+
+### Managed runtime accounting
+
+`runXray.payload.runtime` is optional API v3 host metadata. Omitting it
+preserves the original lifecycle and writes no runtime snapshots. Hosts opt in
+with this object (also the complete content of the desktop `-runtime` file):
+
+```json
+{
+  "statePath": "/private/app/run/runtime.json",
+  "inboundTag": "tunIn",
+  "listen": "127.0.0.1:49228",
+  "token": "538fc3253a3e433491bc2d653fc74214"
+}
+```
+
+The host supplies an existing private directory and an absolute `statePath`.
+`inboundTag` must be nonempty and at most 256 bytes. Metadata stays separate
+from Xray JSON, so user configuration cannot override it. The named inbound
+must exist, with uplink/downlink system statistics and a statistics manager enabled.
+`listen` and `token` may both be omitted to save snapshots without HTTP. When
+enabled, `listen` must be `127.0.0.1:<port>` with port 1–65535, and the host must
+generate a fresh random 32-character lowercase hex `token`. Keep it private;
+do not reuse the example token. Invalid metadata, an occupied HTTP port, or an
+initial save failure rejects startup; any constructed core and statistics
+listener are closed.
+
+The saved file contains only the current session's raw inbound counter values:
+
+```json
+{
+  "version": 1,
+  "session": {
+    "id": "2a7e2e49b947a802d8b39af4fbc48f52",
+    "startedAtMs": 1788300000000,
+    "endedAtMs": 0,
+    "uplink": 120,
+    "downlink": 800
+  },
+  "available": true,
+  "sampledAtMs": 1788300030000,
+  "savedAtMs": 1788300030000,
+  "error": ""
+}
+```
+
+Timestamps are Unix milliseconds. Each new start generates a random
+32-character lowercase hex session ID, even when replaying identical metadata.
+`endedAtMs: 0` means no final stop was saved; it is not proof that the VPN is
+running. The host saves an initial snapshot, samples/saves every 30 seconds,
+and attempts a final sample/save before closing the core on `stopXray`.
+
+Sampling reads the named inbound's `Value()`, never resets it and never adds
+outbound/node counters. Repeated samples do not accumulate bytes. A nonnegative
+counter rollback is recorded as the smaller raw value, not a synthetic delta.
+Missing or negative counters set `available: false` and
+`error: "counters_unavailable"`, retaining the last valid nonnegative values.
+Idle valid counters report available zero. There are no application-wide totals,
+reset generations, or VPN control HTTP methods.
+`resetRuntime` is not an Invoke method. Applications may read existing Xray
+metrics for live rates; their own totals/reset policy stays outside libXray.
+
+Starting a new session atomically replaces the previous `runtime.json`; libXray
+does not archive or merge earlier sessions. Traffic not read by the App before
+replacement is intentionally lost. Each session starts from zero and receives a
+new ID.
+
+Snapshot files use a mode-0600 same-directory temporary file, sync, and atomic
+replacement (Windows uses `MoveFileEx` with replace-existing and write-through).
+The private parent directory/Windows ACL remains the host's responsibility.
+Failed saves leave the previous complete disk snapshot for later retry; a final
+save error is returned but never prevents core shutdown. An error after rename
+can have an uncertain persistence outcome, so consumers must re-read saved
+snapshots through HTTP when available.
+This is reference data, not billing: crashes, forced termination, or replacement
+before the App reads the file can lose traffic, with no strict loss bound.
+
+A nonblocking OS lock on `statePath + ".lock"` is held until core close,
+preventing another process from writing the current session.
+Hosts must use one consistent canonical path and leave the lock file in place.
+App code reads snapshots through HTTP instead of opening the host's files, so
+macOS System Extension files can remain root-owned. This does not provide
+graceful final settlement when Windows forcibly terminates a job.
+
+#### Snapshot HTTP
+
+The optional statistics listener starts with the managed session and closes on
+stop, including when the final save fails. It uses a separate loopback port
+from Xray's native metrics; it provides no VPN start/stop/configuration methods.
+Every request requires `Authorization: Bearer <token>`. Responses use
+`Cache-Control: no-store`; CORS is not enabled.
+
+- `GET /runtime` returns the current saved snapshot directly.
+
+Requests read the host's saved atomic snapshot without sampling, resetting
+counters, or updating the save time. Use native metrics for live rates. A
+missing, corrupt, or non-regular snapshot returns service unavailable. Requests
+have bounded read/write timeouts. While stopped, HTTP is unavailable; libXray
+never owns App totals or clear/reset policy.
 
 ### metrics
 
@@ -452,11 +614,8 @@ when `listen` is `127.0.0.1:49227`, read:
 http://localhost:49227/debug/vars
 ```
 
-Note:
-
-1. When testing latency or validating configuration, make sure `metrics` is `null`.
-
-2. Metrics only needs the `listen` field in this wrapper. Query `/debug/vars` directly with an HTTP client instead of going through libXray.
+Metrics only needs the `listen` field in this wrapper. Query `/debug/vars`
+directly with an HTTP client instead of going through libXray.
 
 ### validation
 

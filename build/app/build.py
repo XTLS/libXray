@@ -115,6 +115,7 @@ class Builder(object):
             raise Exception("download_geo failed")
 
     def prepare_gomobile(self):
+        requested_version = os.environ.get("LIBXRAY_GOMOBILE_VERSION") or "latest"
         result = subprocess.run(
             [
                 "go",
@@ -122,14 +123,14 @@ class Builder(object):
                 "-m",
                 "-f",
                 "{{.Version}}",
-                "golang.org/x/mobile@latest",
+                f"golang.org/x/mobile@{requested_version}",
             ],
             capture_output=True,
             text=True,
         )
         version = result.stdout.strip()
         if result.returncode != 0 or not version:
-            raise Exception("resolve latest gomobile version failed")
+            raise Exception("resolve gomobile version failed")
 
         ret = subprocess.run(
             [
@@ -190,7 +191,4 @@ class Builder(object):
         self.download_geo()
 
     def build(self):
-        pass
-
-    def after_build(self):
         pass

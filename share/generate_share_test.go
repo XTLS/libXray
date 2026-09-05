@@ -123,7 +123,7 @@ func TestGenerate_Hy2_WithFullTLSParams(t *testing.T) {
 func TestGenerate_Hy2_RoundTrip(t *testing.T) {
 	original := "hy2://auth@host:443?up=50+mbps&down=100+mbps&obfs=salamander&obfs-password=secret&ports=20000-40000&hop-interval=30&sni=example.com&alpn=h3&fp=chrome"
 
-	config, err := ConvertShareLinksToXrayJson(original)
+	config, err := convertShareLinksForTest(original)
 	require.NoError(t, err)
 	require.Len(t, config.OutboundConfigs, 1)
 
@@ -158,14 +158,14 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 	}
 	for _, link := range cases {
 		t.Run(link[:12], func(t *testing.T) {
-			cfg, err := ConvertShareLinksToXrayJson(link)
+			cfg, err := convertShareLinksForTest(link)
 			require.NoError(t, err)
 			out, err := json.Marshal(cfg)
 			require.NoError(t, err)
 			text, err := ConvertXrayJsonToShareLinks(out)
 			require.NoError(t, err)
 			assert.NotEmpty(t, text)
-			again, err := ConvertShareLinksToXrayJson(text)
+			again, err := convertShareLinksForTest(text)
 			require.NoError(t, err)
 			require.Len(t, again.OutboundConfigs, 1)
 			assert.Equal(t, cfg.OutboundConfigs[0].Protocol, again.OutboundConfigs[0].Protocol)
@@ -174,7 +174,7 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 }
 
 func TestGenerate_KCPIgnoresSeedAndHeader(t *testing.T) {
-	config, err := ConvertShareLinksToXrayJson(
+	config, err := convertShareLinksForTest(
 		"vless://" + testShareUUID + "@kcp.example:443?encryption=none&type=kcp",
 	)
 	require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestGenerate_ShadowsocksAEAD2022PlainUserInfo(t *testing.T) {
 		"YctPZ6U7xPPcU%2Bgp3u%2B0tx%2FtRizJN9K8y%2BuKlW2qjlI%3D" +
 		"@192.168.100.1:8888#Example3"
 
-	config, err := ConvertShareLinksToXrayJson(original)
+	config, err := convertShareLinksForTest(original)
 	require.NoError(t, err)
 	require.Len(t, config.OutboundConfigs, 1)
 
@@ -211,7 +211,7 @@ func TestGenerate_ShadowsocksLegacyBase64UserInfo(t *testing.T) {
 	original := "ss://" + ssUserB64("aes-128-gcm", "password") +
 		"@ss.example.com:8388#Legacy"
 
-	config, err := ConvertShareLinksToXrayJson(original)
+	config, err := convertShareLinksForTest(original)
 	require.NoError(t, err)
 	require.Len(t, config.OutboundConfigs, 1)
 
@@ -264,12 +264,12 @@ func TestConvertXrayJsonToShareLinksSkipsUnsupportedOutbounds(t *testing.T) {
 	assert.Equal(t, "trojan://password@example.com:443#trojan", links)
 }
 
-func TestConvertXrayJsonToShareLinks_PrefersTagWhenSendThroughEmpty(t *testing.T) {
-	cfg, err := ConvertShareLinksToXrayJson(`trojan://pw@tag.example:443`)
+func TestConvertXrayJsonToShareLinks_IgnoresSendThroughForName(t *testing.T) {
+	cfg, err := convertShareLinksForTest(`trojan://pw@tag.example:443`)
 	require.NoError(t, err)
 	ob := cfg.OutboundConfigs[0]
-	empty := ""
-	ob.SendThrough = &empty
+	sendThrough := "127.0.0.1"
+	ob.SendThrough = &sendThrough
 	ob.Tag = "named-by-tag"
 	out, err := json.Marshal(&conf.Config{OutboundConfigs: []conf.OutboundDetourConfig{ob}})
 	require.NoError(t, err)
