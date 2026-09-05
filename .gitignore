@@ -30,4 +30,3 @@ test/
 config/
 .DS_Store
 bin/
-/build/build-metadata-*.json

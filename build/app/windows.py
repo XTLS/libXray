@@ -26,10 +26,7 @@ class WindowsBuilder(Builder):
             self.build_windows()
             self.build_desktop_bin(self.bin_file)
         finally:
-            try:
-                self.after_build()
-            finally:
-                self.restore_go_env()
+            self.restore_go_env()
 
     def build_windows(self):
         output_dir = self.framework_dir

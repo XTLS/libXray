@@ -34,18 +34,9 @@ python3 build/main.py windows
 python3 build/main.py windows local
 ```
 
-每次构建尝试都会在恢复 `go.mod` 和 `go.sum` 前写入已忽略的
-`build/build-metadata-<builder>.json`；builder 为 `android`、`apple-go`、
-`apple-gomobile`、`linux` 或 `windows`。记录包含 libXray commit、受跟踪文件的
-dirty 状态（包括临时模块修改）、Go 版本、实际生效的
-`go list -mod=readonly -m all` 输出，以及生效模块文件的 SHA-256。
-gomobile 仍默认解析 `latest`，同时记录解析版本、实际 PATH 中二进制的模块版本和
-`go version -m` 输出；不使用 gomobile 的构建记录 `gomobile: null`。
-设置环境变量 `LIBXRAY_GOMOBILE_VERSION` 可指定 Go 模块版本，`resolvedVersion` 仍记录实际解析结果。
-
-这些记录是**构建输入证据，不是构建成功或产物匹配的证明**。失败构建也会执行记录；
-采集失败写入 `errors` 或输出警告，不会覆盖原始构建错误。使用方必须独立确认构建
-命令成功、记录属于本次构建，并另行验证产物；记录缺失或不完整不能视为输入已验证。
+构建成功或失败后都会恢复 `go.mod` 和 `go.sum`。gomobile 默认解析 `latest`，
+也可通过环境变量 `LIBXRAY_GOMOBILE_VERSION` 指定 Go 模块版本；`gomobile` 与
+`gobind` 使用同一个解析版本。
 
 Linux 和 Windows 构建还会生成 `bin/xray` 或 `bin/xray.exe`。该会话 Core
 会保护 Go DNS 查询不被 VPN 路由重新捕获，并且只接受以下命令：

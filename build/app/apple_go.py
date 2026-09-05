@@ -125,10 +125,7 @@ class AppleGoBuilder(Builder):
             self.create_include_dir()
             self.create_framework()
         finally:
-            try:
-                self.after_build()
-            finally:
-                self.restore_go_env()
+            self.restore_go_env()
 
     def build_targets(self, targets: list[AppleTarget]):
         for target in targets:

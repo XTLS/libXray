@@ -34,7 +34,4 @@ class AndroidBuilder(Builder):
             if ret.returncode != 0:
                 raise Exception("build failed")
         finally:
-            try:
-                self.after_build()
-            finally:
-                self.restore_go_env()
+            self.restore_go_env()

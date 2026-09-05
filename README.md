@@ -66,21 +66,9 @@ python3 build/main.py windows local
 
 ```
 
-Before restoring `go.mod` and `go.sum`, each build attempt writes the ignored
-`build/build-metadata-<builder>.json`, where builder is `android`, `apple-go`,
-`apple-gomobile`, `linux`, or `windows`. It records the libXray commit and tracked
-dirty state (including temporary module edits), Go version, effective
-`go list -mod=readonly -m all` output, and SHA-256 hashes of the effective module
-files. Gomobile builds resolve `latest` by default; the record includes that resolved
-version and the actual PATH binary's module version and `go version -m` output.
-Set `LIBXRAY_GOMOBILE_VERSION` to a Go module version to pin the resolution; `resolvedVersion` still records the resolved value.
-Non-gomobile builds record `gomobile: null`.
-
-This is **build input evidence, not proof of a successful or matching artifact**:
-failed builds also run this hook, and collection failures appear in `errors` or
-as a warning without replacing the original build error. Consumers must check
-the build command's success and the record's freshness; artifact verification
-is separate. A missing or incomplete record must not be treated as verified input.
+Builds restore `go.mod` and `go.sum` on success or failure. Gomobile builds
+resolve `latest` by default; set `LIBXRAY_GOMOBILE_VERSION` to select a Go module
+version. Both `gomobile` and `gobind` use that resolved version.
 
 Linux and Windows builds also produce `bin/xray` or `bin/xray.exe`. This
 session Core protects Go DNS lookups from the VPN route and accepts only:
