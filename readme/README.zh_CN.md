@@ -134,7 +134,7 @@ void CGoFree(char* value);
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -154,13 +154,13 @@ void CGoFree(char* value);
 
 设计决定：
 
-1. Invoke 当前只接受 `apiVersion: 5`。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
+1. Invoke 只接受 `apiVersion: 3`，API 版本固定为 3。合同变更在该版本内同步消费方与接入文档。Xray 配置通过 `xrayJson` 传递 UTF-8 JSON 文本；libXray 不读取配置文件路径。
 2. 顶层 `env` 字段会被忽略且不会生效。Xray-core 运行时环境项应写入 Xray 配置根 `env` 对象。
 3. `SetTunFd` 已删除。如果 fd 只能在运行时获得，请在调用 `runXray` 前把 `xray.tun.fd` 写入 Xray 配置根 `env` 对象。
 4. `countGeoData` 不依赖 Xray 配置，因此通过 method payload 的 `datDir` 传入数据目录。
 5. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
 6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。Xray JSON 输入仅作为节点来源，只保留根级 `outbounds`，忽略其他根字段。响应仅包含 libXray 分享链接支持的字段，不支持的字段和生成的空字段会被省略；XHTTP `extra` 与 FinalMask mask `settings` 中的原始 JSON 保持不变。每次成功响应都会返回投影后的配置及 `usableCount` 和 `failedCount`。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
-7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。`pingBatch`、`testXray`（含 `buildOnly`）、`checkRoute` 及对应导出的 Go 入口均取得受管理生命周期锁，在加载/构建配置前拒绝同进程已运行的 `runXray` instance。批量测速在全部 worker 和临时核心关闭后才释放锁，这些临时操作也彼此串行。由管理 API 之外创建的 instance 不在检测或恢复范围内；可能与它们重叠的调用仍须使用独立进程。
+7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。`pingBatch`、`testXray` 及对应导出的 Go 入口均取得受管理生命周期锁，在加载/构建配置前拒绝同进程已运行的 `runXray` instance。批量测速在全部 worker 和临时核心关闭后才释放锁，这些操作也彼此串行。由管理 API 之外创建的 instance 不在检测或恢复范围内；可能与它们重叠的调用仍须使用独立进程。
 
 支持的 method：
 
@@ -172,90 +172,11 @@ generateAgeKeyPair
 countGeoData
 pingBatch
 testXray
-checkRoute
 runXray
 stopXray
 xrayVersion
 getXrayState
 ```
-
-### 配置校验
-
-`testXray` 支持 `{"xrayJson":"...","buildOnly":true}`，只加载并构建完整配置，
-不创建 Xray instance。它校验包括 TUN/WireGuard 定义在内的配置结构，不创建设备、
-监听、日志文件或后台连接。构建器仍可能读取本地 GeoData/证书，并将根 `env` 应用
-到当前进程。Geodata assets 声明只校验 HTTPS URL 和已存在的本地文件，下载器及
-cron 不会在只构建校验期间运行。
-
-`buildOnly` 可选，默认 `false`，保留原有 `testXray` 创建并关闭 instance 的行为。
-原行为虽然不调用 `Start`，但构造函数可能创建 TUN、打开日志或启动后台任务。
-尚未启动的草稿应使用只构建校验；构建成功不代表运行资源可用，也不代表 instance
-可以启动。调用方仍须处理真实构造和启动阶段的失败。
-
-### 配置 URL 测试
-
-`testXray` 还可随 `xrayJson` 提供 `url`、`timeout`（1–60 秒）和可选
-`inboundTag`，返回整数毫秒 `data: {"delay": 12}`。`url` 与
-`buildOnly: true` 互斥；省略 `url` 时保留原校验响应。
-
-测试使用草稿完整的 DNS、routing 和 outbounds 发送 HTTP HEAD，不强制单个出站。
-沿用路由检查的安全构造：禁用入站、日志输出和 webhook，拒绝 WireGuard/VLESS
-reverse，不调用临时 instance 的 Start，也不发布为活动核心。结果不证明额外监听、
-仅在启动时工作的集成或所有目标均可用；生命周期锁和受管理核心重叠拒绝仍然生效。
-
-### 草稿路由检查
-
-API version 5 的 `checkRoute` 通过 `xrayJson` 接收完整草稿，
-调用当前锁定版本 Xray-core 的 Router；不启动临时 instance，也不向输入的目标
-派发访问流量：
-
-```json
-{
-  "apiVersion": 5,
-  "method": "checkRoute",
-  "payload": {
-    "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
-    "domain": "example.com",
-    "port": 443,
-    "network": "tcp",
-    "inboundTag": "tunIn",
-    "timeout": 5000
-  }
-}
-```
-
-`domain`（主机名，不是 URL）和 `ip`（不带 zone 的 IPv4/IPv6）必须且只能提供
-一个。`port` 为 1–65535，`network` 为 `tcp` 或 `udp`，必填的 `timeout` 为
-1–60000 毫秒。`inboundTag` 可选，省略时为空，不默认假设 VPN 入站。沿用
-16 MiB 的完整请求/响应包体限制。
-
-成功响应的 `data` 始终包含全部五个字段：
-
-```json
-{"matched":false,"ruleTag":"","outboundTag":"direct","balancerTag":"","defaulted":true}
-```
-
-`matched` 和 `ruleTag` 表示首次 Router 匹配，保留原始的空名称或重名。
-`defaulted` 表示首次 Router 没有匹配规则，随后使用 outbound manager 的真实
-默认出站；如果是 loopback，则按其原生入站 tag / 跳过 DNS 解析的转换再次调用
-Router。`outboundTag` 是最终选中的出站，`balancerTag` 是路径中最后经过的
-balancer，没有则为空。因此带默认 loopback 的草稿可以得到其实际配置的
-balancer，但不会假设任意 Raw JSON 的默认动作都是 `proxy`。仅在默认 loopback
-之后命中的规则不会被报告为首次用户规则命中。出站不存在、loopback 循环、依赖访问流量的 loopback
-sniffing、路由或节点选择失败均返回错误，不生成虚假结果。节点选择使用新建
-instance，而非运行实例的健康度/历史；它不验证连通性或出口 IP。
-
-只在内存中的检查配置移除 inbounds、禁用日志输出并移除规则 webhook，不回写
-调用方草稿。WireGuard 出站会在构造时创建 TUN，因此即使不调用 `Start`，也必须
-拒绝这类检查。不会启动入站监听或后台探测。DNS 解析仍可能通过草稿配置发出网络
-查询。VLESS reverse 出站也会在构造时启动后台连接，因此同样拒绝。timeout 的
-context 会传入核心，超时后不会返回成功；但部分核心解析器
-（尤其 `localhost`）不能立即响应取消，因此不承诺严格的墙钟耗时上限。调用会等
-匹配实际结束后才关闭 instance，不会留下继续使用已关闭核心的后台匹配。
-
-`checkRoute` 拒绝与同进程受管理的 `runXray` instance 重叠，并在构建、匹配和
-关闭期间持有受管理生命周期锁。`testXray`（含 `buildOnly`）和 `pingBatch` 具有相同
-保护；未托管 instance 不在检测范围内，可能与其重叠时调用方仍须使用独立进程。
 
 ## controller
 
@@ -353,7 +274,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -371,7 +292,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -402,7 +323,7 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -445,17 +366,26 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 
 ### testXray
 
-直接校验传入的 Xray JSON 文本，不读取配置文件：
+加载并构建传入的完整 Xray JSON 文本。payload 仅包含 `xrayJson`，成功时返回
+`data: {}`：
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
   }
 }
 ```
+
+Go 入口 `TestXray` 只调用 `core.LoadConfig`，不构造或启动 Xray instance 及运行时
+handler。它校验包括 TUN/WireGuard 定义在内的配置结构，不创建设备、监听、日志文件
+或后台连接。构建器仍可能读取本地 GeoData/证书，并将根 `env` 应用到当前进程。
+Geodata assets 声明只校验 HTTPS URL 和已存在的本地文件，下载器及 cron 不在校验时运行。
+
+校验成功只说明配置可以构建，不保证运行资源可用、instance 可以启动或网络可以连接。
+调用方仍须处理实际启动失败。
 
 ### runXray
 
@@ -464,7 +394,7 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 
 ### 托管运行统计
 
-API v5 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
+API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
 不写运行快照。宿主传入以下对象；Desktop 的 `-runtime` 文件也直接使用此对象，
 不含外层 `runtime`，原始 Xray 配置仍通过独立的 `-config` 传入。
 
@@ -573,10 +503,7 @@ metrics 服务通过 HTTP 暴露 Xray 运行时计数。例如 `listen` 为
 http://localhost:49227/debug/vars
 ```
 
-注意：
-
-1. 当进行测试延迟或验证配置时，确保 `metrics` 为 `null`。
-2. libXray 这里只需要 `listen` 字段。直接用 HTTP 客户端查询 `/debug/vars`，不再通过 libXray 包装。
+libXray 这里只需要 `listen` 字段。直接用 HTTP 客户端查询 `/debug/vars`，不再通过 libXray 包装。
 
 ### validation
 

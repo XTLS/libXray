@@ -23,8 +23,7 @@ func TestTemporaryOperationsRejectManagedOverlap(t *testing.T) {
 	t.Setenv(key, "original")
 	config := `{"env":{"` + key + `":"changed"},"outbounds":[{"protocol":"freedom"}]}`
 	for name, operation := range map[string]func() error{
-		"buildOnly": func() error { return ValidateXray(config) },
-		"testXray":  func() error { return TestXray(config) },
+		"testXray": func() error { return TestXray(config) },
 		"pingBatch": func() error {
 			_, err := PingBatch([]PingBatchItem{{XrayJSON: config}}, 10, "http://127.0.0.1:1/")
 			return err

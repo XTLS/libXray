@@ -175,7 +175,7 @@ The request is a JSON object:
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "runXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
@@ -195,9 +195,10 @@ The response is a JSON object:
 
 Design notes:
 
-1. Invoke currently accepts only `apiVersion: 5`. Xray configurations are
-   passed as UTF-8 JSON text in `xrayJson`; libXray does not read configuration
-   file paths.
+1. Invoke accepts only `apiVersion: 3`; the API version remains fixed at 3.
+   Contract changes require synchronized consumers and documentation within
+   that version. Xray configurations are passed as UTF-8 JSON text in
+   `xrayJson`; libXray does not read configuration file paths.
 2. A top-level `env` field is ignored and has no effect. Xray-core runtime
    environment options belong in the root `env` object of the Xray config.
 3. `SetTunFd` has been removed. When the fd is only known at runtime, write
@@ -221,11 +222,11 @@ Design notes:
    Its optional `age.secretKey` decrypts official age ASCII armor in memory
    before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in
-   process-wide state. `pingBatch`, `testXray` (including `buildOnly`),
-   `checkRoute`, and their exported Go entrypoints take the managed lifecycle
-   lock and reject an active `runXray` instance before loading/building config.
+   process-wide state. `pingBatch`, `testXray`, and their exported Go
+   entrypoints take the managed lifecycle lock and reject an active `runXray`
+   instance before loading/building config.
    A batch holds the lock through all workers and temporary-core close. This
-   also serializes these temporary operations with one another. Instances
+   also serializes these operations with one another. Instances
    created outside the managed APIs are not detected or restored; callers
    requiring overlap with them must still use separate processes.
 
@@ -239,106 +240,11 @@ generateAgeKeyPair
 countGeoData
 pingBatch
 testXray
-checkRoute
 runXray
 stopXray
 xrayVersion
 getXrayState
 ```
-
-### Configuration validation
-
-`testXray` accepts `{"xrayJson":"...","buildOnly":true}` to load and build
-the complete configuration without creating an Xray instance. This validates
-the configuration structure, including TUN/WireGuard definitions, without
-creating devices, listeners, log files, or background connections. The builder
-can still read local GeoData/certificates and apply the root `env` to the current
-process. Geodata asset declarations validate HTTPS URLs and existing local
-files; their downloader/cron does not run during a build-only check.
-
-`buildOnly` is optional and defaults to `false`, preserving the existing
-`testXray` create-and-close behavior. That behavior does not call `Start`, but
-constructors can create TUN devices, open logs, or initiate background work.
-Use build-only validation for an unstarted draft; a successful build does not
-prove runtime resources are available or that an instance can start. Runtime
-construction/start errors remain the caller's responsibility to handle.
-
-### Configuration URL probe
-
-`testXray` also accepts `url`, `timeout` (1–60 seconds), and optional
-`inboundTag` with `xrayJson`. It returns `data: {"delay": 12}` in integer
-milliseconds. `url` and `buildOnly: true` are mutually exclusive. Omit `url`
-to retain the existing validation response.
-
-The probe sends an HTTP HEAD using the draft's DNS, routing and outbounds,
-without forcing one outbound. It uses the route check's safe construction:
-inbounds/log output/webhooks are disabled, WireGuard and VLESS reverse are
-rejected, and the temporary instance is never started or published. It does
-not test extra listeners, startup-only integrations, or every destination.
-The lifecycle lock and managed-instance overlap rejection still apply.
-
-### Draft route checking
-
-In API version 5, `checkRoute` accepts a complete draft in
-`xrayJson` and calls the pinned Xray-core Router, without starting the temporary
-instance or dispatching traffic to the supplied target:
-
-```json
-{
-  "apiVersion": 5,
-  "method": "checkRoute",
-  "payload": {
-    "xrayJson": "{\"outbounds\":[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]}",
-    "domain": "example.com",
-    "port": 443,
-    "network": "tcp",
-    "inboundTag": "tunIn",
-    "timeout": 5000
-  }
-}
-```
-
-Supply exactly one of `domain` (hostname, not URL) or `ip` (IPv4/IPv6 without a
-zone). `port` is 1–65535, `network` is `tcp` or `udp`, and required `timeout` is
-1–60000 milliseconds. `inboundTag` is optional; omitted means an empty tag, not
-an assumed VPN inbound. The existing 16 MiB envelope limit applies.
-
-Successful `data` always includes all five fields:
-
-```json
-{"matched":false,"ruleTag":"","outboundTag":"direct","balancerTag":"","defaulted":true}
-```
-
-`matched` and `ruleTag` describe the initial Router match, preserving an empty
-or duplicated original rule tag. `defaulted` means the initial Router found no
-matching rule. The outbound manager then supplies the actual default outbound;
-a loopback's native inbound-tag/skip-DNS transition is checked again through the
-Router. `outboundTag` is the terminal selected outbound, and `balancerTag` is
-the last balancer encountered, or empty when none was used. Thus a draft with a
-default loopback may resolve to its configured balancer, whereas an arbitrary
-Raw JSON draft is never assumed to default to `proxy`. Rules reached only after
-a default loopback are not reported as initial user matches. Missing handlers, loopback cycles,
-traffic-dependent loopback sniffing, and routing/selection failures return an
-error instead of invented evidence. Selection uses a fresh instance, not live
-balancer health/history, and does not test connectivity or the exit IP.
-
-Only the in-memory check configuration removes inbounds, disables file/log
-output, and removes rule webhooks; the caller's draft is not rewritten.
-WireGuard outbounds are rejected because construction can create a TUN device
-even without `Start`; VLESS reverse outbounds are rejected because construction
-starts background connections. There are no inbound listeners or background probes.
-DNS resolution may still send network queries through the draft configuration.
-The timeout context reaches the core; a timed-out lookup never returns success.
-Some core resolvers, notably `localhost`, do not honor cancellation immediately,
-so this is not a strict wall-clock limit. The call waits for matching to finish
-before closing the instance; it never leaves matching using an already-closed
-core in the background.
-
-`checkRoute` rejects a managed `runXray` instance in the same process and holds
-the managed lifecycle lock through construction, matching, and close. The same
-managed-overlap guard also applies to `testXray` (including `buildOnly`) and
-`pingBatch`. It does not detect externally created unmanaged instances; callers
-must still use independent execution processes when those can overlap.
 
 ## controller
 
@@ -462,7 +368,7 @@ decrypted in memory and limited to 16 MiB of plaintext.
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "convertShareLinksToXrayJson",
   "payload": {
     "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
@@ -480,7 +386,7 @@ Generate a new keypair with `keyType` set to `x25519` or `hybrid`. An omitted
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "generateAgeKeyPair",
   "payload": {
     "keyType": "x25519"
@@ -513,7 +419,7 @@ by the `proxy` tag, and finally by the first outbound.
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "pingBatch",
   "payload": {
     "configs": [
@@ -563,18 +469,30 @@ failure and do not perform either request.
 
 ### testXray
 
-Validates an Xray configuration from the supplied JSON text without reading a
-configuration file:
+Loads and builds the complete configuration from the supplied JSON text. The
+payload contains only `xrayJson`; success returns `data: {}`:
 
 ```json
 {
-  "apiVersion": 5,
+  "apiVersion": 3,
   "method": "testXray",
   "payload": {
     "xrayJson": "{\"outbounds\":[...]}"
   }
 }
 ```
+
+The Go entrypoint `TestXray` uses `core.LoadConfig` without constructing or
+starting an Xray instance or runtime handlers. It validates configuration
+structure, including TUN/WireGuard definitions, without creating devices,
+listeners, log files, or background connections. The builder can still read
+local GeoData/certificates and apply the root `env` to the current process.
+Geodata asset declarations validate HTTPS URLs and existing local files; their
+downloader/cron does not run during validation.
+
+A successful check establishes that the configuration builds. It does not
+prove that runtime resources are available, that an instance can start, or
+that the network is reachable. Callers must handle actual startup failures.
 
 ### runXray
 
@@ -583,7 +501,7 @@ to stop that instance. `runXrayFromJson` is no longer a separate method.
 
 ### Managed runtime accounting
 
-`runXray.payload.runtime` is optional API v5 host metadata. Omitting it
+`runXray.payload.runtime` is optional API v3 host metadata. Omitting it
 preserves the original lifecycle and writes no runtime snapshots. Hosts opt in
 with this object (also the complete content of the desktop `-runtime` file):
 
@@ -708,11 +626,8 @@ when `listen` is `127.0.0.1:49227`, read:
 http://localhost:49227/debug/vars
 ```
 
-Note:
-
-1. When testing latency or validating configuration, make sure `metrics` is `null`.
-
-2. Metrics only needs the `listen` field in this wrapper. Query `/debug/vars` directly with an HTTP client instead of going through libXray.
+Metrics only needs the `listen` field in this wrapper. Query `/debug/vars`
+directly with an HTTP client instead of going through libXray.
 
 ### validation
 

@@ -216,12 +216,12 @@ func TestInvokeTestXray(t *testing.T) {
 	requireNoDataObject(t, response)
 }
 
-func TestInvokeTestXrayBuildOnlyDoesNotCreateRuntimeResources(t *testing.T) {
+func TestInvokeTestXrayDoesNotCreateRuntimeResources(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "not-created", "error.log")
 	config, err := json.Marshal(map[string]any{
 		"log": map[string]any{"error": logPath, "loglevel": "debug"},
 		"inbounds": []any{
-			map[string]any{"tag": "tunIn", "protocol": "tun", "settings": map[string]any{"name": "BuildOnlyMustNotCreate", "mtu": 1500}},
+			map[string]any{"tag": "tunIn", "protocol": "tun", "settings": map[string]any{"name": "TestXrayMustNotCreate", "mtu": 1500}},
 		},
 		"outbounds": []any{
 			map[string]any{"protocol": "wireguard", "settings": map[string]any{
@@ -234,70 +234,17 @@ func TestInvokeTestXrayBuildOnlyDoesNotCreateRuntimeResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	response := invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: string(config), BuildOnly: true})
+	response := invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: string(config)})
 	if !response.Success {
-		t.Fatalf("buildOnly must accept structurally valid TUN/WireGuard without construction: %s", response.Err)
+		t.Fatalf("testXray must accept structurally valid TUN/WireGuard without construction: %s", response.Err)
 	}
 	requireNoDataObject(t, response)
 	if _, err := os.Stat(filepath.Dir(logPath)); !os.IsNotExist(err) {
-		t.Fatalf("buildOnly created a runtime log directory: %v", err)
+		t.Fatalf("testXray created a runtime log directory: %v", err)
 	}
-	response = invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: `{"outbounds":[{"protocol":"unknown"}]}`, BuildOnly: true})
+	response = invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: `{"outbounds":[{"protocol":"unknown"}]}`})
 	if response.Success || string(response.Data) != "null" {
-		t.Fatalf("buildOnly must still reject invalid core configuration: %+v", response)
-	}
-}
-
-func TestInvokeTestXrayDefaultStillConstructsRuntime(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "not-created", "error.log")
-	config, err := json.Marshal(map[string]any{
-		"log":       map[string]any{"error": logPath, "loglevel": "debug"},
-		"outbounds": []any{map[string]any{"protocol": "freedom"}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, payload := range []any{
-		TestXrayRequest{XrayJson: string(config)},
-		map[string]any{"xrayJson": string(config), "buildOnly": false},
-	} {
-		response := invokeForTest(t, LibXrayMethodTestXray, payload)
-		if response.Success || !strings.Contains(response.Err, "failed to initialize error logger") {
-			t.Fatalf("omitted/false buildOnly must retain runtime construction: %+v", response)
-		}
-	}
-}
-
-func TestInvokeCheckRoute(t *testing.T) {
-	request := CheckRouteRequest{
-		XrayJson: `{"outbounds":[{"protocol":"freedom","tag":"direct"}],"routing":{"rules":[{"domain":["full:example.com"],"outboundTag":"direct"}]}}`,
-		Domain:   "example.com", Port: 443, Network: "tcp", InboundTag: "tunIn", Timeout: 5000,
-	}
-	response := invokeForTest(t, LibXrayMethodCheckRoute, request)
-	if !response.Success {
-		t.Fatal(response.Err)
-	}
-	data := decodeDataObject[CheckRouteResponse](t, response)
-	if data != (CheckRouteResponse{Matched: true, OutboundTag: "direct"}) {
-		t.Fatalf("unexpected route evidence: %+v", data)
-	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(response.Data, &fields); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"matched", "ruleTag", "outboundTag", "balancerTag", "defaulted"} {
-		if _, ok := fields[name]; !ok {
-			t.Fatalf("missing required evidence field %s", name)
-		}
-	}
-	request.IP = "192.0.2.1"
-	response = invokeForTest(t, LibXrayMethodCheckRoute, request)
-	if response.Success || string(response.Data) != "null" {
-		t.Fatalf("invalid target should fail without evidence: %+v", response)
-	}
-	response = invokeRawForTest(t, `{"apiVersion":5,"method":"checkRoute","payload":{"port":"443"}}`)
-	if response.Success {
-		t.Fatal("invalid typed field accepted")
+		t.Fatalf("testXray must still reject invalid core configuration: %+v", response)
 	}
 }
 
@@ -355,7 +302,7 @@ func TestInvokeRunXrayRuntimeIsOptionalTypedMetadata(t *testing.T) {
 	if response.Success || !strings.Contains(response.Err, "absolute statePath") {
 		t.Fatalf("runtime validation was bypassed: %+v", response)
 	}
-	response = invokeRawForTest(t, `{"apiVersion":5,"method":"runXray","payload":{"xrayJson":"{}","runtime":"invalid"}}`)
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"runXray","payload":{"xrayJson":"{}","runtime":"invalid"}}`)
 	if response.Success {
 		t.Fatal("untyped runtime metadata was accepted")
 	}
@@ -748,10 +695,10 @@ func TestInvokeUnknownMethod(t *testing.T) {
 }
 
 func TestInvokeRemovedMethods(t *testing.T) {
-	for _, method := range []string{"ping", "runXrayFromJson", "deriveAgePublicKey"} {
+	for _, method := range []string{"ping", "runXrayFromJson", "deriveAgePublicKey", "checkRoute"} {
 		response := invokeRawForTest(
 			t,
-			`{"apiVersion":5,"method":"`+method+`","payload":{}}`,
+			`{"apiVersion":3,"method":"`+method+`","payload":{}}`,
 		)
 		if response.Success {
 			t.Fatalf("removed method %q should fail", method)
@@ -803,17 +750,19 @@ func TestInvokeAPIVersion(t *testing.T) {
 		t.Fatal("omitted apiVersion should fail")
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":4,"method":"xrayVersion"}`)
-	if response.Success {
-		t.Fatal("v4 apiVersion should fail")
-	}
-	if got := string(response.Data); got != "null" {
-		t.Fatalf("data = %s, want null", got)
+	for _, version := range []string{"2", "4", "5"} {
+		response = invokeRawForTest(t, `{"apiVersion":`+version+`,"method":"xrayVersion"}`)
+		if response.Success {
+			t.Fatalf("v%s apiVersion should fail", version)
+		}
+		if got := string(response.Data); got != "null" {
+			t.Fatalf("data = %s, want null", got)
+		}
 	}
 
-	response = invokeRawForTest(t, `{"apiVersion":5,"method":"xrayVersion"}`)
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"xrayVersion"}`)
 	if !response.Success {
-		t.Fatalf("v5 apiVersion should succeed: %s", response.Err)
+		t.Fatalf("v3 apiVersion should succeed: %s", response.Err)
 	}
 }
 
@@ -824,7 +773,7 @@ func TestInvokeNoDataResponseShape(t *testing.T) {
 	}
 	requireNoDataObject(t, response)
 
-	response = invokeRawForTest(t, `{"apiVersion":5,"method":"runXray","payload":"invalid"}`)
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"runXray","payload":"invalid"}`)
 	if response.Success {
 		t.Fatal("invalid runXray payload should fail")
 	}
@@ -837,7 +786,7 @@ func TestInvokeIgnoresTopLevelEnv(t *testing.T) {
 	const key = "XRAY_LIBXRAY_UNKNOWN_ENV_TEST"
 	_ = os.Unsetenv(key)
 	t.Cleanup(func() { _ = os.Unsetenv(key) })
-	requestJSON := `{"apiVersion":5,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
+	requestJSON := `{"apiVersion":3,"method":"xrayVersion","env":{"` + key + `":"/tmp"}}`
 	var response testResponse
 	if err := json.Unmarshal([]byte(Invoke(requestJSON)), &response); err != nil {
 		t.Fatal(err)

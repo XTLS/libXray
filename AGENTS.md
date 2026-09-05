@@ -1,250 +1,70 @@
-# Project Overview
+# libXray
 
-libXray is a Go wrapper around Xray-core for mobile and desktop applications.
-It exposes one structured JSON entrypoint, provides share-link and GeoData
-utilities, and builds native artifacts for Android, Apple platforms, Linux, and
-Windows.
+Go wrapper around Xray-core for mobile and desktop clients. Keep platform-specific
+App behavior out of the generic library.
 
-The public Invoke contract is intentionally small. Platform applications should
-construct typed request models, serialize them at the native boundary, and call
-`Invoke` or `CGoInvoke`. Do not add platform-specific application behavior to
-the generic API.
+## API and runtime
 
-# Repository Layout
+Before changing a method, read [README API](README.md#api), its method section,
+and the models/dispatch in `invoke_model.go` and `invoke.go`.
 
-| Path | Purpose |
-| --- | --- |
-| `invoke.go` | Invoke request validation, method dispatch, and response encoding. |
-| `invoke_model.go` | Public method enum and typed request/response models. |
-| `xray/` | Xray instance lifecycle, configuration validation, and batch latency testing. |
-| `share/` | Share-link parsing, validation, and generation. |
-| `geo/` | GeoData inspection helpers. |
-| `controller/` | Android socket protection and process lookup integration. |
-| `dns/` | VPN-aware process DNS resolver and desktop interface binding. |
-| `memory/` | Platform-specific memory-pressure handling. |
-| `nodep/` | Small utilities that do not depend on the managed Xray instance. |
-| `cgo_bridge/` | C ABI exports used by Apple, Linux, Windows, and Dart FFI. |
-| `android_wrapper.go` | Android-only gomobile interfaces and controller registration. |
-| `build/` | Cross-platform build scripts and artifact assembly. |
-| `.github/workflows/` | CI builds and release artifact publication. |
-| `README.md` | English integration documentation. |
-| `readme/README.zh_CN.md` | Chinese integration documentation. |
+- Keep `LibXrayAPIVersion` fixed at `3`; do not increment it within this release.
+  Synchronize contract changes with typed models, downstream consumers, tests,
+  and both `README.md` and `readme/README.zh_CN.md`.
+- Applications use `Invoke`/`CGoInvoke` with typed requests. Config methods receive
+  `xrayJson` text, not configuration file paths. Runtime `env` belongs inside
+  that Xray JSON. File-oriented APIs and the desktop Core CLI retain file access.
+- `TestXray` only loads/builds configuration with `core.LoadConfig`; it neither
+  constructs nor starts an instance. Success does not guarantee startup or
+  connectivity. Builders may still read local assets/certificates and apply `env`.
+- Manage one running instance. Validation and temporary instances must reject
+  managed-instance overlap before loading configuration and hold the lifecycle
+  lock through worker completion and instance cleanup. Close temporary instances
+  on every exit path; unmanaged overlaps require caller-owned process isolation.
+- When changing [batch probes](README.md#pingbatch), preserve input order,
+  per-item failure isolation, and raw `locationJson`; provider parsing belongs
+  to the App.
+- Before changing persistence or HTTP access, read
+  [managed runtime accounting](README.md#managed-runtime-accounting).
+  Save only the current session's inbound counters. Native metrics provides live
+  readings; runtime HTTP provides saved snapshots. The App owns totals and reset.
+- When changing [age subscriptions](README.md#age-encrypted-subscriptions),
+  keep key generation/decryption in libXray and HTTP/persistence in the App.
+  Never log secret keys, decrypted subscriptions, or requests containing them.
 
-# Invoke API Contract
+## Native integration and builds
 
-The current API version is `5`. Requests using an omitted or different
-`apiVersion` are rejected.
+Before changing platform bridges or build scripts, read [build](README.md#build)
+and the relevant platform/controller section in README.
 
-```json
-{
-  "apiVersion": 5,
-  "method": "runXray",
-  "payload": {
-    "xrayJson": "{\"outbounds\":[...]}"
-  }
-}
-```
+- Free each non-null `CGoInvoke` response exactly once with `CGoFree`.
+  Load only one independently built Go runtime per process.
+- Keep Android-only APIs behind the `android` build tag. When changing DNS
+  integration, read [DNS resolver](README.md#dns-resolver): `SetDNS` affects the
+  process resolver and `ResetDNS` follows managed-instance shutdown.
+- Use `build/main.py` to generate native artifacts; do not edit generated
+  headers, archives, or binaries. Verify temporary module edits are restored
+  after a build and distinguish build metadata from a successful artifact.
+- Modify an adjacent Xray-core checkout only when explicitly requested.
 
-Every response uses the same envelope:
+Common builds:
 
-```json
-{
-  "success": true,
-  "data": {},
-  "error": ""
-}
-```
-
-`data` must be a JSON object for successful methods that return data, `{}` for
-successful methods without data, or `null` for failures without structured
-failure data. Do not return scalar values directly from `data`.
-
-Supported methods:
-
-- `getFreePorts`
-- `convertShareLinksToXrayJson`
-- `convertXrayJsonToShareLinks`
-- `generateAgeKeyPair`
-- `countGeoData`
-- `pingBatch`
-- `testXray`
-- `checkRoute`
-- `runXray`
-- `stopXray`
-- `xrayVersion`
-- `getXrayState`
-
-Age-encrypted subscription support is part of the share boundary. libXray owns
-native key generation, in-memory armor decryption, and parsing. Integrating
-applications own HTTP headers, persistence of both generated keys, and refresh
-behavior. Never log age secret keys, decrypted subscription text, or complete
-Invoke requests containing those values.
-
-`convertShareLinksToXrayJson` accepts `text` and optional `age` fields and has
-one result shape. Every successful call returns a data object containing
-`config`, `usableCount`, and `failedCount`. A recognized container with no
-usable nodes returns the same object with `success: false`; whole-document and
-decryption failures return `data: null` because counts are unknown.
-
-`pingBatch`, `testXray`, `checkRoute`, and `runXray` receive serialized Xray
-configuration text through `xrayJson`. They must not accept or read an application-provided
-configuration file path. `countGeoData` is the exception because it operates on
-GeoData files directly and receives `datDir` in its payload.
-
-The complete UTF-8 Invoke request and response envelopes are limited to 16 MiB.
-`pingBatch` accepts at most five configurations. It parses only `outbounds`,
-ignores other root fields, and includes outbound dependencies referenced by
-`streamSettings.sockopt.dialerProxy` or `proxySettings.tag`. Its optional
-location request returns the response body unchanged in `locationJson`; the App
-owns JSON parsing and provider-specific semantics.
-
-# Runtime Semantics
-
-`runXray` manages one package-level Xray instance. A second `runXray` call fails
-until `stopXray` closes the current instance.
-
-Optional `runXray.payload.runtime` saves only the current session's inbound
-counters periodically and on normal stop. A new session replaces the previous
-saved session without archiving it. The App owns device totals and reset; live
-reads use Xray's native metrics endpoint. Optional runtime `listen`/`token`
-expose the current saved snapshot over an authenticated loopback HTTP listener.
-Read README.md's "Managed runtime accounting" section before changing
-persistence or HTTP access.
-
-`testXray` (default `buildOnly: false`) and `pingBatch` create temporary Xray
-instances. Xray-core has process-wide DNS client and outbound manager state.
-These operations, `ValidateXray`/`buildOnly`, and `checkRoute` hold the managed
-lifecycle lock and reject an active managed instance before config loading.
-Batch workers share the outer lock through close. Unmanaged external instances
-remain the caller's isolation responsibility; use separate processes if needed.
-
-`testXray` with `buildOnly: true` only loads/builds configuration and does not
-construct runtime handlers. Use it for draft structure checks that must not
-create TUN devices, logs, or background connections. Local asset/certificate
-reads and process-level root `env` application remain core builder behavior;
-successful building does not establish that runtime construction/start succeeds.
-
-`checkRoute` uses a temporary draft and the real Router without calling
-`Start` or dispatching the supplied target. It rejects managed-instance overlap
-and holds the managed lifecycle lock until matching and close finish. The draft copy removes
-inbounds, log output, and webhooks; WireGuard and VLESS reverse outbounds are
-rejected because construction itself has runtime side effects. DNS queries may
-occur. The timeout reaches the core context, but cancellation is not a hard
-wall-clock bound for every resolver. When changing route evidence or execution
-boundaries, read README.md's "Draft route checking" section for field semantics
-and default-loopback limitations.
-
-Xray runtime environment values belong in the root `env` object of `xrayJson`.
-A top-level `env` field on the Invoke request is ignored. Missing root env fields
-are governed by Xray-core behavior.
-
-# Platform Integration
-
-## C ABI
-
-`cgo_bridge/main.go` exports:
-
-```c
-char* CGoInvoke(char* requestJSON);
-void CGoFree(char* value);
-```
-
-`CGoInvoke` returns C-allocated memory. Every non-null response must be released
-exactly once with `CGoFree`. Do not release it with a platform allocator or from
-Go directly.
-
-## Android
-
-Android uses gomobile and produces `libXray.aar` plus
-`libXray-sources.jar`. Android-only APIs include socket protection, process
-lookup registration, `SetDNS`, and `ResetDNS`.
-
-`SetDNS` changes Go's process-wide resolver and requires a protected IP endpoint
-such as `8.8.8.8:53`. Call `ResetDNS` after the managed Xray instance stops.
-Keep Android-only code behind the `android` build tag.
-
-## Apple Platforms
-
-The CGo build produces `LibXray.xcframework` for iOS, iOS Simulator, macOS,
-tvOS, and tvOS Simulator. Swift callers use `CGoInvoke` and `CGoFree`; the Xray
-configuration and runtime TUN fd are supplied by the application through the
-typed JSON contract.
-
-## Linux and Windows
-
-Linux produces `linux_so/libXray.so` and `bin/xray`; Windows produces
-`windows_dll/libXray.dll` and `bin/xray.exe`. The libraries expose the C ABI.
-The session Core accepts `run -dns <IP:port> -interface <name> -config
-<xray.json> [-runtime <runtime.json>]`, installs a process-wide protected Go
-resolver, and runs one Xray instance until termination. The optional runtime
-file contains host metadata, separate from the raw Xray configuration.
-
-# Building
-
-Build scripts use the Xray-core version pinned by `go.mod` by default. Linux
-and Windows builds produce both the native library and session Core:
-
-```shell
+```sh
 python3 build/main.py android
 python3 build/main.py apple go
-python3 build/main.py linux
-python build/main.py windows
 ```
 
-Apple also has a gomobile build path:
+Other targets and local-core options are documented in [build usage](README.md#usage).
 
-```shell
-python3 build/main.py apple gomobile
-```
+## Verification
 
-To test an adjacent Xray-core checkout, place it at `../Xray-core` and append
-`local`:
+Run `git diff --check` for all changes. Match further verification to the change;
+expand or repeat checks only for new changes, failures, or unresolved concerns.
 
-```shell
-python3 build/main.py android local
-python3 build/main.py apple go local
-```
-
-The build scripts temporarily adjust the Go module graph and restore `go.mod`
-and `go.sum` when the build finishes. Generated native artifacts, downloaded
-GeoData, and intermediate build directories are ignored by Git. Do not edit
-generated headers, archives, frameworks, AARs, JARs, DLLs, or shared libraries
-manually.
-
-# Development Rules
-
-1. Use `Invoke` for typed commands, Xray metrics for live counters, and runtime
-   HTTP only for the current saved snapshot. Keep App totals/reset
-   outside libXray and platform-only controller APIs isolated by build tags.
-2. Define request and response fields as typed Go models in `invoke_model.go`.
-   Do not pass unstructured maps into package business logic.
-3. Treat method names, JSON keys, response shapes, and `apiVersion` as a public
-   wire contract. Breaking changes require an API version increment and
-   synchronized integration documentation.
-4. Xray configuration APIs accept `xrayJson` text, not file paths. File access
-   remains limited to APIs whose purpose is operating on files.
-5. Keep the English and Chinese README API sections synchronized.
-6. Preserve per-item ordering in `pingBatch`; one invalid configuration should
-   produce an item failure without discarding other accepted items.
-7. Close every temporary Xray instance on success and error paths. Do not add
-   hidden serialization or state restoration that changes existing runtime
-   semantics.
-8. Do not modify the adjacent Xray-core checkout as part of a libXray change
-   unless the task explicitly requires it.
-9. Use `gofmt` for Go source and keep changes narrowly scoped to the owning
-   package.
-
-# Validation
-
-Run the checks appropriate to the change scope:
-
-```shell
-gofmt -w <changed-go-files>
-go test ./... -count=1
-git diff --check
-```
-
-Changes to build scripts or platform bridges should also build the affected
-artifact. Changes to the Invoke wire contract must include dispatch/model tests,
-unknown or removed method tests where relevant, response-shape tests, and
-synchronized consumer model updates in downstream applications.
+- Go changes: format changed files with `gofmt`, then `go test ./... -count=1`.
+- Invoke changes: cover dispatch/models, response shapes, and removed methods
+  where relevant; verify downstream request models against the same contract.
+- Bridge/build changes: build the affected artifact where supported. Report
+  unsupported targets or unbuilt artifacts explicitly.
+- Documentation-only changes: check referenced paths/anchors; no Go tests or
+  native builds are needed.

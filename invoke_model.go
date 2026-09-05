@@ -10,7 +10,7 @@ import (
 
 type LibXrayMethod string
 
-const LibXrayAPIVersion = 5
+const LibXrayAPIVersion = 3
 
 const (
 	LibXrayMethodGetFreePorts                LibXrayMethod = "getFreePorts"
@@ -20,7 +20,6 @@ const (
 	LibXrayMethodCountGeoData                LibXrayMethod = "countGeoData"
 	LibXrayMethodPingBatch                   LibXrayMethod = "pingBatch"
 	LibXrayMethodTestXray                    LibXrayMethod = "testXray"
-	LibXrayMethodCheckRoute                  LibXrayMethod = "checkRoute"
 	LibXrayMethodRunXray                     LibXrayMethod = "runXray"
 	LibXrayMethodStopXray                    LibXrayMethod = "stopXray"
 	LibXrayMethodXrayVersion                 LibXrayMethod = "xrayVersion"
@@ -114,33 +113,7 @@ type RunXrayRequest struct {
 type RuntimeConfig = xray.RuntimeConfig
 
 type TestXrayRequest struct {
-	XrayJson   string `json:"xrayJson,omitempty"`
-	BuildOnly  bool   `json:"buildOnly,omitempty"`
-	URL        string `json:"url,omitempty"`
-	Timeout    int    `json:"timeout,omitempty"`
-	InboundTag string `json:"inboundTag,omitempty"`
-}
-
-type TestXrayResponse struct {
-	Delay int64 `json:"delay"`
-}
-
-type CheckRouteRequest struct {
-	XrayJson   string `json:"xrayJson"`
-	Domain     string `json:"domain,omitempty"`
-	IP         string `json:"ip,omitempty"`
-	Port       int    `json:"port"`
-	Network    string `json:"network"`
-	InboundTag string `json:"inboundTag,omitempty"`
-	Timeout    int    `json:"timeout"`
-}
-
-type CheckRouteResponse struct {
-	Matched     bool   `json:"matched"`
-	RuleTag     string `json:"ruleTag"`
-	OutboundTag string `json:"outboundTag"`
-	BalancerTag string `json:"balancerTag"`
-	Defaulted   bool   `json:"defaulted"`
+	XrayJson string `json:"xrayJson,omitempty"`
 }
 
 type XrayVersionResponse struct {
