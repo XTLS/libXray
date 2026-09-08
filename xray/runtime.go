@@ -51,7 +51,6 @@ type managedRuntime struct {
 	config               RuntimeConfig
 	snapshot             runtimeSnapshot
 	manager              stats.Manager
-	stateLock            *os.File
 	stopTicker, tickDone chan struct{}
 	httpServer           *http.Server
 	httpListener         net.Listener
@@ -71,36 +70,13 @@ func prepareRuntime(config *RuntimeConfig) (*managedRuntime, error) {
 	if _, err := rand.Read(id[:]); err != nil {
 		return nil, err
 	}
-	stateLock, err := lockRuntimeState(config.StatePath)
-	if err != nil {
-		return nil, err
-	}
 	return &managedRuntime{
-		config: *config, stateLock: stateLock,
+		config: *config,
 		snapshot: runtimeSnapshot{
 			Version: 1,
 			Session: runtimeSession{ID: hex.EncodeToString(id[:]), StartedAtMs: time.Now().UnixMilli()},
 		},
 	}, nil
-}
-
-func lockRuntimeState(path string) (*os.File, error) {
-	if !filepath.IsAbs(path) {
-		return nil, errors.New("runtime statePath must be absolute")
-	}
-	lockPath := path + ".lock"
-	if info, err := os.Lstat(lockPath); err == nil && !info.Mode().IsRegular() || err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, errors.New("runtime state lock is unavailable")
-	}
-	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		return nil, errors.New("runtime state lock is unavailable")
-	}
-	if err := lockRuntimeFile(file); err != nil {
-		_ = file.Close()
-		return nil, errors.New("runtime state is in use")
-	}
-	return file, nil
 }
 
 func (r *managedRuntime) attach(server *core.Instance) error {

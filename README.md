@@ -563,9 +563,6 @@ snapshots through HTTP when available.
 This is reference data, not billing: crashes, forced termination, or replacement
 before the App reads the file can lose traffic, with no strict loss bound.
 
-A nonblocking OS lock on `statePath + ".lock"` is held until core close,
-preventing another process from writing the current session.
-Hosts must use one consistent canonical path and leave the lock file in place.
 App code reads snapshots through HTTP instead of opening the host's files, so
 macOS System Extension files can remain root-owned. This does not provide
 graceful final settlement when Windows forcibly terminates a job.

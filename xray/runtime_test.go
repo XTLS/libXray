@@ -31,10 +31,7 @@ func runtimeFixture(t *testing.T, config RuntimeConfig) (*managedRuntime, stats.
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		_ = runtime.stop()
-		_ = runtime.stateLock.Close()
-	})
+	t.Cleanup(func() { _ = runtime.stop() })
 	manager, err := appstats.NewManager(context.Background(), &appstats.Config{})
 	if err != nil {
 		t.Fatal(err)
@@ -114,6 +111,13 @@ func TestRuntimeReplacesPreviousSessionOnStart(t *testing.T) {
 	if err := runtime.start(); err != nil {
 		t.Fatal(err)
 	}
+	files, err := os.ReadDir(filepath.Dir(config.StatePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files[0].Name() != "runtime.json" {
+		t.Fatalf("runtime should only create its statistics file: %v", files)
+	}
 	initial := savedRuntime(t, config.StatePath)
 	if initial.Session.Uplink != 0 || initial.Session.Downlink != 0 || !initial.Available || initial.Session.EndedAtMs != 0 {
 		t.Fatalf("new session was not saved at start: %+v", initial)
@@ -127,14 +131,11 @@ func TestRuntimeReplacesPreviousSessionOnStart(t *testing.T) {
 	if stopped.Session.Uplink != 17 || stopped.Session.Downlink != 23 || stopped.Session.EndedAtMs == 0 {
 		t.Fatalf("stop did not save final raw counters: %+v", stopped)
 	}
-	_ = runtime.stateLock.Close()
 	// Preparation alone cannot overwrite the current snapshot.
 	for range 2 {
-		next, err := prepareRuntime(&config)
-		if err != nil {
+		if _, err := prepareRuntime(&config); err != nil {
 			t.Fatal(err)
 		}
-		_ = next.stateLock.Close()
 		if savedRuntime(t, config.StatePath) != stopped {
 			t.Fatal("preparation replaced the previous current snapshot")
 		}
@@ -191,8 +192,7 @@ func TestRuntimeConfigAndStateBoundary(t *testing.T) {
 	} {
 		invalid := config
 		mutate(&invalid)
-		if r, err := prepareRuntime(&invalid); err == nil {
-			_ = r.stateLock.Close()
+		if _, err := prepareRuntime(&invalid); err == nil {
 			t.Fatal("invalid runtime metadata accepted")
 		}
 	}
@@ -212,11 +212,9 @@ func TestRuntimeConfigAndStateBoundary(t *testing.T) {
 			t.Fatal("invalid saved session was overwritten")
 		}
 	}
-	runtime, err := prepareRuntime(&config)
-	if err != nil {
+	if _, err := prepareRuntime(&config); err != nil {
 		t.Fatalf("saved state unnecessarily blocked preparation: %v", err)
 	}
-	_ = runtime.stateLock.Close()
 }
 
 func TestManagedRuntimeStartFailureAndStop(t *testing.T) {
@@ -257,7 +255,7 @@ func TestManagedRuntimeStartFailureAndStop(t *testing.T) {
 	if !snapshot.Available || snapshot.Session.Uplink != 0 || snapshot.Session.EndedAtMs != 0 {
 		t.Fatalf("idle statistics should be available zero: %+v", snapshot)
 	}
-	// Even a final persistence error must close the core and release the owner lock.
+	// Even a final persistence error must close the core.
 	coreRuntime.config.StatePath = filepath.Join(filepath.Dir(validPath), "missing", "runtime.json")
 	if err := StopXray(); err == nil || GetXrayState() {
 		t.Fatalf("failed final save did not close core: %v", err)
@@ -267,33 +265,18 @@ func TestManagedRuntimeStartFailureAndStop(t *testing.T) {
 		t.Fatalf("failed final save leaked the statistics listener: %v", err)
 	}
 	_ = statisticsListener.Close()
-	next, err := prepareRuntime(&config)
-	if err != nil {
-		t.Fatalf("stop did not release ownership: %v", err)
+	if err := RunXrayWithRuntime(xrayJSON, &config); err != nil {
+		t.Fatalf("failed final save prevented a new session: %v", err)
 	}
-	_ = next.stateLock.Close()
 }
 
-func TestRuntimePeriodicSaveAndSingleOwner(t *testing.T) {
+func TestRuntimePeriodicSave(t *testing.T) {
 	config := runtimeConfig(t)
 	runtime, up, down := runtimeFixture(t, config)
 	if err := runtime.start(); err != nil {
 		t.Fatal(err)
 	}
 	initial := savedRuntime(t, config.StatePath)
-	if other, err := prepareRuntime(&config); err == nil || err.Error() != "runtime state is in use" {
-		if other != nil {
-			_ = other.stateLock.Close()
-		}
-		t.Fatalf("two writers acquired the same path: %v", err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRuntimeChild$")
-	command.Env = append(os.Environ(), "LIBXRAY_TEST_RUNTIME_PATH="+config.StatePath, "LIBXRAY_TEST_RUNTIME_ACTION=lock")
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("cross-process owner lock failed: %v: %s", err, output)
-	}
 	up.Add(31)
 	down.Add(47)
 	// Exercise the real 30s timer without adding a production interval option.
@@ -308,12 +291,12 @@ func TestRuntimePeriodicSaveAndSingleOwner(t *testing.T) {
 	t.Fatal("host timer did not save counters without any UI/control request")
 }
 
-func TestRuntimeKilledOwnerStateIsReplacedOnRestart(t *testing.T) {
+func TestRuntimeKilledSessionIsReplacedOnRestart(t *testing.T) {
 	config := runtimeConfig(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRuntimeChild$")
-	command.Env = append(os.Environ(), "LIBXRAY_TEST_RUNTIME_PATH="+config.StatePath, "LIBXRAY_TEST_RUNTIME_ACTION=kill")
+	command.Env = append(os.Environ(), "LIBXRAY_TEST_RUNTIME_PATH="+config.StatePath)
 	pipe, err := command.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -349,10 +332,10 @@ func TestRuntimeKilledOwnerStateIsReplacedOnRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	if current := savedRuntime(t, config.StatePath); current.Session.ID == saved.Session.ID || current.Session.Uplink != 0 || current.Session.Downlink != 0 {
-		t.Fatalf("restart reused killed owner's counters: %+v", current)
+		t.Fatalf("restart reused killed session's counters: %+v", current)
 	}
 	if _, err := os.Lstat(filepath.Join(filepath.Dir(config.StatePath), "runtime-sessions")); !os.IsNotExist(err) {
-		t.Fatal("restart archived the killed owner's saved state")
+		t.Fatal("restart archived the killed session's saved state")
 	}
 }
 
@@ -362,15 +345,6 @@ func TestRuntimeChild(t *testing.T) {
 		return
 	}
 	config := RuntimeConfig{StatePath: path, InboundTag: "tunIn"}
-	if os.Getenv("LIBXRAY_TEST_RUNTIME_ACTION") == "lock" {
-		if other, err := prepareRuntime(&config); err == nil || err.Error() != "runtime state is in use" {
-			if other != nil {
-				_ = other.stateLock.Close()
-			}
-			t.Fatalf("another process acquired active session ownership: %v", err)
-		}
-		return
-	}
 	runtime, up, down := runtimeFixture(t, config)
 	if err := runtime.start(); err != nil {
 		t.Fatal(err)

@@ -35,12 +35,12 @@ func newXrayInstance(xrayJSON string) (*core.Instance, error) {
 
 // Run Xray instance.
 // xrayJSON is the serialized Xray JSON configuration.
-func RunXray(xrayJSON string) (err error) {
+func RunXray(xrayJSON string) error {
 	return RunXrayWithRuntime(xrayJSON, nil)
 }
 
 // RunXrayWithRuntime optionally saves this session's raw inbound counters.
-func RunXrayWithRuntime(xrayJSON string, config *RuntimeConfig) (err error) {
+func RunXrayWithRuntime(xrayJSON string, config *RuntimeConfig) error {
 	coreServerMu.Lock()
 	defer coreServerMu.Unlock()
 	if coreServer != nil {
@@ -50,18 +50,10 @@ func RunXrayWithRuntime(xrayJSON string, config *RuntimeConfig) (err error) {
 	if err != nil {
 		return err
 	}
-	if runtime != nil {
-		defer func() {
-			if err != nil {
-				_ = runtime.stateLock.Close()
-			}
-		}()
-	}
-
 	memory.InitForceFree()
 	server, err := newXrayInstance(xrayJSON)
 	if err != nil {
-		return
+		return err
 	}
 	if runtime != nil {
 		if err = runtime.attach(server); err != nil {
@@ -72,7 +64,7 @@ func RunXrayWithRuntime(xrayJSON string, config *RuntimeConfig) (err error) {
 
 	if err = server.Start(); err != nil {
 		_ = server.Close()
-		return
+		return err
 	}
 	if runtime != nil {
 		if err = runtime.start(); err != nil {
@@ -101,7 +93,6 @@ func StopXray() error {
 	if coreServer != nil {
 		var runtimeErr error
 		if coreRuntime != nil {
-			defer coreRuntime.stateLock.Close()
 			runtimeErr = coreRuntime.stop()
 			coreRuntime = nil
 		}

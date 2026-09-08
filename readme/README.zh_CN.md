@@ -447,10 +447,8 @@ rename 后发生 I/O 错误时结果可能不确定，消费者应在 HTTP 可�
 不是计费账本：崩溃、强杀或 App 读取前被新会话覆盖都可能丢失流量，不承诺严格的
 丢失上限。
 
-`statePath + ".lock"` 的非阻塞操作系统文件锁保持至核心关闭，防止跨进程同时
-改写当前会话。宿主须使用一致的规范路径并保留锁文件。App 经 HTTP 读取快照，
-无需打开宿主文件，因此 macOS System Extension 文件可继续归 root 所有。此能力
-不能让 Windows Job 强制终止获得正常最终结算。
+App 经 HTTP 读取快照，无需打开宿主文件，因此 macOS System Extension 文件可继续归 root 所有。
+此能力不能让 Windows Job 强制终止获得正常最终结算。
 
 #### 快照 HTTP
 
