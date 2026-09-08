@@ -74,13 +74,11 @@ Linux and Windows builds also produce `bin/xray` or `bin/xray.exe`. This
 session Core protects Go DNS lookups from the VPN route and accepts only:
 
 ```shell
-xray run -dns <IP:port> -interface <name> -config <xray.json> [-runtime <runtime.json>]
+xray run -dns <IP:port> -interface <name> -config <xray.json>
 ```
 
 All three options are required. `-dns` must be an IP endpoint, and `-config`
 points directly to the Xray JSON configuration.
-Optional `-runtime` reads the host metadata object described under "Managed
-runtime accounting", without a wrapping `runtime` key; it does not replace `-config`.
 
 > [!WARNING]
 > **Use only one Go runtime per process.** Go does not support loading multiple
@@ -205,8 +203,7 @@ Design notes:
    fields supported by libXray share links; unsupported and generated empty
    fields are omitted. Opaque XHTTP `extra` and FinalMask mask `settings` JSON
    remain unchanged.
-   Every successful response returns the projected config together with
-   `usableCount` and `failedCount`.
+   Every successful response contains only the projected `outbounds` list.
    Its optional `age.secretKey` decrypts official age ASCII armor in memory
    before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in
@@ -329,23 +326,16 @@ convert VMessQRCode to Xray Json.
 
 `convertShareLinksToXrayJson` has one response shape. Its payload contains
 `text` and optional `age`. Every successful conversion returns
-`data: {"config":{"outbounds":[...]},"usableCount":2,"failedCount":1}`.
+`data: {"outbounds":[...]}`. There is no statistics or nested config wrapper.
 
-Counts describe this input only, not added/changed nodes. Each root JSON
-`outbounds` element or YAML `proxies` element is one candidate. In detected
-share-link lists, each URI-like row is one candidate; blank lines, comments and
-text headers are ignored. Base64 and age wrappers use the inner format's
-candidates. Malformed individual elements are skipped without discarding other
-valid elements. `usableCount` equals the final projected, buildable
-outbound count; parse, build and unsupported-projection failures count toward
-`failedCount`. No per-node hash comparison or deduplication is performed.
+Invalid individual elements are skipped without discarding other valid nodes.
+The list preserves source order and includes only projected, buildable outbounds.
+No per-node hash comparison, deduplication or failed-node counting is performed.
 
-A recognized container with zero usable nodes returns `success: false` with
-structured counts and `config: {"outbounds":[]}`. An unrecognized format,
-malformed whole document, invalid container or decryption failure returns
-`data: null`; counts are not guessed. Error text never includes rejected
-candidates or decrypted subscription text. Callers must not import/replace a
-subscription when no usable nodes remain.
+No usable nodes, an unrecognized format, a malformed document, an invalid
+container or a decryption failure returns `success: false` with `data: null`.
+Error text never includes rejected candidates or decrypted subscription text.
+Callers must not import/replace a subscription when no usable nodes remain.
 
 ### age-encrypted subscriptions
 
@@ -487,105 +477,6 @@ that the network is reachable. Callers must handle actual startup failures.
 Starts the managed Xray instance from the supplied JSON text. Use `stopXray`
 to stop that instance. `runXrayFromJson` is no longer a separate method.
 
-### Managed runtime accounting
-
-`runXray.payload.runtime` is optional API v3 host metadata. Omitting it
-preserves the original lifecycle and writes no runtime snapshots. Hosts opt in
-with this object (also the complete content of the desktop `-runtime` file):
-
-```json
-{
-  "statePath": "/private/app/run/runtime.json",
-  "inboundTag": "tunIn",
-  "listen": "127.0.0.1:49228",
-  "token": "538fc3253a3e433491bc2d653fc74214"
-}
-```
-
-The host supplies an existing private directory and an absolute `statePath`.
-`inboundTag` must be nonempty and at most 256 bytes. Metadata stays separate
-from Xray JSON, so user configuration cannot override it. The named inbound
-must exist, with uplink/downlink system statistics and a statistics manager enabled.
-`listen` and `token` may both be omitted to save snapshots without HTTP. When
-enabled, `listen` must be `127.0.0.1:<port>` with port 1–65535, and the host must
-generate a fresh random 32-character lowercase hex `token`. Keep it private;
-do not reuse the example token. Invalid metadata, an occupied HTTP port, or an
-initial save failure rejects startup; any constructed core and statistics
-listener are closed.
-
-The saved file contains only the current session's raw inbound counter values:
-
-```json
-{
-  "version": 1,
-  "session": {
-    "id": "2a7e2e49b947a802d8b39af4fbc48f52",
-    "startedAtMs": 1788300000000,
-    "endedAtMs": 0,
-    "uplink": 120,
-    "downlink": 800
-  },
-  "available": true,
-  "sampledAtMs": 1788300030000,
-  "savedAtMs": 1788300030000,
-  "error": ""
-}
-```
-
-Timestamps are Unix milliseconds. Each new start generates a random
-32-character lowercase hex session ID, even when replaying identical metadata.
-`endedAtMs: 0` means no final stop was saved; it is not proof that the VPN is
-running. The host saves an initial snapshot, samples/saves every 30 seconds,
-and attempts a final sample/save before closing the core on `stopXray`.
-
-Sampling reads the named inbound's `Value()`, never resets it and never adds
-outbound/node counters. Repeated samples do not accumulate bytes. A nonnegative
-counter rollback is recorded as the smaller raw value, not a synthetic delta.
-Missing or negative counters set `available: false` and
-`error: "counters_unavailable"`, retaining the last valid nonnegative values.
-Idle valid counters report available zero. There are no application-wide totals,
-reset generations, or VPN control HTTP methods.
-`resetRuntime` is not an Invoke method. Applications may read existing Xray
-metrics for live rates; their own totals/reset policy stays outside libXray.
-
-Starting a new session atomically replaces the previous `runtime.json`; libXray
-does not archive or merge earlier sessions. Traffic not read by the App before
-replacement is intentionally lost. Each session starts from zero and receives a
-new ID.
-
-Snapshot files use a mode-0600 same-directory temporary file, sync, and atomic
-replacement (Windows uses `MoveFileEx` with replace-existing and write-through).
-The private parent directory/Windows ACL remains the host's responsibility.
-Failed saves leave the previous complete disk snapshot for later retry; a final
-save error is returned but never prevents core shutdown. An error after rename
-can have an uncertain persistence outcome, so consumers must re-read saved
-snapshots through HTTP when available.
-This is reference data, not billing: crashes, forced termination, or replacement
-before the App reads the file can lose traffic, with no strict loss bound.
-
-A nonblocking OS lock on `statePath + ".lock"` is held until core close,
-preventing another process from writing the current session.
-Hosts must use one consistent canonical path and leave the lock file in place.
-App code reads snapshots through HTTP instead of opening the host's files, so
-macOS System Extension files can remain root-owned. This does not provide
-graceful final settlement when Windows forcibly terminates a job.
-
-#### Snapshot HTTP
-
-The optional statistics listener starts with the managed session and closes on
-stop, including when the final save fails. It uses a separate loopback port
-from Xray's native metrics; it provides no VPN start/stop/configuration methods.
-Every request requires `Authorization: Bearer <token>`. Responses use
-`Cache-Control: no-store`; CORS is not enabled.
-
-- `GET /runtime` returns the current saved snapshot directly.
-
-Requests read the host's saved atomic snapshot without sampling, resetting
-counters, or updating the save time. Use native metrics for live rates. A
-missing, corrupt, or non-regular snapshot returns service unavailable. Requests
-have bounded read/write timeouts. While stopped, HTTP is unavailable; libXray
-never owns App totals or clear/reset policy.
-
 ### metrics
 
 Refer to the following configuration:
@@ -615,7 +506,8 @@ http://localhost:49227/debug/vars
 ```
 
 Metrics only needs the `listen` field in this wrapper. Query `/debug/vars`
-directly with an HTTP client instead of going through libXray.
+directly with an HTTP client instead of going through libXray. Counters belong
+to the current Xray instance; libXray does not sample or persist traffic.
 
 ### validation
 

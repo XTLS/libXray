@@ -24,10 +24,8 @@ and the models/dispatch in `invoke_model.go` and `invoke.go`.
 - When changing [batch probes](README.md#pingbatch), preserve input order,
   per-item failure isolation, and raw `locationJson`; provider parsing belongs
   to the App.
-- Before changing persistence or HTTP access, read
-  [managed runtime accounting](README.md#managed-runtime-accounting).
-  Save only the current session's inbound counters. Native metrics provides live
-  readings; runtime HTTP provides saved snapshots. The App owns totals and reset.
+- Traffic comes directly from [Xray metrics](README.md#metrics). The library
+  manages the Core lifecycle only; it does not sample or persist traffic.
 - When changing [age subscriptions](README.md#age-encrypted-subscriptions),
   keep key generation/decryption in libXray and HTTP/persistence in the App.
   Never log secret keys, decrypted subscriptions, or requests containing them.
@@ -55,6 +53,13 @@ python3 build/main.py apple go
 ```
 
 Other targets and local-core options are documented in [build usage](README.md#usage).
+
+## Pull requests
+
+Use English for PR titles and descriptions. Keep titles, descriptions, and
+comments self-contained: do not mention or link to another repository's PR,
+including companion, dependency, or merge-order references. Describe required
+interface or build behavior directly.
 
 ## Verification
 

@@ -10,16 +10,16 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 )
 
-func marshalShareConfigJSON(config *conf.Config) (json.RawMessage, int, error) {
+func marshalShareConfigJSON(config *conf.Config) (json.RawMessage, error) {
 	if config == nil {
-		return nil, 0, fmt.Errorf("no valid outbound found")
+		return nil, fmt.Errorf("no valid outbound found")
 	}
 
 	outbounds := make([]map[string]any, 0, len(config.OutboundConfigs))
 	for _, outbound := range config.OutboundConfigs {
 		source, err := marshalShareJSONObject(outbound)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 		projected, supported := projectShareOutbound(source)
 		if !supported {
@@ -32,14 +32,14 @@ func marshalShareConfigJSON(config *conf.Config) (json.RawMessage, int, error) {
 	}
 
 	if len(outbounds) == 0 {
-		return nil, 0, fmt.Errorf("no valid outbound found")
+		return nil, fmt.Errorf("no valid outbound found")
 	}
 
 	raw, err := json.Marshal(map[string]any{"outbounds": outbounds})
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to marshal share config: %w", err)
+		return nil, fmt.Errorf("failed to marshal share config: %w", err)
 	}
-	return raw, len(outbounds), nil
+	return raw, nil
 }
 
 func marshalShareJSONObject(value any) (map[string]any, error) {

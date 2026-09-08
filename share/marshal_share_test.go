@@ -53,7 +53,7 @@ func TestMarshalShareConfigProjectsSupportedFields(t *testing.T) {
 
 	var config conf.Config
 	require.NoError(t, json.Unmarshal([]byte(input), &config))
-	raw, _, err := marshalShareConfigJSON(&config)
+	raw, err := marshalShareConfigJSON(&config)
 	require.NoError(t, err)
 
 	const expected = `{
@@ -78,7 +78,7 @@ func TestMarshalShareConfigPreservesHysteriaPortHopping(t *testing.T) {
 		"hy2://auth@host:443?up=50+mbps&down=100+mbps&ports=20000-40000&hop-interval=30&sni=example.com&fp=chrome",
 	)
 	require.NoError(t, err)
-	raw, _, err := marshalShareConfigJSON(config)
+	raw, err := marshalShareConfigJSON(config)
 	require.NoError(t, err)
 
 	var document map[string]any
@@ -98,7 +98,7 @@ func TestMarshalShareConfigKeepsKCPWithoutSettings(t *testing.T) {
 	link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
 	config, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
-	raw, _, err := marshalShareConfigJSON(config)
+	raw, err := marshalShareConfigJSON(config)
 	require.NoError(t, err)
 
 	assert.Contains(t, string(raw), `"network":"kcp"`)
@@ -121,7 +121,7 @@ func TestMarshalShareConfigSupportedProtocolsBuild(t *testing.T) {
 		t.Run(protocol, func(t *testing.T) {
 			config, err := convertShareLinksForTest(link)
 			require.NoError(t, err)
-			raw, _, err := marshalShareConfigJSON(config)
+			raw, err := marshalShareConfigJSON(config)
 			require.NoError(t, err)
 			requireProjectedOutboundsBuild(t, raw)
 		})

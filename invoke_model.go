@@ -3,9 +3,6 @@ package libXray
 
 import (
 	"encoding/json"
-
-	"github.com/xtls/libxray/share"
-	"github.com/xtls/libxray/xray"
 )
 
 type LibXrayMethod string
@@ -48,8 +45,6 @@ type ConvertShareLinksToXrayJsonRequest struct {
 	Text string            `json:"text,omitempty"`
 	Age  *AgeDecryptConfig `json:"age,omitempty"`
 }
-
-type ConvertShareLinksToXrayJsonResponse = share.ConvertShareLinksResult
 
 type AgeKeyType string
 
@@ -106,11 +101,8 @@ type PingBatchItemResponse struct {
 }
 
 type RunXrayRequest struct {
-	XrayJson string         `json:"xrayJson,omitempty"`
-	Runtime  *RuntimeConfig `json:"runtime,omitempty"`
+	XrayJson string `json:"xrayJson,omitempty"`
 }
-
-type RuntimeConfig = xray.RuntimeConfig
 
 type TestXrayRequest struct {
 	XrayJson string `json:"xrayJson,omitempty"`
