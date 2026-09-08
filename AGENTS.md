@@ -54,6 +54,13 @@ python3 build/main.py apple go
 
 Other targets and local-core options are documented in [build usage](README.md#usage).
 
+## Pull requests
+
+Use English for PR titles and descriptions. Keep titles, descriptions, and
+comments self-contained: do not mention or link to another repository's PR,
+including companion, dependency, or merge-order references. Describe required
+interface or build behavior directly.
+
 ## Verification
 
 Run `git diff --check` for all changes. Match further verification to the change;
