@@ -42,11 +42,11 @@ Linux 和 Windows 构建还会生成 `bin/xray` 或 `bin/xray.exe`。该会话 C
 会保护 Go DNS 查询不被 VPN 路由重新捕获，并且只接受以下命令：
 
 ```shell
-xray run -dns <IP:port> -interface <网卡名> -config <xray.json> [-runtime <runtime.json>]
+xray run -dns <IP:port> -interface <网卡名> -config <xray.json>
 ```
 
-前三个参数都必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
-JSON 配置。可选 `-runtime` 的 JSON 对象见“托管运行统计”，不含外层 `runtime`。
+三个参数都必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
+JSON 配置。
 
 > [!WARNING]
 > **每个进程只能使用一个 Go runtime。** Go 不支持在同一进程中加载多个独立构建的
@@ -383,88 +383,9 @@ Geodata assets 声明只校验 HTTPS URL 和已存在的本地文件，下载器
 使用传入的 Xray JSON 文本启动由 libXray 管理的 Xray instance，并通过
 `stopXray` 停止。`runXrayFromJson` 不再作为独立 method 存在。
 
-### 托管运行统计
-
-API v3 的 `runXray.payload.runtime` 为可选宿主元数据。省略时保留原生命周期，
-不写运行快照。宿主传入以下对象；Desktop 的 `-runtime` 文件也直接使用此对象，
-不含外层 `runtime`，原始 Xray 配置仍通过独立的 `-config` 传入。
-
-```json
-{
-  "statePath": "/private/app/run/runtime.json",
-  "inboundTag": "tunIn",
-  "listen": "127.0.0.1:49228",
-  "token": "538fc3253a3e433491bc2d653fc74214"
-}
-```
-
-宿主提供已存在的私有目录和绝对 `statePath`。`inboundTag` 非空且不超过 256 字节。
-元数据独立于 Xray JSON，用户配置不能覆盖。指定入站必须存在，并启用上下行系统统计
-和 stats manager。
-`listen` / `token` 可同时省略，保留仅落盘、不启用 HTTP 的行为。启用时 `listen`
-只能是 `127.0.0.1:<port>`，端口范围 1–65535；宿主须生成新的 32 位小写十六进制
-随机 `token` 并保密，不能复用示例值。元数据无效、HTTP 端口被占用或首次保存失败
-均拒绝启动，并关闭已构建的核心和统计监听器。
-
-落盘文件仅包含本次会话的原始入站计数：
-
-```json
-{
-  "version": 1,
-  "session": {
-    "id": "2a7e2e49b947a802d8b39af4fbc48f52",
-    "startedAtMs": 1788300000000,
-    "endedAtMs": 0,
-    "uplink": 120,
-    "downlink": 800
-  },
-  "available": true,
-  "sampledAtMs": 1788300030000,
-  "savedAtMs": 1788300030000,
-  "error": ""
-}
-```
-
-时间为 Unix 毫秒。每次新启动生成 32 位小写十六进制随机 session ID，即使重放相同
-元数据也不复用。`endedAtMs: 0` 只表示没有保存最终停止快照，不能用来判断 VPN
-仍在运行。宿主启动时先保存新快照，此后每 30 秒采样保存，`stopXray` 在关闭核心前
-尽力完成最终采样保存。
-
-采样直接读取指定入站的 `Value()`，不重置计数，不叠加节点或 outbound 计数。
-重复采样不累加字节；非负计数回退时保存实际较小值，不合成差额。计数缺失或为负时，
-`available: false`、`error: "counters_unavailable"`，保留上次合法的非负值。
-有效入站尚无流量时为可用的 0。不维护 App 总量、重置代次，也不提供 VPN 控制 HTTP
-方法。`resetRuntime` 不是 Invoke method。App 可通过已有 Xray metrics
-读取实时速率；App 累计与重置策略由 App 自行管理，不属于 libXray。
-
-启动新会话时会原子覆盖之前的 `runtime.json`；libXray 不归档或合并旧会话。
-若 App 未在覆盖前读取流量，该数据将直接丢失。每个会话都从零开始，并生成新的 ID。
-
-快照文件使用同目录 0600 临时文件，sync 后原子替换；Windows 使用
-`MoveFileEx` 的替换和 write-through 标志。私有父目录/Windows ACL 由宿主管理。
-保存失败保留上次完整磁盘快照供后续重试；最终保存失败向调用方报告，但仍关闭核心。
-rename 后发生 I/O 错误时结果可能不确定，消费者应在 HTTP 可用时重新读取已保存的快照。这是参考数据，
-不是计费账本：崩溃、强杀或 App 读取前被新会话覆盖都可能丢失流量，不承诺严格的
-丢失上限。
-
-App 经 HTTP 读取快照，无需打开宿主文件，因此 macOS System Extension 文件可继续归 root 所有。
-此能力不能让 Windows Job 强制终止获得正常最终结算。
-
-#### 快照 HTTP
-
-可选统计监听器随托管会话启动，在停止时关闭，最终保存失败也会关闭。它使用独立于
-Xray 原生 metrics 的回环端口，不提供 VPN 启停或配置方法。所有请求必须携带
-`Authorization: Bearer <token>`；响应使用 `Cache-Control: no-store`，不启用 CORS。
-
-- `GET /runtime` 直接返回当前已保存的快照。
-
-请求只读取宿主已保存的原子快照，不触发采样、计数重置或保存时间更新；实时速率仍使用
-原生 metrics。快照缺失、损坏或不是常规文件时返回服务不可用。请求有读写超时限制。
-停止期间 HTTP 不可用；libXray 不维护 App 累计值或清零策略。
-
 ### metrics
 
-统计。
+App 直接通过 Xray metrics HTTP API 读取当前 instance 的流量计数；libXray 不采样或保存流量。
 
 参考如下配置：
 

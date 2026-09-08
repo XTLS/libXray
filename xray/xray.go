@@ -14,7 +14,6 @@ import (
 var (
 	coreServerMu sync.Mutex
 	coreServer   *core.Instance
-	coreRuntime  *managedRuntime
 )
 
 var ErrAlreadyRunning = errors.New("xray is already running")
@@ -36,44 +35,21 @@ func newXrayInstance(xrayJSON string) (*core.Instance, error) {
 // Run Xray instance.
 // xrayJSON is the serialized Xray JSON configuration.
 func RunXray(xrayJSON string) error {
-	return RunXrayWithRuntime(xrayJSON, nil)
-}
-
-// RunXrayWithRuntime optionally saves this session's raw inbound counters.
-func RunXrayWithRuntime(xrayJSON string, config *RuntimeConfig) error {
 	coreServerMu.Lock()
 	defer coreServerMu.Unlock()
 	if coreServer != nil {
 		return ErrAlreadyRunning
-	}
-	runtime, err := prepareRuntime(config)
-	if err != nil {
-		return err
 	}
 	memory.InitForceFree()
 	server, err := newXrayInstance(xrayJSON)
 	if err != nil {
 		return err
 	}
-	if runtime != nil {
-		if err = runtime.attach(server); err != nil {
-			_ = server.Close()
-			return err
-		}
-	}
-
 	if err = server.Start(); err != nil {
 		_ = server.Close()
 		return err
 	}
-	if runtime != nil {
-		if err = runtime.start(); err != nil {
-			_ = server.Close()
-			return err
-		}
-	}
 	coreServer = server
-	coreRuntime = runtime
 
 	debug.FreeOSMemory()
 	return nil
@@ -91,12 +67,7 @@ func StopXray() error {
 	coreServerMu.Lock()
 	defer coreServerMu.Unlock()
 	if coreServer != nil {
-		var runtimeErr error
-		if coreRuntime != nil {
-			runtimeErr = coreRuntime.stop()
-			coreRuntime = nil
-		}
-		err := errors.Join(runtimeErr, coreServer.Close())
+		err := coreServer.Close()
 		coreServer = nil
 		if err != nil {
 			return err
