@@ -15,8 +15,7 @@ func convertShareLinksForTest(links string) (*conf.Config, error) {
 }
 
 func parseShareCandidatesForTest(links string) (*conf.Config, error) {
-	config, _, err := parseShareCandidates(links, true)
-	return config, err
+	return parseShareCandidates(links, true)
 }
 
 func convertShareLinksWithKeyForTest(links, secretKey string) (*conf.Config, error) {
@@ -25,7 +24,7 @@ func convertShareLinksWithKeyForTest(links, secretKey string) (*conf.Config, err
 		return nil, err
 	}
 	var config conf.Config
-	if err := json.Unmarshal(result.Config, &config); err != nil {
+	if err := json.Unmarshal(result, &config); err != nil {
 		return nil, err
 	}
 	return &config, nil

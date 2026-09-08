@@ -203,8 +203,7 @@ Design notes:
    fields supported by libXray share links; unsupported and generated empty
    fields are omitted. Opaque XHTTP `extra` and FinalMask mask `settings` JSON
    remain unchanged.
-   Every successful response returns the projected config together with
-   `usableCount` and `failedCount`.
+   Every successful response contains only the projected `outbounds` list.
    Its optional `age.secretKey` decrypts official age ASCII armor in memory
    before the existing parser runs. Plaintext input remains unchanged.
 7. Xray-core keeps its system dialer DNS client and outbound manager in
@@ -327,23 +326,16 @@ convert VMessQRCode to Xray Json.
 
 `convertShareLinksToXrayJson` has one response shape. Its payload contains
 `text` and optional `age`. Every successful conversion returns
-`data: {"config":{"outbounds":[...]},"usableCount":2,"failedCount":1}`.
+`data: {"outbounds":[...]}`. There is no statistics or nested config wrapper.
 
-Counts describe this input only, not added/changed nodes. Each root JSON
-`outbounds` element or YAML `proxies` element is one candidate. In detected
-share-link lists, each URI-like row is one candidate; blank lines, comments and
-text headers are ignored. Base64 and age wrappers use the inner format's
-candidates. Malformed individual elements are skipped without discarding other
-valid elements. `usableCount` equals the final projected, buildable
-outbound count; parse, build and unsupported-projection failures count toward
-`failedCount`. No per-node hash comparison or deduplication is performed.
+Invalid individual elements are skipped without discarding other valid nodes.
+The list preserves source order and includes only projected, buildable outbounds.
+No per-node hash comparison, deduplication or failed-node counting is performed.
 
-A recognized container with zero usable nodes returns `success: false` with
-structured counts and `config: {"outbounds":[]}`. An unrecognized format,
-malformed whole document, invalid container or decryption failure returns
-`data: null`; counts are not guessed. Error text never includes rejected
-candidates or decrypted subscription text. Callers must not import/replace a
-subscription when no usable nodes remain.
+No usable nodes, an unrecognized format, a malformed document, an invalid
+container or a decryption failure returns `success: false` with `data: null`.
+Error text never includes rejected candidates or decrypted subscription text.
+Callers must not import/replace a subscription when no usable nodes remain.
 
 ### age-encrypted subscriptions
 

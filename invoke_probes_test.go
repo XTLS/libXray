@@ -9,38 +9,27 @@ import (
 	"testing"
 )
 
-func TestInvokeShareStatsResponseShape(t *testing.T) {
+func TestInvokeShareOutboundsResponseShape(t *testing.T) {
 	const validLink = "vless://12345678-abcd-abcd-abcd-123456789abc@example.com:443?encryption=none&security=tls&sni=example.com"
-	for _, test := range []struct {
-		text           string
-		usable, failed int
-		success        bool
-	}{
-		{validLink + "\nvless://bad@example.com:443", 1, 1, true},
-		{"vless://bad@example.com:443", 0, 1, false},
-	} {
-		response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson, ConvertShareLinksToXrayJsonRequest{Text: test.text})
-		if response.Success != test.success {
-			t.Fatalf("success = %v, error = %s", response.Success, response.Err)
-		}
-		var result ConvertShareLinksToXrayJsonResponse
-		if err := json.Unmarshal(response.Data, &result); err != nil {
-			t.Fatal(err)
-		}
-		if result.UsableCount != test.usable || result.FailedCount != test.failed || len(result.Config) == 0 {
-			t.Fatalf("result = %+v", result)
-		}
-		var root map[string]json.RawMessage
-		if err := json.Unmarshal(response.Data, &root); err != nil {
-			t.Fatal(err)
-		}
-		if len(root) != 3 || root["config"] == nil || root["usableCount"] == nil || root["failedCount"] == nil {
-			t.Fatalf("data = %s", response.Data)
-		}
+	response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson, ConvertShareLinksToXrayJsonRequest{
+		Text: validLink + "\nvless://bad@example.com:443",
+	})
+	if !response.Success {
+		t.Fatal(response.Err)
 	}
-	for _, text := range []string{`{"outbounds":`, "-----BEGIN AGE ENCRYPTED FILE-----\ninvalid"} {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(response.Data, &root); err != nil {
+		t.Fatal(err)
+	}
+	if len(root) != 1 || root["outbounds"] == nil {
+		t.Fatalf("data = %s, want only outbounds", response.Data)
+	}
+	if config := decodeShareConfig(t, response); len(config.OutboundConfigs) != 1 {
+		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
+	}
+	for _, text := range []string{"vless://bad@example.com:443", `{"outbounds":[]}`, `{"outbounds":`, "-----BEGIN AGE ENCRYPTED FILE-----\ninvalid"} {
 		response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson, ConvertShareLinksToXrayJsonRequest{Text: text})
-		if response.Success || string(response.Data) != "null" {
+		if response.Success || string(response.Data) != "null" || response.Err == "" {
 			t.Fatalf("response = %+v", response)
 		}
 	}

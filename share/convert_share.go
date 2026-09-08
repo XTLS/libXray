@@ -10,49 +10,36 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ConvertShareLinksResult counts source candidates, not lines or changes to a subscription.
-// Config contains exactly the projected, buildable outbounds counted as usable.
-type ConvertShareLinksResult struct {
-	Config      json.RawMessage `json:"config"`
-	UsableCount int             `json:"usableCount"`
-	FailedCount int             `json:"failedCount"`
-}
-
 // ConvertShareLinksToXrayJson parses share links or an Age-encrypted subscription.
-// A recognized candidate container with no usable nodes returns both its counts
-// and an error. Whole-document/decryption failures return no invented counts.
-func ConvertShareLinksToXrayJson(links, secretKey string) (*ConvertShareLinksResult, error) {
+// The returned JSON contains only projected, buildable outbounds.
+func ConvertShareLinksToXrayJson(links, secretKey string) (json.RawMessage, error) {
 	text, encrypted, err := decryptShareText(links, secretKey)
 	if err != nil {
 		return nil, err
 	}
-	config, candidates, err := parseShareCandidates(text, true)
+	config, err := parseShareCandidates(text, true)
 	if err != nil {
 		if encrypted {
 			return nil, ErrAgePlaintextUnsupported
 		}
 		return nil, err
 	}
-	result := &ConvertShareLinksResult{Config: json.RawMessage(`{"outbounds":[]}`), FailedCount: candidates}
 	config, err = filterBuildableOutbounds(config)
 	if err == nil {
 		var raw json.RawMessage
-		var usable int
-		raw, usable, err = marshalShareConfigJSON(config)
+		raw, err = marshalShareConfigJSON(config)
 		if err == nil {
-			result.Config, result.UsableCount, result.FailedCount = raw, usable, candidates-usable
-			return result, nil
+			return raw, nil
 		}
 	}
 	if encrypted {
-		return result, ErrAgePlaintextUnsupported
+		return nil, ErrAgePlaintextUnsupported
 	}
-	// Builder errors can contain credentials or whole source values. Counts do
-	// not require those diagnostics; never echo rejected candidates.
-	return result, errors.New("no valid outbound found")
+	// Builder errors can contain credentials or whole source values.
+	return nil, errors.New("no valid outbound found")
 }
 
-func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, int, error) {
+func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, error) {
 	text := strings.TrimSpace(FixWindowsReturn(links))
 	config := &conf.Config{}
 	if strings.HasPrefix(text, "{") {
@@ -60,7 +47,7 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, int, er
 			Outbounds []json.RawMessage `json:"outbounds"`
 		}
 		if err := json.Unmarshal([]byte(text), &document); err != nil || document.Outbounds == nil {
-			return nil, 0, errors.New("invalid share JSON outbounds")
+			return nil, errors.New("invalid share JSON outbounds")
 		}
 		for _, raw := range document.Outbounds {
 			var outbound conf.OutboundDetourConfig
@@ -68,19 +55,16 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, int, er
 				config.OutboundConfigs = append(config.OutboundConfigs, outbound)
 			}
 		}
-		return config, len(document.Outbounds), nil
+		return config, nil
 	}
 	if hasShareSchemeLine(text) {
-		candidates := 0
 		for raw := range strings.SplitSeq(text, "\n") {
 			line := strings.TrimSpace(raw)
-			// Subscription comments/headers are not node candidates. A URI-like
-			// row is one candidate, including an unsupported or malformed URI.
+			// Ignore subscription comments and text headers.
 			scheme, _, found := strings.Cut(line, "://")
 			if !found || strings.ContainsAny(scheme, " \t#") {
 				continue
 			}
-			candidates++
 			parsed, err := url.Parse(line)
 			if err != nil {
 				continue
@@ -90,7 +74,7 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, int, er
 				config.OutboundConfigs = append(config.OutboundConfigs, *outbound)
 			}
 		}
-		return config, candidates, nil
+		return config, nil
 	}
 	if allowBase64 {
 		if decoded, err := decodeBase64Text(text); err == nil {
@@ -102,7 +86,7 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, int, er
 			Proxies []yaml.Node `yaml:"proxies"`
 		}
 		if err := yaml.Unmarshal([]byte(text), &document); err != nil || document.Proxies == nil {
-			return nil, 0, errors.New("invalid share YAML proxies")
+			return nil, errors.New("invalid share YAML proxies")
 		}
 		for _, node := range document.Proxies {
 			var proxy ClashProxy
@@ -114,7 +98,7 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, int, er
 				config.OutboundConfigs = append(config.OutboundConfigs, *outbound)
 			}
 		}
-		return config, len(document.Proxies), nil
+		return config, nil
 	}
-	return nil, 0, errors.New("unsupported share format")
+	return nil, errors.New("unsupported share format")
 }

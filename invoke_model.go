@@ -3,8 +3,6 @@ package libXray
 
 import (
 	"encoding/json"
-
-	"github.com/xtls/libxray/share"
 )
 
 type LibXrayMethod string
@@ -47,8 +45,6 @@ type ConvertShareLinksToXrayJsonRequest struct {
 	Text string            `json:"text,omitempty"`
 	Age  *AgeDecryptConfig `json:"age,omitempty"`
 }
-
-type ConvertShareLinksToXrayJsonResponse = share.ConvertShareLinksResult
 
 type AgeKeyType string
 

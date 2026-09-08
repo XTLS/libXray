@@ -77,14 +77,9 @@ func decodeDataObject[T any](t *testing.T, response testResponse) T {
 	return value
 }
 
-func decodeShareConfig(t *testing.T, response testResponse) (ConvertShareLinksToXrayJsonResponse, conf.Config) {
+func decodeShareConfig(t *testing.T, response testResponse) conf.Config {
 	t.Helper()
-	result := decodeDataObject[ConvertShareLinksToXrayJsonResponse](t, response)
-	var config conf.Config
-	if err := json.Unmarshal(result.Config, &config); err != nil {
-		t.Fatal(err)
-	}
-	return result, config
+	return decodeDataObject[conf.Config](t, response)
 }
 
 func writeGeoSiteDatForTest(t *testing.T, path string) {
@@ -376,10 +371,7 @@ func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
 	if !response.Success {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
 	}
-	result, config := decodeShareConfig(t, response)
-	if result.UsableCount != 1 || result.FailedCount != 1 {
-		t.Fatalf("result = %+v, want 1 usable and 1 failed", result)
-	}
+	config := decodeShareConfig(t, response)
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
@@ -405,21 +397,21 @@ func TestInvokeConvertShareLinksReturnsProjectedObject(t *testing.T) {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
 	}
 
-	result, config := decodeShareConfig(t, response)
+	config := decodeShareConfig(t, response)
 	var root map[string]json.RawMessage
-	if err := json.Unmarshal(result.Config, &root); err != nil {
-		t.Fatalf("config is not an object: %s", result.Config)
+	if err := json.Unmarshal(response.Data, &root); err != nil {
+		t.Fatalf("config is not an object: %s", response.Data)
 	}
 	if len(root) != 1 || root["outbounds"] == nil {
-		t.Fatalf("config root = %s, want only outbounds", result.Config)
+		t.Fatalf("config root = %s, want only outbounds", response.Data)
 	}
 	for _, field := range []string{"publicKey", "target", "dest", "proxySettings", "sockopt"} {
-		if bytes.Contains(result.Config, []byte(`"`+field+`"`)) {
-			t.Fatalf("config contains unsupported field %q: %s", field, result.Config)
+		if bytes.Contains(response.Data, []byte(`"`+field+`"`)) {
+			t.Fatalf("config contains unsupported field %q: %s", field, response.Data)
 		}
 	}
-	if !bytes.Contains(result.Config, []byte(`"password":"`+publicKey+`"`)) {
-		t.Fatalf("config did not canonicalize REALITY password: %s", result.Config)
+	if !bytes.Contains(response.Data, []byte(`"password":"`+publicKey+`"`)) {
+		t.Fatalf("config did not canonicalize REALITY password: %s", response.Data)
 	}
 
 	if len(config.OutboundConfigs) != 1 {
@@ -476,10 +468,7 @@ func TestInvokeAgeKeyGenerationAndConversion(t *testing.T) {
 	if !converted.Success {
 		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", converted.Err)
 	}
-	result, config := decodeShareConfig(t, converted)
-	if result.UsableCount != 1 || result.FailedCount != 0 {
-		t.Fatalf("result = %+v, want 1 usable and 0 failed", result)
-	}
+	config := decodeShareConfig(t, converted)
 	if len(config.OutboundConfigs) != 1 {
 		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
 	}
@@ -528,9 +517,8 @@ func TestInvokeConvertShareLinksFailsWhenAllOutboundsAreBuildInvalid(t *testing.
 	if !strings.Contains(response.Err, "no valid outbound found") {
 		t.Fatalf("error = %q", response.Err)
 	}
-	result, config := decodeShareConfig(t, response)
-	if result.UsableCount != 0 || result.FailedCount != 1 || len(config.OutboundConfigs) != 0 {
-		t.Fatalf("result = %+v, config = %+v", result, config)
+	if string(response.Data) != "null" {
+		t.Fatalf("data = %s, want null", response.Data)
 	}
 }
 
