@@ -40,7 +40,7 @@ Compile script. It is recommended to always use this script to compile libXray. 
 
 depends on git and go.
 
-By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to release tag `v26.7.28` through its pseudo-version.
+By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to release tag `v26.9.9` through its pseudo-version.
 Pass the optional `local` argument to use an existing local checkout at `../Xray-core` through a Go module `replace`.
 
 ### Usage
@@ -308,19 +308,25 @@ Get free ports.
 libXray stores outbound names in `tag`. `sendThrough` keeps its native Xray
 meaning as the local bind address.
 
-### clash_meta
-
-Parse Clash.Meta configuration.
-
 ### generate_share
 
-convert Xray Json to VMessAEAD/VLESS sharing protocol.
+Convert Xray JSON to VMess AEAD / VLESS share links following
+[Xray-core discussion #716](https://github.com/XTLS/Xray-core/discussions/716).
+SS, SOCKS and Trojan share links are also supported. VMess always generates
+an AEAD URI, not the legacy QR-code format.
+
+Outbounds without a supported share-link format are skipped. Conversion fails
+if no share links can be generated.
 
 ### parse_share
 
-convert VMessAEAD/VLESS sharing protocol to Xray Json.
+Parse VMess AEAD / VLESS, SS, SOCKS and Trojan share links, plus legacy
+`vmessQrCode` links, into Xray JSON.
 
-convert VMessQRCode to Xray Json.
+Xray JSON node input and Base64 / Age subscription wrappers remain supported.
+Clash/Mihomo configurations and `hysteria2://` / `hy2://` URIs are not supported.
+This restriction concerns share-link conversion, not Hysteria2 in native
+Xray JSON configurations.
 
 #### Parsing result
 
@@ -424,9 +430,8 @@ The top-level response succeeds when the batch itself was accepted. Each item
 has its own result; `delay` is `10000` for an error and `11000` for a timeout.
 `delay` is always present, including a successful zero-millisecond result.
 The result array has the same length and order as the input config array.
-Outbound dependencies referenced by
-`streamSettings.sockopt.dialerProxy` or `proxySettings.tag` are included
-automatically.
+Outbound dependencies referenced by `streamSettings.sockopt.dialerProxy` are
+included automatically. Xray-core rejects the removed `proxySettings` field.
 
 `locationUrl` is optional and must be an absolute HTTP(S) URL. When omitted,
 no location request is made and no location fields are returned. When supplied,

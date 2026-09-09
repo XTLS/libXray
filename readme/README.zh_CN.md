@@ -16,7 +16,7 @@
 
 依赖 git 和 go。
 
-默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 的 pseudo-version 将 Xray-core 固定到发布版本 `v26.7.28`。
+默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 的 pseudo-version 将 Xray-core 固定到发布版本 `v26.9.9`。
 传入可选参数 `local` 时，会通过 Go module `replace` 改用已有的本地仓库 `../Xray-core`。
 
 ### 使用方式
@@ -224,19 +224,22 @@ LibXray.resetDNS();
 
 libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义，用于指定本地绑定地址。
 
-### clash_meta
-
-解析 Clash.Meta 配置。
-
 ### generate_share
 
-转换 Xray Json 为 VMessAEAD/VLESS 分享协议。
+按照 [Xray-core 讨论 #716](https://github.com/XTLS/Xray-core/discussions/716)
+将 Xray JSON 转换为 VMess AEAD / VLESS 分享链接，同时支持 SS、SOCKS 和 Trojan。
+VMess 始终生成 AEAD URI，不生成旧版二维码格式。
+
+没有对应分享格式的 outbound 会被跳过；无法生成任何分享链接时返回失败。
 
 ### parse_share
 
-转换 VMessAEAD/VLESS 分享协议为 Xray Json。
+将 VMess AEAD / VLESS、SS、SOCKS、Trojan 分享链接以及旧版 `vmessQrCode`
+链接解析为 Xray JSON。
 
-转换 VMessQRCode 为 Xray Json。
+保留 Xray JSON 节点输入以及 Base64 / Age 订阅包装。Clash/Mihomo 配置和
+`hysteria2://` / `hy2://` URI 不受支持。
+这一限制仅针对分享链接转换，不影响原生 Xray JSON 配置中的 Hysteria2。
 
 #### 解析结果
 
@@ -335,8 +338,8 @@ outbound，不做节点 hash 比较、去重或失败节点计数。
 失败。`delay` 为 `10000` 表示错误，`11000` 表示超时。结果数组与输入配置数组
 长度相同且顺序一致。
 `delay` 始终输出，包含成功的 0 毫秒结果。
-通过 `streamSettings.sockopt.dialerProxy` 或 `proxySettings.tag` 引用的
-outbound 依赖会被自动包含。
+通过 `streamSettings.sockopt.dialerProxy` 引用的 outbound 依赖会被自动包含。
+已废弃的 `proxySettings` 字段由 Xray-core 拒绝。
 
 `locationUrl` 为可选的绝对 HTTP(S) 地址。省略时不请求位置、不返回位置字段；
 传入时，每个完成准备的配置先执行测速 HEAD，再执行位置 GET，两者使用同一个

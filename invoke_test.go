@@ -383,6 +383,27 @@ func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
 	}
 }
 
+func TestInvokeConvertShareLinksRejectsRemovedFormats(t *testing.T) {
+	for _, test := range []struct {
+		name, text string
+	}{
+		{"Clash", "proxies:\n  - {type: vless, server: example.com, port: 443, uuid: 12345678-abcd-abcd-abcd-123456789abc}"},
+		{"Hysteria2", "hysteria2://password@example.com:443"},
+		{"Hy2", "hy2://password@example.com:443"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson,
+				ConvertShareLinksToXrayJsonRequest{Text: test.text})
+			if response.Success || response.Err != "unsupported share format" {
+				t.Fatalf("success = %v, error = %q", response.Success, response.Err)
+			}
+			if string(response.Data) != "null" {
+				t.Fatalf("data = %s, want null", response.Data)
+			}
+		})
+	}
+}
+
 func TestInvokeConvertShareLinksReturnsProjectedObject(t *testing.T) {
 	const publicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 	link := "vless://12345678-abcd-abcd-abcd-123456789abc@example.com:443" +

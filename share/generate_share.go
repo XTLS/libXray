@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/xtls/xray-core/infra/conf"
@@ -69,11 +68,6 @@ func shareLink(proxy conf.OutboundDetourConfig) (*url.URL, error) {
 		}
 	case "trojan":
 		err := trojanLink(proxy, shareUrl)
-		if err != nil {
-			return nil, err
-		}
-	case "hysteria":
-		err := hysteriaLink(proxy, shareUrl)
 		if err != nil {
 			return nil, err
 		}
@@ -217,24 +211,6 @@ func trojanLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
 	return nil
 }
 
-func hysteriaLink(proxy conf.OutboundDetourConfig, link *url.URL) error {
-	settings, err := decodeOutboundSettings[conf.HysteriaClientConfig](proxy)
-	if err != nil {
-		return err
-	}
-
-	link.Fragment = getOutboundName(proxy)
-	link.Scheme = "hysteria2"
-
-	link.Host = fmt.Sprintf("%s:%d", settings.Address, settings.Port)
-
-	if proxy.StreamSetting != nil && proxy.StreamSetting.HysteriaSettings != nil {
-		link.User = url.User(proxy.StreamSetting.HysteriaSettings.Auth)
-	}
-
-	return nil
-}
-
 func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 	streamSettings := proxy.StreamSetting
 	if streamSettings == nil {
@@ -245,68 +221,6 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 	network := "raw"
 	if streamSettings.Network != nil {
 		network = string(*streamSettings.Network)
-	}
-
-	if network == "hysteria" {
-		// TLS params
-		if streamSettings.TLSSettings != nil {
-			sni := streamSettings.TLSSettings.ServerName
-			if len(sni) > 0 {
-				query = addQuery(query, "sni", sni)
-			}
-			fp := streamSettings.TLSSettings.Fingerprint
-			if len(fp) > 0 {
-				query = addQuery(query, "fp", fp)
-			}
-			alpn := streamSettings.TLSSettings.ALPN
-			if alpn != nil && len(*alpn) > 0 {
-				query = addQuery(query, "alpn", strings.Join(*alpn, ","))
-			}
-			ech := streamSettings.TLSSettings.ECHConfigList
-			if len(ech) > 0 {
-				query = addQuery(query, "ech", ech)
-			}
-			pcs := streamSettings.TLSSettings.PinnedPeerCertSha256
-			if len(pcs) > 0 {
-				query = addQuery(query, "pcs", pcs)
-			}
-			vcn := streamSettings.TLSSettings.VerifyPeerCertByName
-			if len(vcn) > 0 {
-				query = addQuery(query, "vcn", vcn)
-			}
-		}
-
-		// QuicParams (bandwidth + port-hopping)
-		if streamSettings.FinalMask != nil && streamSettings.FinalMask.QuicParams != nil {
-			qp := streamSettings.FinalMask.QuicParams
-			if len(qp.BrutalUp) > 0 {
-				query = addQuery(query, "up", string(qp.BrutalUp))
-			}
-			if len(qp.BrutalDown) > 0 {
-				query = addQuery(query, "down", string(qp.BrutalDown))
-			}
-			if len(qp.UdpHop.PortList.Range) > 0 {
-				query = addQuery(query, "ports", qp.UdpHop.PortList.String())
-			}
-			if qp.UdpHop.Interval.From != 0 || qp.UdpHop.Interval.To != 0 {
-				query = addQuery(query, "hop-interval", strconv.FormatInt(int64(qp.UdpHop.Interval.From), 10))
-			}
-		}
-
-		// Salamander
-		if streamSettings.FinalMask != nil && len(streamSettings.FinalMask.Udp) > 0 {
-			mask := streamSettings.FinalMask.Udp[0]
-			if mask.Settings != nil {
-				var obfs conf.Salamander
-				err := json.Unmarshal(*mask.Settings, &obfs)
-				if err == nil {
-					query = addQuery(query, "obfs", "salamander")
-					query = addQuery(query, "obfs-password", obfs.Password)
-				}
-			}
-		}
-		link.RawQuery = query
-		return
 	}
 
 	query = addQuery(query, "type", network)

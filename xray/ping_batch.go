@@ -260,10 +260,6 @@ func preparePingOutbounds(
 					namespacedTags[dependencyIndex]
 			}
 		}
-		if outbound.ProxySettings != nil && outbound.ProxySettings.Tag != "" {
-			dependencyIndex := tagIndexes[outbound.ProxySettings.Tag]
-			outbound.ProxySettings.Tag = namespacedTags[dependencyIndex]
-		}
 
 		if _, err := outbound.Build(); err != nil {
 			return nil, "", fmt.Errorf(
@@ -336,7 +332,7 @@ func collectPingOutboundDependencies(
 }
 
 func pingOutboundDependencyTags(outbound conf.OutboundDetourConfig) []string {
-	dependencies := make([]string, 0, 2)
+	dependencies := make([]string, 0, 1)
 	if outbound.StreamSetting != nil &&
 		outbound.StreamSetting.SocketSettings != nil &&
 		outbound.StreamSetting.SocketSettings.DialerProxy != "" {
@@ -344,9 +340,6 @@ func pingOutboundDependencyTags(outbound conf.OutboundDetourConfig) []string {
 			dependencies,
 			outbound.StreamSetting.SocketSettings.DialerProxy,
 		)
-	}
-	if outbound.ProxySettings != nil && outbound.ProxySettings.Tag != "" {
-		dependencies = append(dependencies, outbound.ProxySettings.Tag)
 	}
 	return dependencies
 }

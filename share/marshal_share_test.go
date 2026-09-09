@@ -73,12 +73,22 @@ func TestMarshalShareConfigProjectsSupportedFields(t *testing.T) {
 	requireProjectedOutboundsBuild(t, raw)
 }
 
-func TestMarshalShareConfigPreservesHysteriaPortHopping(t *testing.T) {
-	config, err := convertShareLinksForTest(
-		"hy2://auth@host:443?up=50+mbps&down=100+mbps&ports=20000-40000&hop-interval=30&sni=example.com&fp=chrome",
-	)
-	require.NoError(t, err)
-	raw, err := marshalShareConfigJSON(config)
+func TestConvertShareLinksNativeJSONPreservesHysteriaPortHopping(t *testing.T) {
+	raw, err := ConvertShareLinksToXrayJson(`{
+		"outbounds": [{
+			"protocol": "hysteria",
+			"settings": {"version": 2, "address": "host", "port": 443},
+			"streamSettings": {
+				"network": "hysteria", "security": "tls",
+				"tlsSettings": {"serverName": "example.com", "fingerprint": "chrome"},
+				"hysteriaSettings": {"version": 2, "auth": "auth"},
+				"finalmask": {
+					"quicParams": {"congestion": "brutal", "brutalUp": "50 mbps", "brutalDown": "100 mbps"},
+					"udp": [{"type": "udphop", "settings": {"mode": "intervalRemote", "remotePorts": "20000-40000", "interval": "30"}}]
+				}
+			}
+		}]
+	}`, "")
 	require.NoError(t, err)
 
 	var document map[string]any
@@ -87,8 +97,12 @@ func TestMarshalShareConfigPreservesHysteriaPortHopping(t *testing.T) {
 	stream := outbound["streamSettings"].(map[string]any)
 	finalMask := stream["finalmask"].(map[string]any)
 	quicParams := finalMask["quicParams"].(map[string]any)
-	udpHop := quicParams["udpHop"].(map[string]any)
-	assert.Equal(t, "20000-40000", udpHop["ports"])
+	assert.NotContains(t, quicParams, "udpHop")
+	mask := finalMask["udp"].([]any)[0].(map[string]any)
+	assert.Equal(t, "udphop", mask["type"])
+	udpHop := mask["settings"].(map[string]any)
+	assert.Equal(t, "intervalRemote", udpHop["mode"])
+	assert.Equal(t, "20000-40000", udpHop["remotePorts"])
 	assert.Equal(t, "30", udpHop["interval"])
 	requireProjectedOutboundsBuild(t, raw)
 }
@@ -115,7 +129,6 @@ func TestMarshalShareConfigSupportedProtocolsBuild(t *testing.T) {
 		"vless":       "vless://" + testShareUUID + "@10.0.0.1:443?encryption=none&security=none",
 		"socks":       "socks://" + base64.StdEncoding.EncodeToString([]byte("user:password")) + "@127.0.0.1:1080",
 		"trojan":      "trojan://password@trojan.example:443?sni=trojan.example",
-		"hysteria":    "hy2://auth@hysteria.example:443?sni=hysteria.example&fp=chrome",
 	}
 	for protocol, link := range tests {
 		t.Run(protocol, func(t *testing.T) {

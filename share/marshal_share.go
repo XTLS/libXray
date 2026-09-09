@@ -272,16 +272,6 @@ func projectShareFinalMask(source map[string]any) map[string]any {
 	if params, ok := shareObject(source["quicParams"]); ok {
 		projectedParams := map[string]any{}
 		copyShareFields(projectedParams, params, "congestion", "brutalUp", "brutalDown")
-		if udpHop, ok := shareObject(params["udpHop"]); ok {
-			projectedUDPHop := map[string]any{}
-			copyShareFields(projectedUDPHop, udpHop, "ports")
-			if interval, exists := udpHop["interval"]; exists && !emptyShareRange(interval) {
-				projectedUDPHop["interval"] = interval
-			}
-			if len(projectedUDPHop) > 0 {
-				projectedParams["udpHop"] = projectedUDPHop
-			}
-		}
 		if len(projectedParams) > 0 {
 			projected["quicParams"] = projectedParams
 		}
@@ -347,12 +337,4 @@ func emptyShareValue(value any) bool {
 	default:
 		return false
 	}
-}
-
-func emptyShareRange(value any) bool {
-	if text, ok := value.(string); ok {
-		number, err := strconv.ParseInt(text, 10, 32)
-		return err == nil && number == 0
-	}
-	return emptyShareValue(value)
 }

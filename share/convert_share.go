@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/xtls/xray-core/infra/conf"
-	"gopkg.in/yaml.v3"
 )
 
 // ConvertShareLinksToXrayJson parses share links or an Age-encrypted subscription.
@@ -80,25 +79,6 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, error) 
 		if decoded, err := decodeBase64Text(text); err == nil {
 			return parseShareCandidates(decoded, false)
 		}
-	}
-	if hasTopLevelClashProxiesKey(text) {
-		var document struct {
-			Proxies []yaml.Node `yaml:"proxies"`
-		}
-		if err := yaml.Unmarshal([]byte(text), &document); err != nil || document.Proxies == nil {
-			return nil, errors.New("invalid share YAML proxies")
-		}
-		for _, node := range document.Proxies {
-			var proxy ClashProxy
-			if err := node.Decode(&proxy); err != nil {
-				continue
-			}
-			outbound, err := proxy.outbound()
-			if err == nil {
-				config.OutboundConfigs = append(config.OutboundConfigs, *outbound)
-			}
-		}
-		return config, nil
 	}
 	return nil, errors.New("unsupported share format")
 }
