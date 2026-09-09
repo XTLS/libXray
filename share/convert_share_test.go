@@ -11,21 +11,13 @@ const validShareOutbound = `{"protocol":"vless","tag":"Keep","settings":{"addres
 
 func TestConvertShareLinksSkipsInvalidCandidates(t *testing.T) {
 	jsonText := `{"outbounds":[` + validShareOutbound + `,{"protocol":"freedom"},{"protocol":42},null,{"protocol":"vless","settings":{"id":"invalid"}}]}`
-	yamlText := `proxies:
-  - {name: Keep, type: vless, server: example.com, port: 443, uuid: 12345678-abcd-abcd-abcd-123456789abc, tls: true, servername: example.com}
-  - {name: Unsupported, type: unknown}
-  - {name: InvalidPort, type: vless, port: invalid}
-  - {name: InvalidId, type: vless, server: example.com, port: 443, uuid: invalid}
-  - null
-`
 	for _, test := range []struct {
 		name, text string
 	}{
 		{"links with headers", "Subscription export\n# comment\n\n" + ageTestShareLink + "\nvless://bad@example.com:443?encryption=none\nunknown://example.com"},
+		{"links with removed protocols", "hy2://auth@hy.example:443\n" + ageTestShareLink + "\nhysteria2://auth@hy.example:443"},
 		{"JSON elements", jsonText},
-		{"YAML elements", yamlText},
 		{"base64 JSON", base64.StdEncoding.EncodeToString([]byte(jsonText))},
-		{"base64 YAML", base64.RawURLEncoding.EncodeToString([]byte(yamlText))},
 		{"base64 links", base64.StdEncoding.EncodeToString([]byte(ageTestShareLink + "\nvless://bad@example.com:443"))},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -38,11 +30,38 @@ func TestConvertShareLinksSkipsInvalidCandidates(t *testing.T) {
 	}
 }
 
+func TestConvertShareLinksRejectsRemovedFormats(t *testing.T) {
+	for _, input := range []struct {
+		name, text string
+	}{
+		{"Clash YAML", "proxies:\n  - {name: Node, type: vless, server: example.com, port: 443, uuid: " + testShareUUID + "}"},
+		{"Mihomo JSON", `{"proxies":[{"name":"Node","type":"vless","server":"example.com","port":443,"uuid":"` + testShareUUID + `"}]}`},
+		{"Hysteria2 URI", "hysteria2://auth@hy.example:443?sni=hy.example"},
+		{"Hy2 URI", "hy2://auth@hy.example:443?sni=hy.example"},
+	} {
+		t.Run(input.name, func(t *testing.T) {
+			for _, encoding := range []struct {
+				name, text string
+			}{
+				{"plaintext", input.text},
+				{"base64", base64.StdEncoding.EncodeToString([]byte(input.text))},
+				{"base64 URL", base64.RawURLEncoding.EncodeToString([]byte(input.text))},
+			} {
+				t.Run(encoding.name, func(t *testing.T) {
+					result, err := ConvertShareLinksToXrayJson(encoding.text, "")
+					if err == nil || result != nil {
+						t.Fatalf("result = %s, error = %v", result, err)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestConvertShareLinksAllInvalidReturnsNoData(t *testing.T) {
 	for _, input := range []string{
 		`{"outbounds":[{"protocol":"freedom"}]}`,
 		"vless://secret-not-a-uuid@example.com:443?encryption=none",
-		"proxies:\n - {type: unsupported, password: private-password}",
 	} {
 		result, err := ConvertShareLinksToXrayJson(input, "")
 		if err == nil || err.Error() != "no valid outbound found" {
@@ -94,6 +113,9 @@ func TestConvertShareLinksAgeSkipsInvalidCandidatesAndRedactsErrors(t *testing.T
 	for _, input := range []string{
 		"vless://secret-not-a-uuid@example.com:443",
 		`{"outbounds":"private-source"}`,
+		"proxies:\n  - {type: vless, server: example.com, port: 443, uuid: " + testShareUUID + "}",
+		"hysteria2://private-password@hy.example:443",
+		"hy2://private-password@hy.example:443",
 	} {
 		result, err := ConvertShareLinksToXrayJson(encryptAgeForTest(t, pair, input), pair.SecretKey)
 		if err != ErrAgePlaintextUnsupported {

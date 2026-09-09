@@ -224,23 +224,22 @@ LibXray.resetDNS();
 
 libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义，用于指定本地绑定地址。
 
-### clash_meta
-
-解析 Clash.Meta 配置。
-
 ### generate_share
 
-转换 Xray Json 为 VMessAEAD/VLESS 分享协议。
+按照 [Xray-core 讨论 #716](https://github.com/XTLS/Xray-core/discussions/716)
+将 Xray JSON 转换为 VMess AEAD / VLESS 分享链接，同时支持 SS、SOCKS 和 Trojan。
+VMess 始终生成 AEAD URI，不生成旧版二维码格式。
+
+没有对应分享格式的 outbound 会被跳过；无法生成任何分享链接时返回失败。
 
 ### parse_share
 
-转换 VMessAEAD/VLESS 分享协议为 Xray Json。
+将 VMess AEAD / VLESS、SS、SOCKS、Trojan 分享链接以及旧版 `vmessQrCode`
+链接解析为 Xray JSON。
 
-转换 VMessQRCode 为 Xray Json。
-
-Hysteria2 跳端口使用 `udphop` UDP final mask，模式为 `intervalRemote`。
-省略 `hop-interval` 或设为 0 时，保持 30 秒的默认间隔。按 Xray-core 的要求，
-跳端口 mask 在配置中排在 Salamander 之后。
+保留 Xray JSON 节点输入以及 Base64 / Age 订阅包装。Clash/Mihomo 配置和
+`hysteria2://` / `hy2://` URI 不受支持。
+这一限制仅针对分享链接转换，不影响原生 Xray JSON 配置中的 Hysteria2。
 
 #### 解析结果
 

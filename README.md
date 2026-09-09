@@ -308,23 +308,25 @@ Get free ports.
 libXray stores outbound names in `tag`. `sendThrough` keeps its native Xray
 meaning as the local bind address.
 
-### clash_meta
-
-Parse Clash.Meta configuration.
-
 ### generate_share
 
-convert Xray Json to VMessAEAD/VLESS sharing protocol.
+Convert Xray JSON to VMess AEAD / VLESS share links following
+[Xray-core discussion #716](https://github.com/XTLS/Xray-core/discussions/716).
+SS, SOCKS and Trojan share links are also supported. VMess always generates
+an AEAD URI, not the legacy QR-code format.
+
+Outbounds without a supported share-link format are skipped. Conversion fails
+if no share links can be generated.
 
 ### parse_share
 
-convert VMessAEAD/VLESS sharing protocol to Xray Json.
+Parse VMess AEAD / VLESS, SS, SOCKS and Trojan share links, plus legacy
+`vmessQrCode` links, into Xray JSON.
 
-convert VMessQRCode to Xray Json.
-
-Hysteria2 port hopping uses the `udphop` UDP final mask with `intervalRemote`
-mode. Omitted or zero `hop-interval` keeps the 30-second default. The hopping
-mask follows Salamander in configuration order, as required by Xray-core.
+Xray JSON node input and Base64 / Age subscription wrappers remain supported.
+Clash/Mihomo configurations and `hysteria2://` / `hy2://` URIs are not supported.
+This restriction concerns share-link conversion, not Hysteria2 in native
+Xray JSON configurations.
 
 #### Parsing result
 

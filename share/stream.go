@@ -61,7 +61,7 @@ func (proxy xrayShareLink) parseSecurityFromURL(link *url.URL, streamSettings *c
 	}
 
 	switch proxy.link.Scheme {
-	case "trojan", "hysteria2", "hy2":
+	case "trojan":
 		if streamSettings.Security == "none" {
 			streamSettings.Security = "tls"
 		}

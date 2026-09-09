@@ -44,7 +44,6 @@ func decodeBase64Text(text string) (string, error) {
 
 var shareSchemes = []string{
 	"vless://", "vmess://", "socks://", "ss://", "trojan://",
-	"hysteria2://", "hy2://",
 }
 
 func hasShareSchemeLine(text string) bool {
@@ -54,20 +53,6 @@ func hasShareSchemeLine(text string) bool {
 			if strings.HasPrefix(line, p) {
 				return true
 			}
-		}
-	}
-	return false
-}
-
-func hasTopLevelClashProxiesKey(text string) bool {
-	for raw := range strings.SplitSeq(text, "\n") {
-		line := strings.TrimRight(raw, " \t")
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || trimmed == "---" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		if strings.HasPrefix(line, "proxies:") {
-			return true
 		}
 	}
 	return false
@@ -90,8 +75,6 @@ func (proxy xrayShareLink) outbound() (*conf.OutboundDetourConfig, error) {
 		return proxy.socksOutbound()
 	case "trojan":
 		return proxy.trojanOutbound()
-	case "hysteria2", "hy2":
-		return proxy.hysteriaOutbound()
 	default:
 		return nil, fmt.Errorf("unsupported link: %s", proxy.rawText)
 	}
@@ -308,63 +291,6 @@ func (proxy xrayShareLink) trojanOutbound() (*conf.OutboundDetourConfig, error) 
 
 	streamSettings, err := proxy.streamSettings(proxy.link)
 	if err != nil {
-		return nil, err
-	}
-	outbound.StreamSetting = streamSettings
-	return outbound, nil
-}
-
-func (proxy xrayShareLink) hysteriaOutbound() (*conf.OutboundDetourConfig, error) {
-	outbound := &conf.OutboundDetourConfig{}
-	outbound.Protocol = "hysteria"
-	setOutboundName(outbound, proxy.link.Fragment)
-
-	settings := &conf.HysteriaClientConfig{}
-	settings.Version = 2
-	settings.Address = parseAddress(proxy.link.Hostname())
-	port, err := strconv.Atoi(proxy.link.Port())
-	if err != nil {
-		return nil, err
-	}
-	settings.Port = uint16(port)
-
-	settingsRawMessage, err := convertJsonToRawMessage(settings)
-	if err != nil {
-		return nil, err
-	}
-	outbound.Settings = &settingsRawMessage
-
-	streamSettings := &conf.StreamConfig{}
-	streamSettings.Network = new(conf.TransportProtocol("hysteria"))
-
-	hysteriaSettings := &conf.HysteriaConfig{}
-	hysteriaSettings.Version = 2
-	auth, err := url.QueryUnescape(proxy.link.User.String())
-	if err != nil {
-		return nil, err
-	}
-	hysteriaSettings.Auth = auth
-	streamSettings.HysteriaSettings = hysteriaSettings
-
-	query := proxy.link.Query()
-	var hopPtr *int32
-	if hopStr := query.Get("hop-interval"); hopStr != "" {
-		interval, pErr := strconv.ParseInt(hopStr, 10, 32)
-		if pErr != nil {
-			return nil, pErr
-		}
-		hopPtr = new(int32(interval))
-	}
-	finalMask, mErr := buildHy2FinalMask(
-		query.Get("up"), query.Get("down"), query.Get("ports"),
-		hopPtr, query.Get("obfs"), query.Get("obfs-password"),
-	)
-	if mErr != nil {
-		return nil, mErr
-	}
-	streamSettings.FinalMask = finalMask
-
-	if err := proxy.parseSecurityFromURL(proxy.link, streamSettings); err != nil {
 		return nil, err
 	}
 	outbound.StreamSetting = streamSettings
