@@ -3,12 +3,14 @@ package share
 import (
 	"encoding/base64"
 	"encoding/json"
+	"net"
 	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xtls/xray-core/infra/conf"
+	"github.com/xtls/xray-core/transport/internet/finalmask"
 )
 
 const testShareUUID = "12345678-abcd-abcd-abcd-123456789abc"
@@ -92,20 +94,24 @@ func TestHysteria2_WithEverything(t *testing.T) {
 	require.NotNil(t, ss)
 	require.NotNil(t, ss.FinalMask)
 
-	// QuicParams with bandwidth and port-hopping
+	// QuicParams with bandwidth
 	require.NotNil(t, ss.FinalMask.QuicParams)
 	qp := ss.FinalMask.QuicParams
 	assert.Equal(t, "brutal", qp.Congestion)
 	assert.Equal(t, conf.Bandwidth("50 mbps"), qp.BrutalUp)
 	assert.Equal(t, conf.Bandwidth("100 mbps"), qp.BrutalDown)
 
-	// UdpHop
-	assert.Equal(t, "20000-40000", qp.UdpHop.PortList.String())
-	assert.Equal(t, int32(30), qp.UdpHop.Interval.From)
-	assert.Equal(t, int32(30), qp.UdpHop.Interval.To)
+	// Port hopping is the outermost mask, after Salamander in config order.
+	require.Len(t, ss.FinalMask.Udp, 2)
+	assert.Equal(t, "udphop", ss.FinalMask.Udp[1].Type)
+	var hop conf.UDPHop
+	require.NoError(t, json.Unmarshal(*ss.FinalMask.Udp[1].Settings, &hop))
+	assert.Equal(t, "intervalRemote", hop.Mode)
+	assert.Equal(t, "20000-40000", hop.RemotePorts.String())
+	assert.Equal(t, int32(30), hop.Interval.From)
+	assert.Equal(t, int32(30), hop.Interval.To)
 
 	// Salamander
-	require.Len(t, ss.FinalMask.Udp, 1)
 	assert.Equal(t, "salamander", ss.FinalMask.Udp[0].Type)
 }
 
@@ -128,18 +134,52 @@ func TestHysteria2_PortsOnlyNoCongestion(t *testing.T) {
 	ss := outbound.StreamSetting
 	require.NotNil(t, ss)
 	require.NotNil(t, ss.FinalMask)
-	require.NotNil(t, ss.FinalMask.QuicParams)
+	assert.Nil(t, ss.FinalMask.QuicParams)
+	require.Len(t, ss.FinalMask.Udp, 1)
+	assert.Equal(t, "udphop", ss.FinalMask.Udp[0].Type)
+	var hop conf.UDPHop
+	require.NoError(t, json.Unmarshal(*ss.FinalMask.Udp[0].Settings, &hop))
+	assert.Equal(t, "intervalRemote", hop.Mode)
+	assert.Equal(t, "20000-40000", hop.RemotePorts.String())
+	assert.Equal(t, int32(10), hop.Interval.From)
+	assert.Equal(t, int32(10), hop.Interval.To)
+}
 
-	qp := ss.FinalMask.QuicParams
-	// No Congestion when only ports are set (no bandwidth)
-	assert.Empty(t, qp.Congestion)
-	assert.Empty(t, string(qp.BrutalUp))
-	assert.Empty(t, string(qp.BrutalDown))
+func TestHysteria2_DefaultHopInterval(t *testing.T) {
+	for _, suffix := range []string{"", "&hop-interval=0"} {
+		t.Run(suffix, func(t *testing.T) {
+			outbound := parseHy2Link(t, "hy2://auth@host:443?ports=20000-40000"+suffix)
+			masks := outbound.StreamSetting.FinalMask.Udp
+			require.Len(t, masks, 1)
+			var hop conf.UDPHop
+			require.NoError(t, json.Unmarshal(*masks[0].Settings, &hop))
+			assert.Equal(t, int32(30), hop.Interval.From)
+			assert.Equal(t, int32(30), hop.Interval.To)
+			link, err := shareLink(*outbound)
+			require.NoError(t, err)
+			assert.Equal(t, "20000-40000", link.Query().Get("ports"))
+			assert.Equal(t, "30", link.Query().Get("hop-interval"))
+			assert.Empty(t, link.Query().Get("obfs"))
+		})
+	}
+}
 
-	// UdpHop is set
-	assert.Equal(t, "20000-40000", qp.UdpHop.PortList.String())
-	assert.Equal(t, int32(10), qp.UdpHop.Interval.From)
-	assert.Equal(t, int32(10), qp.UdpHop.Interval.To)
+func TestHysteria2_PortHoppingMasksWrapPacketConn(t *testing.T) {
+	outbound := parseHy2Link(t, "hy2://auth@host:443?ports=20000-40000&obfs=salamander&obfs-password=secret")
+	var masks []finalmask.Udpmask
+	for _, mask := range outbound.StreamSetting.FinalMask.Udp {
+		settings, err := mask.Build(false)
+		require.NoError(t, err)
+		udpMask, ok := settings.(finalmask.Udpmask)
+		require.True(t, ok)
+		masks = append(masks, udpMask)
+	}
+	raw, err := net.ListenPacket("udp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer raw.Close()
+	wrapped, err := finalmask.NewUdpmaskManager(masks).WrapPacketConnClient(raw)
+	require.NoError(t, err)
+	require.NoError(t, wrapped.Close())
 }
 
 func TestHysteria2_TLSDefaultWhenSecurityOmitted(t *testing.T) {

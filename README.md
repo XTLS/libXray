@@ -40,7 +40,7 @@ Compile script. It is recommended to always use this script to compile libXray. 
 
 depends on git and go.
 
-By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to release tag `v26.7.28` through its pseudo-version.
+By default, the build script does not clone [Xray-core](https://github.com/XTLS/Xray-core). It uses Go modules and pins Xray-core to release tag `v26.9.9` through its pseudo-version.
 Pass the optional `local` argument to use an existing local checkout at `../Xray-core` through a Go module `replace`.
 
 ### Usage
@@ -322,6 +322,10 @@ convert VMessAEAD/VLESS sharing protocol to Xray Json.
 
 convert VMessQRCode to Xray Json.
 
+Hysteria2 port hopping uses the `udphop` UDP final mask with `intervalRemote`
+mode. Omitted or zero `hop-interval` keeps the 30-second default. The hopping
+mask follows Salamander in configuration order, as required by Xray-core.
+
 #### Parsing result
 
 `convertShareLinksToXrayJson` has one response shape. Its payload contains
@@ -424,9 +428,8 @@ The top-level response succeeds when the batch itself was accepted. Each item
 has its own result; `delay` is `10000` for an error and `11000` for a timeout.
 `delay` is always present, including a successful zero-millisecond result.
 The result array has the same length and order as the input config array.
-Outbound dependencies referenced by
-`streamSettings.sockopt.dialerProxy` or `proxySettings.tag` are included
-automatically.
+Outbound dependencies referenced by `streamSettings.sockopt.dialerProxy` are
+included automatically. Xray-core rejects the removed `proxySettings` field.
 
 `locationUrl` is optional and must be an absolute HTTP(S) URL. When omitted,
 no location request is made and no location fields are returned. When supplied,

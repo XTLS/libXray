@@ -127,25 +127,17 @@ func TestPreparePingOutboundsSelectsAndRewritesDependencies(t *testing.T) {
 	}
 }
 
-func TestPreparePingOutboundsRewritesProxySettings(t *testing.T) {
-	outbounds := []conf.OutboundDetourConfig{
-		{
-			Protocol:      "freedom",
-			Tag:           "proxy",
-			ProxySettings: &conf.ProxyConfig{Tag: "transport"},
-		},
-		{
-			Protocol: "freedom",
-			Tag:      "transport",
-		},
-	}
-
-	prepared, _, err := preparePingOutbounds(outbounds, "proxy", 1)
+func TestPreparePingOutboundsRejectsRemovedProxySettings(t *testing.T) {
+	outbounds, err := readPingOutbounds(`{"outbounds":[
+		{"protocol":"freedom","tag":"proxy","proxySettings":{"tag":"transport"}},
+		{"protocol":"freedom","tag":"transport"}
+	]}`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := prepared[0].ProxySettings.Tag, prepared[1].Tag; got != want {
-		t.Fatalf("proxySettings.tag = %q, want %q", got, want)
+	_, _, err = preparePingOutbounds(outbounds, "proxy", 1)
+	if err == nil || !strings.Contains(err.Error(), "proxySettings") {
+		t.Fatalf("expected Xray-core to reject proxySettings, got %v", err)
 	}
 }
 

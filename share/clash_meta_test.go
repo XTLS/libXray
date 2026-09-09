@@ -69,13 +69,17 @@ func TestClashHysteria2_WithBandwidthPortHoppingSalamander(t *testing.T) {
 	assert.Equal(t, conf.Bandwidth("100 mbps"), qp.BrutalUp)
 	assert.Equal(t, conf.Bandwidth("200 mbps"), qp.BrutalDown)
 
-	// UdpHop
-	assert.Equal(t, "20000-40000", qp.UdpHop.PortList.String())
-	assert.Equal(t, int32(30), qp.UdpHop.Interval.From)
-	assert.Equal(t, int32(30), qp.UdpHop.Interval.To)
+	// Port hopping is the outermost mask, after Salamander in config order.
+	require.Len(t, ss.FinalMask.Udp, 2)
+	assert.Equal(t, "udphop", ss.FinalMask.Udp[1].Type)
+	var hop conf.UDPHop
+	require.NoError(t, json.Unmarshal(*ss.FinalMask.Udp[1].Settings, &hop))
+	assert.Equal(t, "intervalRemote", hop.Mode)
+	assert.Equal(t, "20000-40000", hop.RemotePorts.String())
+	assert.Equal(t, int32(30), hop.Interval.From)
+	assert.Equal(t, int32(30), hop.Interval.To)
 
 	// Salamander
-	require.Len(t, ss.FinalMask.Udp, 1)
 	assert.Equal(t, "salamander", ss.FinalMask.Udp[0].Type)
 	var salamander conf.Salamander
 	require.NoError(t, json.Unmarshal(*ss.FinalMask.Udp[0].Settings, &salamander))
@@ -85,6 +89,8 @@ func TestClashHysteria2_WithBandwidthPortHoppingSalamander(t *testing.T) {
 	assert.Equal(t, "tls", ss.Security)
 	require.NotNil(t, ss.TLSSettings)
 	assert.Equal(t, "example.com", ss.TLSSettings.ServerName)
+	_, err := outbound.Build()
+	require.NoError(t, err)
 }
 
 func TestClashHysteria2_BandwidthOnly(t *testing.T) {
@@ -108,11 +114,8 @@ func TestClashHysteria2_BandwidthOnly(t *testing.T) {
 	assert.Equal(t, conf.Bandwidth("50 mbps"), qp.BrutalUp)
 	assert.Equal(t, conf.Bandwidth("100 mbps"), qp.BrutalDown)
 
-	// No Salamander
+	// No Salamander or port hopping
 	assert.Empty(t, ss.FinalMask.Udp)
-
-	// No UdpHop
-	assert.Empty(t, qp.UdpHop.PortList.Range)
 }
 
 func TestClashHysteria2_SalamanderOnly(t *testing.T) {

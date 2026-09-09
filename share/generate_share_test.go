@@ -73,17 +73,22 @@ func TestGenerate_Hy2_WithSalamanderBandwidthPortHopping(t *testing.T) {
 			Congestion: "brutal",
 			BrutalUp:   conf.Bandwidth("50 mbps"),
 			BrutalDown: conf.Bandwidth("100 mbps"),
-			UdpHop: conf.UdpHop{
-				PortList: portList,
-				Interval: conf.Int32Range{Left: 30, Right: 30, From: 30, To: 30},
-			},
 		},
 	}
 
 	salamander := &conf.Salamander{Password: "secret"}
 	salJSON, err := json.Marshal(salamander)
 	require.NoError(t, err)
-	fm.Udp = []conf.Mask{{Type: "salamander", Settings: new(json.RawMessage(salJSON))}}
+	hopJSON, err := json.Marshal(&conf.UDPHop{
+		Mode:        "intervalRemote",
+		RemotePorts: portList,
+		Interval:    conf.Int32Range{Left: 30, Right: 30, From: 30, To: 30},
+	})
+	require.NoError(t, err)
+	fm.Udp = []conf.Mask{
+		{Type: "salamander", Settings: new(json.RawMessage(salJSON))},
+		{Type: "udphop", Settings: new(json.RawMessage(hopJSON))},
+	}
 
 	ss := buildHy2StreamSettings("auth", tls, fm)
 	outbound := buildHy2Outbound(t, "auth", "host", 443, ss)

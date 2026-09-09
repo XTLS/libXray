@@ -276,7 +276,7 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			}
 		}
 
-		// QuicParams (bandwidth + port-hopping)
+		// QuicParams (bandwidth)
 		if streamSettings.FinalMask != nil && streamSettings.FinalMask.QuicParams != nil {
 			qp := streamSettings.FinalMask.QuicParams
 			if len(qp.BrutalUp) > 0 {
@@ -285,23 +285,31 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			if len(qp.BrutalDown) > 0 {
 				query = addQuery(query, "down", string(qp.BrutalDown))
 			}
-			if len(qp.UdpHop.PortList.Range) > 0 {
-				query = addQuery(query, "ports", qp.UdpHop.PortList.String())
-			}
-			if qp.UdpHop.Interval.From != 0 || qp.UdpHop.Interval.To != 0 {
-				query = addQuery(query, "hop-interval", strconv.FormatInt(int64(qp.UdpHop.Interval.From), 10))
-			}
 		}
 
-		// Salamander
-		if streamSettings.FinalMask != nil && len(streamSettings.FinalMask.Udp) > 0 {
-			mask := streamSettings.FinalMask.Udp[0]
-			if mask.Settings != nil {
-				var obfs conf.Salamander
-				err := json.Unmarshal(*mask.Settings, &obfs)
-				if err == nil {
-					query = addQuery(query, "obfs", "salamander")
-					query = addQuery(query, "obfs-password", obfs.Password)
+		// Salamander and port hopping are independent UDP masks.
+		if streamSettings.FinalMask != nil {
+			for _, mask := range streamSettings.FinalMask.Udp {
+				if mask.Settings == nil {
+					continue
+				}
+				switch mask.Type {
+				case "salamander":
+					var obfs conf.Salamander
+					if err := json.Unmarshal(*mask.Settings, &obfs); err == nil {
+						query = addQuery(query, "obfs", "salamander")
+						query = addQuery(query, "obfs-password", obfs.Password)
+					}
+				case "udphop":
+					var hop conf.UDPHop
+					if err := json.Unmarshal(*mask.Settings, &hop); err == nil {
+						if len(hop.RemotePorts.Range) > 0 {
+							query = addQuery(query, "ports", hop.RemotePorts.String())
+						}
+						if hop.Interval.From != 0 {
+							query = addQuery(query, "hop-interval", strconv.FormatInt(int64(hop.Interval.From), 10))
+						}
+					}
 				}
 			}
 		}

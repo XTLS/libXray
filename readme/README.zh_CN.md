@@ -16,7 +16,7 @@
 
 依赖 git 和 go。
 
-默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 的 pseudo-version 将 Xray-core 固定到发布版本 `v26.7.28`。
+默认情况下，编译脚本不会 clone [Xray-core](https://github.com/XTLS/Xray-core)，而是通过 Go modules 的 pseudo-version 将 Xray-core 固定到发布版本 `v26.9.9`。
 传入可选参数 `local` 时，会通过 Go module `replace` 改用已有的本地仓库 `../Xray-core`。
 
 ### 使用方式
@@ -238,6 +238,10 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 
 转换 VMessQRCode 为 Xray Json。
 
+Hysteria2 跳端口使用 `udphop` UDP final mask，模式为 `intervalRemote`。
+省略 `hop-interval` 或设为 0 时，保持 30 秒的默认间隔。按 Xray-core 的要求，
+跳端口 mask 在配置中排在 Salamander 之后。
+
 #### 解析结果
 
 `convertShareLinksToXrayJson` 只有一种响应结构。payload 包含 `text` 和可选的
@@ -335,8 +339,8 @@ outbound，不做节点 hash 比较、去重或失败节点计数。
 失败。`delay` 为 `10000` 表示错误，`11000` 表示超时。结果数组与输入配置数组
 长度相同且顺序一致。
 `delay` 始终输出，包含成功的 0 毫秒结果。
-通过 `streamSettings.sockopt.dialerProxy` 或 `proxySettings.tag` 引用的
-outbound 依赖会被自动包含。
+通过 `streamSettings.sockopt.dialerProxy` 引用的 outbound 依赖会被自动包含。
+已废弃的 `proxySettings` 字段由 Xray-core 拒绝。
 
 `locationUrl` 为可选的绝对 HTTP(S) 地址。省略时不请求位置、不返回位置字段；
 传入时，每个完成准备的配置先执行测速 HEAD，再执行位置 GET，两者使用同一个
