@@ -14,9 +14,10 @@ and the models/dispatch in `invoke_model.go` and `invoke.go`.
 - Applications use `Invoke`/`CGoInvoke` with typed requests. Config methods receive
   `xrayJson` text, not configuration file paths. Runtime `env` belongs inside
   that Xray JSON. File-oriented APIs and the desktop Core CLI retain file access.
-- `TestXray` only loads/builds configuration with `core.LoadConfig`; it neither
-  constructs nor starts an instance. Success does not guarantee startup or
-  connectivity. Builders may still read local assets/certificates and apply `env`.
+- `TestXray` constructs an instance through `newXrayInstance` and closes it
+  without calling `Start`. Callers own minimal/filtered validation configs.
+  Process-level side effects are accepted; startup resources and connectivity
+  remain outside this check. See [testXray](README.md#testxray) for limitations.
 - Manage one running instance. Validation and temporary instances must reject
   managed-instance overlap before loading configuration and hold the lifecycle
   lock through worker completion and instance cleanup. Close temporary instances

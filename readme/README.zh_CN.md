@@ -355,7 +355,7 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 
 ### testXray
 
-加载并构建传入的完整 Xray JSON 文本。payload 仅包含 `xrayJson`，成功时返回
+加载传入的 Xray JSON 文本并构造临时 instance。payload 仅包含 `xrayJson`，成功时返回
 `data: {}`：
 
 ```json
@@ -368,13 +368,19 @@ GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析�
 }
 ```
 
-Go 入口 `TestXray` 只调用 `core.LoadConfig`，不构造或启动 Xray instance 及运行时
-handler。它校验包括 TUN/WireGuard 定义在内的配置结构，不创建设备、监听、日志文件
-或后台连接。构建器仍可能读取本地 GeoData/证书，并将根 `env` 应用到当前进程。
-Geodata assets 声明只校验 HTTPS URL 和已存在的本地文件，下载器及 cron 不在校验时运行。
+Go 入口 `TestXray` 调用 `newXrayInstance`（`core.LoadConfig → core.New`），成功构造后
+关闭临时 instance，再返回结果。不调用 `Start`，也不登记为受管理的运行 instance。
+路由匹配器、缺失 balancer 等构造错误以及关闭错误通过正常错误响应返回。
 
-校验成功只说明配置可以构建，不保证运行资源可用、instance 可以启动或网络可以连接。
-调用方仍须处理实际启动失败。
+校验不是沙箱：构建器和构造器可能读取本地 GeoData/证书、应用 `env`、替换进程级
+日志/DNS 状态、创建日志文件，或初始化协议专属资源与后台任务。这些进程状态不恢复。
+WireGuard 可能在构造时创建 TUN，VLESS reverse 可能安排后台任务。当前 Core 构造失败时
+不返回部分 instance，因此 libXray 无法关闭该部分 instance。不调用 `Start` 时，内核
+Geodata cron 不运行，但 assets 声明仍会检查本地文件。
+
+调用方允许构造最小配置，或在验证副本中排除 App 管理的字段；libXray 不做 App 专属裁剪。
+成功只说明传入配置可以完成实例构造和关闭，不覆盖监听/TUN 启动、系统权限与网络连通性。
+被排除的配置不在验证范围内，调用方仍须处理实际启动失败。
 
 ### runXray
 
