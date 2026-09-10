@@ -55,12 +55,22 @@ python3 build/main.py apple go
 
 Other targets and local-core options are documented in [build usage](README.md#usage).
 
-## Pull requests
+## Agent skills
 
-Use English for PR titles and descriptions. Keep titles, descriptions, and
-comments self-contained: do not mention or link to another repository's PR,
-including companion, dependency, or merge-order references. Describe required
-interface or build behavior directly.
+### Issue tracker
+
+GitHub Issues for `XTLS/libXray`. Before issue or PR work, read
+[issue tracker](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Use the five canonical triage labels. Before triage, read
+[label mapping](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context layout. Before codebase exploration or domain/ADR work,
+read [domain guidance](docs/agents/domain.md).
 
 ## Verification
 
