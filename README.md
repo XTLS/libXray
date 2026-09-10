@@ -452,7 +452,7 @@ failure and do not perform either request.
 
 ### testXray
 
-Loads and builds the complete configuration from the supplied JSON text. The
+Loads the supplied JSON text and constructs a temporary Xray instance. The
 payload contains only `xrayJson`; success returns `data: {}`:
 
 ```json
@@ -465,17 +465,26 @@ payload contains only `xrayJson`; success returns `data: {}`:
 }
 ```
 
-The Go entrypoint `TestXray` uses `core.LoadConfig` without constructing or
-starting an Xray instance or runtime handlers. It validates configuration
-structure, including TUN/WireGuard definitions, without creating devices,
-listeners, log files, or background connections. The builder can still read
-local GeoData/certificates and apply the root `env` to the current process.
-Geodata asset declarations validate HTTPS URLs and existing local files; their
-downloader/cron does not run during validation.
+The Go entrypoint `TestXray` calls `newXrayInstance` (`core.LoadConfig` followed
+by `core.New`) and closes the successfully constructed instance before returning.
+It never calls `Start` or publishes a managed instance. Core construction errors,
+including invalid routing matchers and missing balancers, and close errors are
+returned through the normal error response.
 
-A successful check establishes that the configuration builds. It does not
-prove that runtime resources are available, that an instance can start, or
-that the network is reachable. Callers must handle actual startup failures.
+This is not a sandbox. Builders and constructors may read local GeoData and
+certificates, apply `env`, replace process-global logging/DNS state, create log
+files, or initialize protocol-specific resources and background tasks. Process
+state is not restored. In particular, WireGuard can acquire a TUN during
+construction and VLESS reverse can schedule background work. The current Core
+does not return its partial instance when construction fails, so libXray cannot
+close that partial instance. Core-managed geodata cron does not run without
+`Start`, although its asset declarations still check local files.
+
+Callers may provide a minimal configuration or remove App-managed fields from a
+disposable validation copy; libXray applies no App-specific filtering. Only the
+supplied configuration is checked. Success establishes instance construction and
+close, not listener/TUN startup, system permissions, or network connectivity.
+Callers must handle actual startup failures.
 
 ### runXray
 

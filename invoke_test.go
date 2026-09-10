@@ -211,19 +211,15 @@ func TestInvokeTestXray(t *testing.T) {
 	requireNoDataObject(t, response)
 }
 
-func TestInvokeTestXrayDoesNotCreateRuntimeResources(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "not-created", "error.log")
+func TestInvokeTestXrayConstructsWithoutStarting(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "error.log")
 	config, err := json.Marshal(map[string]any{
 		"log": map[string]any{"error": logPath, "loglevel": "debug"},
 		"inbounds": []any{
 			map[string]any{"tag": "tunIn", "protocol": "tun", "settings": map[string]any{"name": "TestXrayMustNotCreate", "mtu": 1500}},
 		},
 		"outbounds": []any{
-			map[string]any{"protocol": "wireguard", "settings": map[string]any{
-				"secretKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-				"address":   []string{"10.0.0.2/32"},
-				"peers":     []any{map[string]any{"publicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "endpoint": "127.0.0.1:9"}},
-			}},
+			map[string]any{"protocol": "freedom", "tag": "direct"},
 		},
 	})
 	if err != nil {
@@ -231,15 +227,26 @@ func TestInvokeTestXrayDoesNotCreateRuntimeResources(t *testing.T) {
 	}
 	response := invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: string(config)})
 	if !response.Success {
-		t.Fatalf("testXray must accept structurally valid TUN/WireGuard without construction: %s", response.Err)
+		t.Fatalf("testXray must construct handlers without starting the TUN: %s", response.Err)
 	}
 	requireNoDataObject(t, response)
-	if _, err := os.Stat(filepath.Dir(logPath)); !os.IsNotExist(err) {
-		t.Fatalf("testXray created a runtime log directory: %v", err)
+	if _, err := os.Stat(logPath); err != nil {
+		t.Fatalf("testXray did not construct the configured file logger: %v", err)
 	}
 	response = invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: `{"outbounds":[{"protocol":"unknown"}]}`})
 	if response.Success || string(response.Data) != "null" {
 		t.Fatalf("testXray must still reject invalid core configuration: %+v", response)
+	}
+}
+
+func TestInvokeTestXrayReturnsConstructionError(t *testing.T) {
+	response := invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: `{
+		"log":{"loglevel":"none"},
+		"outbounds":[{"protocol":"freedom","tag":"direct"}],
+		"routing":{"rules":[{"domain":["example.com"],"balancerTag":"missing"}]}
+	}`})
+	if response.Success || string(response.Data) != "null" || !strings.Contains(response.Err, "balancer missing not found") {
+		t.Fatalf("testXray must expose the core construction error: %+v", response)
 	}
 }
 
