@@ -42,11 +42,17 @@ Linux 和 Windows 构建还会生成 `bin/xray` 或 `bin/xray.exe`。该会话 C
 会保护 Go DNS 查询不被 VPN 路由重新捕获，并且只接受以下命令：
 
 ```shell
-xray run -dns <IP:port> -interface <网卡名> -config <xray.json>
+xray run -dns <IP:port> -interface <网卡名> -config <xray.json> [-error-file <路径>]
 ```
 
-三个参数都必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
+`-dns`、`-interface`、`-config` 均必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
 JSON 配置。
+
+可选的 `-error-file` 将命令失败时打印到 stderr 的原始错误同时写入 UTF-8 文件，
+随后退出。运行前清空文件，成功时保持为空；父目录必须已经存在。通过提权启动 Core
+的调用方应先以自身账号创建文件，以保留读取权限。该文件仅用于返回错误，不是
+Xray 的 access/error 日志配置，也不增加额外的预校验。使用此参数的 App 必须同时
+打包支持该参数的新版桌面 Core。
 
 > [!WARNING]
 > **每个进程只能使用一个 Go runtime。** Go 不支持在同一进程中加载多个独立构建的
