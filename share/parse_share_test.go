@@ -91,14 +91,16 @@ func TestConvertShareLinksToXrayJson_AllBuildInvalidOutbounds(t *testing.T) {
 
 func TestConvertShareLinksToXrayJson_Base64EncodedLines(t *testing.T) {
 	lines := "trojan://secret@trojan.example.com:443?sni=trojan.example.com\n" +
-		"ss://" + ssUserB64("aes-128-gcm", "pwd") + "@ss.example.com:8388#ssn"
+		"ss://" + ssUserB64("aes-128-gcm", "pwd") + "@ss.example.com:8388#ssn\n" +
+		"vmess://" + testShareUUID + "@vm.example:443?encryption=auto&type=ws#VMessAEAD"
 	blob := base64.StdEncoding.EncodeToString([]byte(lines))
 
 	cfg, err := convertShareLinksForTest(blob)
 	require.NoError(t, err)
-	require.Len(t, cfg.OutboundConfigs, 2)
+	require.Len(t, cfg.OutboundConfigs, 3)
 	assert.Equal(t, "trojan", cfg.OutboundConfigs[0].Protocol)
 	assert.Equal(t, "shadowsocks", cfg.OutboundConfigs[1].Protocol)
+	assert.Equal(t, "vmess", cfg.OutboundConfigs[2].Protocol)
 }
 
 func TestConvertShareLinksToXrayJson_Base64URLSafeBlob(t *testing.T) {
@@ -227,13 +229,11 @@ func TestConvertShareLinksToXrayJson_VmessPlainURL(t *testing.T) {
 	require.NotNil(t, ss.RAWSettings)
 }
 
-func TestConvertShareLinksToXrayJson_VmessBase64QR(t *testing.T) {
-	qr := `{"ps":"qrname","add":"vm.add","port":"8443","id":"` + testShareUUID + `","scy":"auto","net":"ws","host":"ws.host","path":"/w","tls":"tls","sni":"tls.sni","alpn":"h2,h3","fp":"safari"}`
-	b64 := base64.StdEncoding.EncodeToString([]byte(qr))
-	link := "vmess://" + b64
+func TestConvertShareLinksToXrayJson_VmessAEADWebSocketTLS(t *testing.T) {
+	link := "vmess://" + testShareUUID + "@vm.example:8443?encryption=auto&type=ws&host=ws.host&path=%2Fw&security=tls&sni=tls.sni&alpn=h2%2Ch3&fp=safari#VMessAEAD"
 	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
-	assert.Equal(t, "qrname", cfg.OutboundConfigs[0].Tag)
+	assert.Equal(t, "VMessAEAD", cfg.OutboundConfigs[0].Tag)
 	assert.Nil(t, cfg.OutboundConfigs[0].SendThrough)
 	var s conf.VMessOutboundConfig
 	require.NoError(t, json.Unmarshal(*cfg.OutboundConfigs[0].Settings, &s))
@@ -353,10 +353,9 @@ func TestConvertShareLinksToXrayJson_UnsupportedFormat(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported share format")
 }
 
-func TestConvertShareLinksToXrayJson_VmessQRGrpcAndKcp(t *testing.T) {
+func TestConvertShareLinksToXrayJson_VmessAEADGrpcAndKcp(t *testing.T) {
 	t.Run("grpc", func(t *testing.T) {
-		qr := `{"ps":"g","add":"grpc.host","port":"443","id":"` + testShareUUID + `","net":"grpc","path":"svcname","type":"multi"}`
-		link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
+		link := "vmess://" + testShareUUID + "@grpc.host:443?type=grpc&serviceName=svcname&mode=multi#g"
 		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
 		gs := cfg.OutboundConfigs[0].StreamSetting.GRPCSettings
@@ -366,8 +365,7 @@ func TestConvertShareLinksToXrayJson_VmessQRGrpcAndKcp(t *testing.T) {
 	})
 
 	t.Run("kcp", func(t *testing.T) {
-		qr := `{"ps":"k","add":"kcp.host","port":"8391","id":"` + testShareUUID + `","net":"kcp","path":"seedval","type":"wireguard"}`
-		link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
+		link := "vmess://" + testShareUUID + "@kcp.host:8391?type=kcp#k"
 		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
 		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.KCPSettings)

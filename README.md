@@ -318,7 +318,7 @@ meaning as the local bind address.
 
 ### generate_share
 
-Convert Xray JSON to VMess AEAD / VLESS share links following
+Convert Xray JSON to VMessAEAD / VLESS share links following
 [Xray-core discussion #716](https://github.com/XTLS/Xray-core/discussions/716).
 SS, SOCKS and Trojan share links are also supported. VMess always generates
 an AEAD URI, not the legacy QR-code format.
@@ -328,8 +328,8 @@ if no share links can be generated.
 
 ### parse_share
 
-Parse VMess AEAD / VLESS, SS, SOCKS and Trojan share links, plus legacy
-`vmessQrCode` links, into Xray JSON.
+Parse VMessAEAD / VLESS, SS, SOCKS and Trojan share links into Xray JSON.
+Legacy VMessQrCode links (`vmess://Base64(JSON)`) are not supported.
 
 Xray JSON node input and Base64 / Age subscription wrappers remain supported.
 Clash/Mihomo configurations and `hysteria2://` / `hy2://` URIs are not supported.
@@ -391,10 +391,6 @@ application must persist the pair and send only `publicKey` as
 `X-Age-Public-Key`. libXray does not perform the subscription HTTP request,
 persist keys, or add headers. Applications must never send the secret key over
 HTTP or write decrypted subscription text to disk.
-
-### vmess
-
-convert VMessQRCode to Xray Json.
 
 ### xray_json
 

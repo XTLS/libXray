@@ -17,7 +17,7 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 		"ss://" + ssUserB64("aes-128-gcm", "pw") + "@r3.example:8389",
 		"vmess://" + testShareUUID + "@r4.example:443?encryption=none&type=tcp",
 		"socks://" + base64.StdEncoding.EncodeToString([]byte("u:p")) + "@127.0.0.1:1090",
-		"vmess://" + base64.StdEncoding.EncodeToString([]byte(`{"ps":"QR","add":"qr.example","port":443,"id":"`+testShareUUID+`","scy":"auto","net":"ws","path":"/ws","tls":"tls"}`)),
+		"vmess://" + testShareUUID + "@vm.example:443?encryption=auto&type=ws&path=%2Fws&security=tls#VMessAEAD",
 	}
 	for _, link := range cases {
 		t.Run(link[:12], func(t *testing.T) {
@@ -28,6 +28,9 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 			text, err := ConvertXrayJsonToShareLinks(out)
 			require.NoError(t, err)
 			assert.NotEmpty(t, text)
+			if cfg.OutboundConfigs[0].Protocol == "vmess" {
+				assert.Contains(t, text, "vmess://"+testShareUUID+"@")
+			}
 			again, err := convertShareLinksWithKeyForTest(text, "")
 			require.NoError(t, err)
 			require.Len(t, again.OutboundConfigs, 1)

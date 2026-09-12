@@ -108,8 +108,7 @@ func TestConvertShareLinksNativeJSONPreservesHysteriaPortHopping(t *testing.T) {
 }
 
 func TestMarshalShareConfigKeepsKCPWithoutSettings(t *testing.T) {
-	qr := `{"ps":"k","add":"kcp.host","port":"8391","id":"` + testShareUUID + `","net":"kcp","path":"seedval","type":"wireguard"}`
-	link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
+	link := "vmess://" + testShareUUID + "@kcp.host:8391?type=kcp&seed=seedval&headerType=wireguard#k"
 	config, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	raw, err := marshalShareConfigJSON(config)

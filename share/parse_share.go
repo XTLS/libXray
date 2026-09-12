@@ -10,7 +10,7 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 )
 
-// FixWindowsReturn normalizes CRLF to LF (v2rayN exports on Windows).
+// FixWindowsReturn normalizes CRLF to LF.
 func FixWindowsReturn(text string) string {
 	return strings.ReplaceAll(text, "\r\n", "\n")
 }
@@ -28,7 +28,7 @@ func decodeBase64Text(text string) (string, error) {
 	if b, err := base64.URLEncoding.DecodeString(text); err == nil {
 		return string(b), nil
 	}
-	// URL-safe raw + manual padding (legacy v2rayN)
+	// Normalize the URL-safe alphabet and restore missing padding.
 	s := strings.ReplaceAll(strings.ReplaceAll(text, "-", "+"), "_", "/")
 	if pad := len(s) % 4; pad != 0 {
 		s += strings.Repeat("=", 4-pad)
@@ -141,11 +141,6 @@ func parseShadowsocksUserInfo(user *url.Userinfo) (string, string, error) {
 }
 
 func (proxy xrayShareLink) vmessOutbound() (*conf.OutboundDetourConfig, error) {
-	text := strings.ReplaceAll(proxy.rawText, "vmess://", "")
-	if base64Text, err := decodeBase64Text(text); err == nil {
-		return parseVMessQrCode(base64Text)
-	}
-
 	outbound := &conf.OutboundDetourConfig{}
 	outbound.Protocol = "vmess"
 	setOutboundName(outbound, proxy.link.Fragment)

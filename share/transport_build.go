@@ -8,7 +8,7 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 )
 
-// shareTransportFields is the normalized transport slice of v2rayN share links and VMess QR JSON.
+// shareTransportFields holds transport parameters from share-link queries.
 type shareTransportFields struct {
 	Network         string
 	HeaderType      string
@@ -18,8 +18,8 @@ type shareTransportFields struct {
 	GrpcServiceName string
 	GrpcMultiMode   bool
 	XHTTPMode       string
-	ExtraJSON       string // SplitHTTP extra (URL only)
-	FMJSON          string // serialized FinalMask (URL only)
+	ExtraJSON       string // SplitHTTP extra
+	FMJSON          string // serialized FinalMask
 }
 
 func transportFieldsFromURLQuery(q url.Values) shareTransportFields {
@@ -42,29 +42,6 @@ func transportFieldsFromURLQuery(q url.Values) shareTransportFields {
 		fields.HeaderType = q.Get("headerType")
 	}
 	return fields
-}
-
-func transportFieldsFromVmessQR(p vmessQrCode) shareTransportFields {
-	network := p.Net
-	if network == "" {
-		network = "raw"
-	}
-	t := shareTransportFields{
-		Network: network,
-		Path:    p.Path,
-		Host:    p.Host,
-	}
-	switch network {
-	case "raw", "tcp":
-		t.HeaderType = p.Type
-	case "grpc", "gun":
-		t.GrpcServiceName = p.Path
-		t.GrpcMultiMode = p.Type == "multi"
-	}
-	if network == "xhttp" || network == "splithttp" {
-		t.XHTTPMode = p.Type
-	}
-	return t
 }
 
 // buildStreamFromTransportFields builds StreamConfig from normalized share fields (no TLS).
