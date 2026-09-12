@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a libXray API, build, or integration improvement.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please write your request in English and focus on one improvement to libXray.
+        Client application features belong in the application's repository. Do not include private credentials.
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: Existing issues
+      options:
+        - label: I searched open and closed issues and did not find an existing request for this improvement.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What library capability is missing, and how does it affect your integration?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Describe the intended behavior and relevant API, build target, or platform. Include an example request and response if useful.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Explain whether the existing libXray API, Xray-core configuration, or client-side code can address the use case.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add relevant upstream documentation, examples, or compatibility considerations.

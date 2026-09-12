@@ -1,0 +1,89 @@
+name: Bug report
+description: Report a libXray API, build, or native integration problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please write your report in English and describe one problem per issue.
+        This tracker covers libXray. Report app-specific UI or behavior issues to the client application's repository unless you have a libXray reproduction.
+        Check the [README](https://github.com/XTLS/libXray#readme) and the supported Xray-core version before reporting.
+        Issues and attachments are public. Remove passwords, UUIDs, subscription URLs or tokens, age private keys, and other private data from examples and logs.
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: Existing issues
+      options:
+        - label: I searched open and closed issues and did not find an existing report of this problem.
+          required: true
+  - type: input
+    id: libxray-version
+    attributes:
+      label: libXray version
+      description: Enter the release tag, Go module version, or full commit SHA. For prebuilt artifacts, include the release or source they came from.
+    validations:
+      required: true
+  - type: input
+    id: xray-version
+    attributes:
+      label: Xray-core version
+      description: Enter the tag, module version, or commit if known. Mention any local replacement or custom patches.
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Integration or build path
+      options:
+        - Go package
+        - C / FFI (CGoInvoke)
+        - Gomobile binding
+        - Desktop Core CLI
+        - Build script
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: method
+    attributes:
+      label: Affected API or command
+      description: Name the method or build command involved, if applicable.
+      placeholder: "For example, testXray, runXray, pingBatch, or python3 build/main.py apple go"
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the target OS/version and CPU architecture. For build problems, also include the host OS, Go version, SDK/NDK or compiler versions, and exact build command. Mention simulators and other Go-based libraries loaded in the same process.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide a small code example, Invoke request, or command sequence. Include the relevant call order and cleanup so the problem can be reproduced outside the client app. For a build failure, provide the command and build options.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include the exact error or response, if any.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or stack trace
+      description: Paste the relevant build output, response error, or stack trace with private data removed. Include the first error and enough surrounding context.
+      render: text
+  - type: textarea
+    id: context
+    attributes:
+      label: Configuration and additional context
+      description: Optionally attach a minimal configuration or reproducer with credentials removed. Mention whether it works with an earlier libXray version or directly with Xray-core, if already tested.
