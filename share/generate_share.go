@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/xtls/xray-core/infra/conf"
@@ -222,21 +223,36 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 	if streamSettings.Network != nil {
 		network = string(*streamSettings.Network)
 	}
-
-	query = addQuery(query, "type", network)
-
-	if len(streamSettings.Security) == 0 {
-		streamSettings.Security = "none"
+	if streamSettings.Method != nil {
+		network = string(*streamSettings.Method)
 	}
-	query = addQuery(query, "security", streamSettings.Security)
+	if canonical, ok := canonicalShareNetwork(network); ok {
+		network = canonical
+	}
+
+	shareNetwork := network
+	if shareNetwork == "raw" {
+		shareNetwork = "tcp"
+	}
+	query = addQuery(query, "type", shareNetwork)
+
+	security := streamSettings.Security
+	if security == "" {
+		security = "none"
+	}
+	query = addQuery(query, "security", security)
 
 	switch network {
 	case "raw":
-		if streamSettings.RAWSettings == nil {
+		rawSettings := streamSettings.RAWSettings
+		if rawSettings == nil {
+			rawSettings = streamSettings.TCPSettings
+		}
+		if rawSettings == nil {
 			break
 		}
 
-		headerConfig := streamSettings.RAWSettings.HeaderConfig
+		headerConfig := rawSettings.HeaderConfig
 		if headerConfig == nil {
 			break
 		}
@@ -262,6 +278,15 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			host := header.Request.Headers.Host
 			if len(host) > 0 {
 				query = addQuery(query, "host", strings.Join(host, ","))
+			}
+		}
+	case "kcp":
+		if settings := streamSettings.KCPSettings; settings != nil {
+			if settings.Mtu != nil {
+				query = addQuery(query, "mtu", strconv.FormatUint(uint64(*settings.Mtu), 10))
+			}
+			if settings.Tti != nil {
+				query = addQuery(query, "tti", strconv.FormatUint(uint64(*settings.Tti), 10))
 			}
 		}
 	case "ws":
@@ -307,31 +332,28 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			query = addQuery(query, "path", path)
 		}
 	case "xhttp":
-		if streamSettings.XHTTPSettings == nil {
+		xhttpSettings := streamSettings.XHTTPSettings
+		if xhttpSettings == nil {
+			xhttpSettings = streamSettings.SplitHTTPSettings
+		}
+		if xhttpSettings == nil {
 			break
 		}
-		host := streamSettings.XHTTPSettings.Host
+		host := xhttpSettings.Host
 		if len(host) > 0 {
 			query = addQuery(query, "host", host)
 		}
-		path := streamSettings.XHTTPSettings.Path
+		path := xhttpSettings.Path
 		if len(path) > 0 {
 			query = addQuery(query, "path", path)
 		}
-		mode := streamSettings.XHTTPSettings.Mode
+		mode := xhttpSettings.Mode
 		if len(mode) > 0 {
 			query = addQuery(query, "mode", mode)
 		}
-		extra := streamSettings.XHTTPSettings.Extra
+		extra := xhttpSettings.Extra
 		if extra != nil {
-			var extraConfig conf.SplitHTTPConfig
-			err := json.Unmarshal(extra, &extraConfig)
-			if err == nil {
-				extraBytes, err := json.Marshal(extraConfig)
-				if err == nil {
-					query = addQuery(query, "extra", string(extraBytes))
-				}
-			}
+			query = addQuery(query, "extra", string(extra))
 		}
 	}
 
@@ -377,6 +399,9 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 			query = addQuery(query, "sni", sni)
 		}
 		pbk := streamSettings.REALITYSettings.Password
+		if pbk == "" {
+			pbk = streamSettings.REALITYSettings.PublicKey
+		}
 		if len(pbk) > 0 {
 			query = addQuery(query, "pbk", pbk)
 		}
@@ -408,12 +433,12 @@ func streamSettingsQuery(proxy conf.OutboundDetourConfig, link *url.URL) {
 func addQuery(rawQuery string, key, value string) string {
 	v, err := url.ParseQuery(rawQuery)
 	if err != nil {
-		newPart := key + "=" + url.QueryEscape(value)
+		newPart := key + "=" + strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
 		if rawQuery == "" {
 			return newPart
 		}
 		return rawQuery + "&" + newPart
 	}
 	v.Add(key, value)
-	return v.Encode()
+	return strings.ReplaceAll(v.Encode(), "+", "%20")
 }

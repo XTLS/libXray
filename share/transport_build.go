@@ -2,7 +2,9 @@ package share
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/xtls/xray-core/infra/conf"
@@ -14,9 +16,11 @@ type shareTransportFields struct {
 	HeaderType      string
 	Path            string
 	Host            string
+	KCPMTU          string
+	KCPTTI          string
 	GrpcAuthority   string
 	GrpcServiceName string
-	GrpcMultiMode   bool
+	GrpcMode        string
 	XHTTPMode       string
 	ExtraJSON       string // SplitHTTP extra
 	FMJSON          string // serialized FinalMask
@@ -31,9 +35,11 @@ func transportFieldsFromURLQuery(q url.Values) shareTransportFields {
 		Network:         network,
 		Path:            q.Get("path"),
 		Host:            q.Get("host"),
+		KCPMTU:          q.Get("mtu"),
+		KCPTTI:          q.Get("tti"),
 		GrpcAuthority:   q.Get("authority"),
 		GrpcServiceName: q.Get("serviceName"),
-		GrpcMultiMode:   q.Get("mode") == "multi",
+		GrpcMode:        q.Get("mode"),
 		XHTTPMode:       q.Get("mode"),
 		ExtraJSON:       q.Get("extra"),
 		FMJSON:          q.Get("fm"),
@@ -72,28 +78,37 @@ func buildStreamFromTransportFields(t shareTransportFields) (*conf.StreamConfig,
 			rawSettings.HeaderConfig = headerRawMessage
 			streamSettings.RAWSettings = rawSettings
 		}
+	case "kcp", "mkcp":
+		if t.KCPMTU != "" || t.KCPTTI != "" {
+			mtu, err := parseKCPParameter(t.KCPMTU)
+			if err != nil {
+				return nil, err
+			}
+			tti, err := parseKCPParameter(t.KCPTTI)
+			if err != nil {
+				return nil, err
+			}
+			streamSettings.KCPSettings = &conf.KCPConfig{Mtu: mtu, Tti: tti}
+		}
 	case "ws", "websocket":
 		streamSettings.WSSettings = &conf.WebSocketConfig{Path: t.Path, Host: t.Host}
 	case "grpc", "gun":
+		if t.GrpcMode != "" && t.GrpcMode != "gun" && t.GrpcMode != "multi" {
+			return nil, fmt.Errorf("unsupported gRPC share mode %q", t.GrpcMode)
+		}
 		streamSettings.GRPCSettings = &conf.GRPCConfig{
 			Authority:   t.GrpcAuthority,
 			ServiceName: t.GrpcServiceName,
-			MultiMode:   t.GrpcMultiMode,
+			MultiMode:   t.GrpcMode == "multi",
 		}
 	case "httpupgrade":
 		streamSettings.HTTPUPGRADESettings = &conf.HttpUpgradeConfig{Host: t.Host, Path: t.Path}
 	case "xhttp", "splithttp":
 		xhttpSettings := &conf.SplitHTTPConfig{Host: t.Host, Path: t.Path, Mode: t.XHTTPMode}
 		if t.ExtraJSON != "" {
-			var extraConfig *conf.SplitHTTPConfig
-			if err := json.Unmarshal([]byte(t.ExtraJSON), &extraConfig); err != nil {
+			if err := json.Unmarshal([]byte(t.ExtraJSON), &xhttpSettings.Extra); err != nil {
 				return nil, err
 			}
-			extraRawMessage, err := convertJsonToRawMessage(extraConfig)
-			if err != nil {
-				return nil, err
-			}
-			xhttpSettings.Extra = extraRawMessage
 		}
 		streamSettings.XHTTPSettings = xhttpSettings
 	}
@@ -107,4 +122,15 @@ func buildStreamFromTransportFields(t shareTransportFields) (*conf.StreamConfig,
 	}
 
 	return streamSettings, nil
+}
+
+func parseKCPParameter(value string) (*uint32, error) {
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := strconv.ParseUint(value, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	return new(uint32(parsed)), nil
 }

@@ -48,15 +48,36 @@ func TestGenerate_KCPIgnoresSeedAndHeader(t *testing.T) {
 	seed := "legacy-seed"
 	header := json.RawMessage(`{"type":"srtp"}`)
 	config.OutboundConfigs[0].StreamSetting.KCPSettings = &conf.KCPConfig{
+		Mtu:          new(uint32(1350)),
+		Tti:          new(uint32(30)),
 		Seed:         &seed,
 		HeaderConfig: header,
 	}
+	config.OutboundConfigs[0].StreamSetting.Network = new(conf.TransportProtocol("mkcp"))
 
 	link, err := shareLink(config.OutboundConfigs[0])
 	require.NoError(t, err)
 	assert.Equal(t, "kcp", link.Query().Get("type"))
+	assert.Equal(t, "1350", link.Query().Get("mtu"))
+	assert.Equal(t, "30", link.Query().Get("tti"))
 	assert.Empty(t, link.Query().Get("seed"))
 	assert.Empty(t, link.Query().Get("headerType"))
+}
+
+func TestGenerate_REALITYPublicKey(t *testing.T) {
+	const publicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	text, err := ConvertXrayJsonToShareLinks([]byte(`{
+		"outbounds":[{
+			"protocol":"vless",
+			"settings":{"address":"example.com","port":443,"id":"` + testShareUUID + `","encryption":"none"},
+			"streamSettings":{"security":"reality","realitySettings":{"fingerprint":"chrome","publicKey":"` + publicKey + `"}}
+		}]
+	}`))
+	require.NoError(t, err)
+	config, err := convertShareLinksWithKeyForTest(text, "")
+	require.NoError(t, err)
+	require.Len(t, config.OutboundConfigs, 1)
+	assert.Equal(t, publicKey, config.OutboundConfigs[0].StreamSetting.REALITYSettings.Password)
 }
 
 func TestGenerate_ShadowsocksAEAD2022PlainUserInfo(t *testing.T) {

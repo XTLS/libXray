@@ -336,6 +336,23 @@ Clash/Mihomo configurations and `hysteria2://` / `hy2://` URIs are not supported
 This restriction concerns share-link conversion, not Hysteria2 in native
 Xray JSON configurations.
 
+VMessAEAD / VLESS field mappings follow the
+[Xray share-link proposal](https://github.com/XTLS/Xray-core/discussions/716)
+where supported by the bundled Core:
+
+- mKCP `mtu` and `tti` are preserved in both directions. Omitted values use
+  Core defaults; Core validates their ranges. Legacy KCP `seed` and `headerType`
+  are not imported or exported.
+- XHTTP `extra` keeps its complete JSON content, including nested settings.
+  `fm` carries FinalMask masks and all Core-supported `quicParams` fields.
+- TLS `ech`, `pcs`, `vcn` and REALITY `pbk`, `sid`, `pqv`, `spx` are preserved
+  alongside `sni`, `fp` and TLS `alpn`. An omitted `sni` uses the remote host,
+  not the WebSocket HTTP host.
+- Native transport aliases retain their settings when exported. RAW/TCP links
+  use `type=tcp`; query values use percent-encoded spaces.
+- gRPC supports `gun` and `multi`. The bundled Core does not support `guna`
+  mode or the removed HTTP/QUIC transports; these are not silently substituted.
+
 #### Parsing result
 
 `convertShareLinksToXrayJson` has one response shape. Its payload contains
