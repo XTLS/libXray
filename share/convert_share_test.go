@@ -9,6 +9,8 @@ import (
 
 const validShareOutbound = `{"protocol":"vless","tag":"Keep","settings":{"address":"example.com","port":443,"id":"12345678-abcd-abcd-abcd-123456789abc","encryption":"none"},"streamSettings":{"security":"tls","tlsSettings":{"serverName":"example.com"}}}`
 
+const legacyVMessQRCodeJSON = `{"v":"2","ps":"Legacy","add":"vm.example","port":"443","id":"` + testShareUUID + `","aid":"0","scy":"auto","net":"ws","path":"/ws","tls":"tls"}`
+
 func TestConvertShareLinksSkipsInvalidCandidates(t *testing.T) {
 	jsonText := `{"outbounds":[` + validShareOutbound + `,{"protocol":"freedom"},{"protocol":42},null,{"protocol":"vless","settings":{"id":"invalid"}}]}`
 	for _, test := range []struct {
@@ -16,6 +18,7 @@ func TestConvertShareLinksSkipsInvalidCandidates(t *testing.T) {
 	}{
 		{"links with headers", "Subscription export\n# comment\n\n" + ageTestShareLink + "\nvless://bad@example.com:443?encryption=none\nunknown://example.com"},
 		{"links with removed protocols", "hy2://auth@hy.example:443\n" + ageTestShareLink + "\nhysteria2://auth@hy.example:443"},
+		{"links with VMessQrCode", "vmess://" + base64.StdEncoding.EncodeToString([]byte(legacyVMessQRCodeJSON)) + "\n" + ageTestShareLink},
 		{"JSON elements", jsonText},
 		{"base64 JSON", base64.StdEncoding.EncodeToString([]byte(jsonText))},
 		{"base64 links", base64.StdEncoding.EncodeToString([]byte(ageTestShareLink + "\nvless://bad@example.com:443"))},
@@ -38,6 +41,8 @@ func TestConvertShareLinksRejectsRemovedFormats(t *testing.T) {
 		{"Mihomo JSON", `{"proxies":[{"name":"Node","type":"vless","server":"example.com","port":443,"uuid":"` + testShareUUID + `"}]}`},
 		{"Hysteria2 URI", "hysteria2://auth@hy.example:443?sni=hy.example"},
 		{"Hy2 URI", "hy2://auth@hy.example:443?sni=hy.example"},
+		{"VMessQrCode", "vmess://" + base64.StdEncoding.EncodeToString([]byte(legacyVMessQRCodeJSON))},
+		{"VMessQrCode URL-safe", "vmess://" + base64.RawURLEncoding.EncodeToString([]byte(legacyVMessQRCodeJSON))},
 	} {
 		t.Run(input.name, func(t *testing.T) {
 			for _, encoding := range []struct {
@@ -116,6 +121,7 @@ func TestConvertShareLinksAgeSkipsInvalidCandidatesAndRedactsErrors(t *testing.T
 		"proxies:\n  - {type: vless, server: example.com, port: 443, uuid: " + testShareUUID + "}",
 		"hysteria2://private-password@hy.example:443",
 		"hy2://private-password@hy.example:443",
+		"vmess://" + base64.StdEncoding.EncodeToString([]byte(legacyVMessQRCodeJSON)),
 	} {
 		result, err := ConvertShareLinksToXrayJson(encryptAgeForTest(t, pair, input), pair.SecretKey)
 		if err != ErrAgePlaintextUnsupported {

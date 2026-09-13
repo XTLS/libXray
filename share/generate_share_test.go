@@ -17,7 +17,7 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 		"ss://" + ssUserB64("aes-128-gcm", "pw") + "@r3.example:8389",
 		"vmess://" + testShareUUID + "@r4.example:443?encryption=none&type=tcp",
 		"socks://" + base64.StdEncoding.EncodeToString([]byte("u:p")) + "@127.0.0.1:1090",
-		"vmess://" + base64.StdEncoding.EncodeToString([]byte(`{"ps":"QR","add":"qr.example","port":443,"id":"`+testShareUUID+`","scy":"auto","net":"ws","path":"/ws","tls":"tls"}`)),
+		"vmess://" + testShareUUID + "@vm.example:443?encryption=auto&type=ws&path=%2Fws&security=tls#VMessAEAD",
 	}
 	for _, link := range cases {
 		t.Run(link[:12], func(t *testing.T) {
@@ -28,6 +28,9 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 			text, err := ConvertXrayJsonToShareLinks(out)
 			require.NoError(t, err)
 			assert.NotEmpty(t, text)
+			if cfg.OutboundConfigs[0].Protocol == "vmess" {
+				assert.Contains(t, text, "vmess://"+testShareUUID+"@")
+			}
 			again, err := convertShareLinksWithKeyForTest(text, "")
 			require.NoError(t, err)
 			require.Len(t, again.OutboundConfigs, 1)
@@ -45,15 +48,36 @@ func TestGenerate_KCPIgnoresSeedAndHeader(t *testing.T) {
 	seed := "legacy-seed"
 	header := json.RawMessage(`{"type":"srtp"}`)
 	config.OutboundConfigs[0].StreamSetting.KCPSettings = &conf.KCPConfig{
+		Mtu:          new(uint32(1350)),
+		Tti:          new(uint32(30)),
 		Seed:         &seed,
 		HeaderConfig: header,
 	}
+	config.OutboundConfigs[0].StreamSetting.Network = new(conf.TransportProtocol("mkcp"))
 
 	link, err := shareLink(config.OutboundConfigs[0])
 	require.NoError(t, err)
 	assert.Equal(t, "kcp", link.Query().Get("type"))
+	assert.Equal(t, "1350", link.Query().Get("mtu"))
+	assert.Equal(t, "30", link.Query().Get("tti"))
 	assert.Empty(t, link.Query().Get("seed"))
 	assert.Empty(t, link.Query().Get("headerType"))
+}
+
+func TestGenerate_REALITYPublicKey(t *testing.T) {
+	const publicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	text, err := ConvertXrayJsonToShareLinks([]byte(`{
+		"outbounds":[{
+			"protocol":"vless",
+			"settings":{"address":"example.com","port":443,"id":"` + testShareUUID + `","encryption":"none"},
+			"streamSettings":{"security":"reality","realitySettings":{"fingerprint":"chrome","publicKey":"` + publicKey + `"}}
+		}]
+	}`))
+	require.NoError(t, err)
+	config, err := convertShareLinksWithKeyForTest(text, "")
+	require.NoError(t, err)
+	require.Len(t, config.OutboundConfigs, 1)
+	assert.Equal(t, publicKey, config.OutboundConfigs[0].StreamSetting.REALITYSettings.Password)
 }
 
 func TestGenerate_ShadowsocksAEAD2022PlainUserInfo(t *testing.T) {

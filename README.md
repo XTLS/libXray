@@ -318,7 +318,7 @@ meaning as the local bind address.
 
 ### generate_share
 
-Convert Xray JSON to VMess AEAD / VLESS share links following
+Convert Xray JSON to VMessAEAD / VLESS share links following
 [Xray-core discussion #716](https://github.com/XTLS/Xray-core/discussions/716).
 SS, SOCKS and Trojan share links are also supported. VMess always generates
 an AEAD URI, not the legacy QR-code format.
@@ -328,13 +328,30 @@ if no share links can be generated.
 
 ### parse_share
 
-Parse VMess AEAD / VLESS, SS, SOCKS and Trojan share links, plus legacy
-`vmessQrCode` links, into Xray JSON.
+Parse VMessAEAD / VLESS, SS, SOCKS and Trojan share links into Xray JSON.
+Legacy VMessQrCode links (`vmess://Base64(JSON)`) are not supported.
 
 Xray JSON node input and Base64 / Age subscription wrappers remain supported.
 Clash/Mihomo configurations and `hysteria2://` / `hy2://` URIs are not supported.
 This restriction concerns share-link conversion, not Hysteria2 in native
 Xray JSON configurations.
+
+VMessAEAD / VLESS field mappings follow the
+[Xray share-link proposal](https://github.com/XTLS/Xray-core/discussions/716)
+where supported by the bundled Core:
+
+- mKCP `mtu` and `tti` are preserved in both directions. Omitted values use
+  Core defaults; Core validates their ranges. Legacy KCP `seed` and `headerType`
+  are not imported or exported.
+- XHTTP `extra` keeps its complete JSON content, including nested settings.
+  `fm` carries FinalMask masks and all Core-supported `quicParams` fields.
+- TLS `ech`, `pcs`, `vcn` and REALITY `pbk`, `sid`, `pqv`, `spx` are preserved
+  alongside `sni`, `fp` and TLS `alpn`. An omitted `sni` uses the remote host,
+  not the WebSocket HTTP host.
+- Native transport aliases retain their settings when exported. RAW/TCP links
+  use `type=tcp`; query values use percent-encoded spaces.
+- gRPC supports `gun` and `multi`. The bundled Core does not support `guna`
+  mode or the removed HTTP/QUIC transports; these are not silently substituted.
 
 #### Parsing result
 
@@ -391,10 +408,6 @@ application must persist the pair and send only `publicKey` as
 `X-Age-Public-Key`. libXray does not perform the subscription HTTP request,
 persist keys, or add headers. Applications must never send the secret key over
 HTTP or write decrypted subscription text to disk.
-
-### vmess
-
-convert VMessQRCode to Xray Json.
 
 ### xray_json
 

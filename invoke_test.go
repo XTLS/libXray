@@ -450,6 +450,26 @@ func TestInvokeConvertShareLinksReturnsProjectedObject(t *testing.T) {
 	}
 }
 
+func TestInvokeConvertShareLinksPreservesKCPParameters(t *testing.T) {
+	response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson,
+		ConvertShareLinksToXrayJsonRequest{Text: "vless://12345678-abcd-abcd-abcd-123456789abc@127.0.0.1:443?type=kcp&mtu=1350&tti=30"})
+	if !response.Success {
+		t.Fatalf("ConvertShareLinksToXrayJson failed: %s", response.Err)
+	}
+	config := decodeShareConfig(t, response)
+	if len(config.OutboundConfigs) != 1 {
+		t.Fatalf("outbounds = %d, want 1", len(config.OutboundConfigs))
+	}
+	stream := config.OutboundConfigs[0].StreamSetting
+	if stream == nil || stream.KCPSettings == nil {
+		t.Fatal("KCP settings missing from Invoke response")
+	}
+	kcp := stream.KCPSettings
+	if kcp.Mtu == nil || *kcp.Mtu != 1350 || kcp.Tti == nil || *kcp.Tti != 30 {
+		t.Fatalf("unexpected KCP parameters: %s", response.Data)
+	}
+}
+
 func TestInvokeAgeKeyGenerationAndConversion(t *testing.T) {
 	generated := invokeForTest(
 		t,

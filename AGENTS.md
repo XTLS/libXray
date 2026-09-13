@@ -5,8 +5,9 @@ App behavior out of the generic library.
 
 ## API and runtime
 
-Before changing a method, read [README API](README.md#api), its method section,
-and the models/dispatch in `invoke_model.go` and `invoke.go`.
+When changing a public API contract, read [README API](README.md#api), the
+affected method section, and `invoke_model.go` / `invoke.go`. Internal-only
+changes need the relevant implementation and tests, not the entire API guide.
 
 - Keep `LibXrayAPIVersion` fixed at `3`; do not increment it within this release.
   Synchronize contract changes with typed models, downstream consumers, tests,
@@ -46,38 +47,27 @@ and the relevant platform/controller section in README.
   after a build and check the build command's success and resulting artifacts.
 - Modify an adjacent Xray-core checkout only when explicitly requested.
 
-Common builds:
+Targets and local-core options are documented in [build usage](README.md#usage).
 
-```sh
-python3 build/main.py android
-python3 build/main.py apple go
-```
+## GitHub and reviews
 
-Other targets and local-core options are documented in [build usage](README.md#usage).
-
-## Agent skills
-
-### Issue tracker
-
-GitHub Issues for `XTLS/libXray`. Before issue or PR work, read
-[issue tracker](docs/agents/issue-tracker.md).
-
-### Triage labels
-
-Use the five canonical triage labels. Before triage, read
-[label mapping](docs/agents/triage-labels.md).
-
-### Domain docs
-
-Single-context layout. Before codebase exploration or domain/ADR work,
-read [domain guidance](docs/agents/domain.md).
+- Use explicit `--repo XTLS/libXray` or repository API endpoints; the Git remote
+  uses an SSH alias. Write issue/PR titles, descriptions and comments in English.
+  Keep PR content self-contained without references to other repos' PRs.
+- Review the PR's actual remote base/head, not unpushed local changes; record
+  the commit IDs without switching the checkout. Report Standards and Spec
+  separately, with severity, location, concrete impact and evidence.
+- A review does not authorize edits, comments, label changes, closure or pushes.
+  Check actual labels when an authorized action needs them; no triage setup is required.
 
 ## Verification
 
 Run `git diff --check` for all changes. Match further verification to the change;
 expand or repeat checks only for new changes, failures, or unresolved concerns.
 
-- Go changes: format changed files with `gofmt`, then `go test ./... -count=1`.
+- Go changes: `gofmt` changed files and run affected tests. Use
+  `go test ./... -count=1` for shared lifecycle, API, or dependency changes,
+  or when the impact cannot be contained to specific packages.
 - Invoke changes: cover dispatch/models, response shapes, and removed methods
   where relevant; verify downstream request models against the same contract.
 - Bridge/build changes: build the affected artifact where supported. Report

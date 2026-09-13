@@ -233,19 +233,35 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 ### generate_share
 
 按照 [Xray-core 讨论 #716](https://github.com/XTLS/Xray-core/discussions/716)
-将 Xray JSON 转换为 VMess AEAD / VLESS 分享链接，同时支持 SS、SOCKS 和 Trojan。
+将 Xray JSON 转换为 VMessAEAD / VLESS 分享链接，同时支持 SS、SOCKS 和 Trojan。
 VMess 始终生成 AEAD URI，不生成旧版二维码格式。
 
 没有对应分享格式的 outbound 会被跳过；无法生成任何分享链接时返回失败。
 
 ### parse_share
 
-将 VMess AEAD / VLESS、SS、SOCKS、Trojan 分享链接以及旧版 `vmessQrCode`
-链接解析为 Xray JSON。
+将 VMessAEAD / VLESS、SS、SOCKS、Trojan 分享链接解析为 Xray JSON。
+不支持旧版 VMessQrCode 链接（`vmess://Base64(JSON)`）。
 
 保留 Xray JSON 节点输入以及 Base64 / Age 订阅包装。Clash/Mihomo 配置和
 `hysteria2://` / `hy2://` URI 不受支持。
 这一限制仅针对分享链接转换，不影响原生 Xray JSON 配置中的 Hysteria2。
+
+VMessAEAD / VLESS 的字段映射遵循
+[Xray 分享链接提案](https://github.com/XTLS/Xray-core/discussions/716)，
+以当前内置 Core 支持的能力为限：
+
+- 双向保留 mKCP 的 `mtu` 和 `tti`。省略时使用 Core 默认值，数值范围由
+  Core 校验。不导入或导出旧版 KCP 的 `seed` 和 `headerType`。
+- XHTTP `extra` 保留完整 JSON 内容，包括嵌套配置。`fm` 保留 FinalMask
+  掩饰配置和全部 Core 支持的 `quicParams` 字段。
+- 保留 TLS 的 `ech`、`pcs`、`vcn`，REALITY 的 `pbk`、`sid`、`pqv`、`spx`，
+  以及 `sni`、`fp` 和 TLS `alpn`。省略 `sni` 时使用远端主机，
+  不使用 WebSocket 的 HTTP host。
+- 从原生配置导出时保留传输别名对应的配置。RAW/TCP 链接使用 `type=tcp`，
+  查询参数中的空格使用百分号编码。
+- gRPC 支持 `gun` 和 `multi`。当前内置 Core 不支持 `guna` 模式以及
+  已移除的 HTTP/QUIC 传输，不会将其静默替换成其他模式。
 
 #### 解析结果
 
@@ -299,10 +315,6 @@ outbound，不做节点 hash 比较、去重或失败节点计数。
 只将 `publicKey` 作为 `X-Age-Public-Key` 发送。libXray 不负责订阅 HTTP 请求、
 密钥持久化或请求 Header；严禁通过 HTTP 发送私钥，也不能把解密后的订阅文本
 写入磁盘。
-
-### vmess
-
-转换 VMessQRCode 为 Xray Json。
 
 ### xray_json
 

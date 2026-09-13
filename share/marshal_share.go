@@ -128,7 +128,7 @@ func projectShareStream(source map[string]any) (map[string]any, bool) {
 			}
 		}
 	case "kcp":
-		// KCP share links carry only the transport discriminator.
+		projectShareTransportSettings(projected, source, "kcpSettings", "mtu", "tti")
 	case "ws":
 		projectShareTransportSettings(projected, source, "wsSettings", "host", "path")
 	case "grpc":
@@ -271,7 +271,12 @@ func projectShareFinalMask(source map[string]any) map[string]any {
 
 	if params, ok := shareObject(source["quicParams"]); ok {
 		projectedParams := map[string]any{}
-		copyShareFields(projectedParams, params, "congestion", "brutalUp", "brutalDown")
+		// fm carries the full FinalMask config, including all Core QUIC parameters.
+		for field, value := range params {
+			if !emptyShareValue(value) {
+				projectedParams[field] = value
+			}
+		}
 		if len(projectedParams) > 0 {
 			projected["quicParams"] = projectedParams
 		}

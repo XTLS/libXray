@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: libXray documentation
+    url: https://github.com/XTLS/libXray#readme
+    about: Read the API, build instructions, and integration requirements.
+  - name: libXray releases
+    url: https://github.com/XTLS/libXray/releases
+    about: Check release versions and prebuilt artifacts before reporting a problem.
