@@ -309,7 +309,27 @@ Speed ​​test the Xray configuration.
 
 ### port
 
-Get free ports.
+`getFreePorts` returns distinct free TCP ports on localhost. Its payload accepts
+`count` and an optional `excludePorts` list of caller-reserved port numbers:
+
+```json
+{
+  "apiVersion": 3,
+  "method": "getFreePorts",
+  "payload": {"count": 2, "excludePorts": [18587, 9000]}
+}
+```
+
+The response keeps the existing `data.ports` integer array. Omit `excludePorts`
+or pass an empty list for no exclusions; duplicates have no additional effect.
+Excluded ports must be between 1 and 65535. Negative or impossible counts fail;
+zero returns no ports. The Go entrypoint is
+`nodep.GetFreePorts(count int, excludePorts []int)`; pass `nil` for no exclusions.
+
+Listeners remain open during selection to avoid duplicates or repeatedly picking
+an excluded port, and close before the function returns, including on failure.
+The returned ports are therefore candidates, not reservations: another process
+can claim them before the caller binds. This checks TCP only, not UDP.
 
 ## share
 

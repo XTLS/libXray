@@ -30,7 +30,8 @@ type LibXrayInvokeRequest struct {
 }
 
 type GetFreePortsRequest struct {
-	Count int `json:"count,omitempty"`
+	Count        int   `json:"count,omitempty"`
+	ExcludePorts []int `json:"excludePorts,omitempty"`
 }
 
 type GetFreePortsResponse struct {
