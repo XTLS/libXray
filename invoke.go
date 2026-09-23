@@ -123,7 +123,7 @@ func invokeGetFreePorts(payload json.RawMessage) string {
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
-	ports, err := nodep.GetFreePorts(request.Count)
+	ports, err := nodep.GetFreePorts(request.Count, request.ExcludePorts)
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
 	}

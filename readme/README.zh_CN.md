@@ -224,7 +224,25 @@ LibXray.resetDNS();
 
 ### port
 
-获取空闲端口。
+`getFreePorts` 返回 localhost 上互不重复的空闲 TCP 端口。payload 支持
+`count` 和可选的 `excludePorts`，用于避开调用方预留的固定端口：
+
+```json
+{
+  "apiVersion": 3,
+  "method": "getFreePorts",
+  "payload": {"count": 2, "excludePorts": [18587, 9000]}
+}
+```
+
+响应保持现有的 `data.ports` 整数数组。省略 `excludePorts` 或传空列表表示不排除端口，
+重复值不影响结果。排除端口必须在 1–65535 之间；数量为负数或超过可用范围时报错，
+数量为 0 时不返回端口。Go 入口为 `nodep.GetFreePorts(count int, excludePorts []int)`，
+不排除端口时传入 `nil`。
+
+选择期间保持监听，避免返回重复端口或反复选中同一个排除端口；返回前关闭全部监听，
+失败时也会关闭。因此结果仅为候选端口，不构成预留，调用方绑定前仍可能被其他进程占用。
+仅检查 TCP，不检查 UDP。
 
 ## share
 

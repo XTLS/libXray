@@ -331,6 +331,32 @@ func TestInvokeXrayVersion(t *testing.T) {
 	}
 }
 
+func TestInvokeGetFreePortsExclusions(t *testing.T) {
+	response := invokeRawForTest(t, `{"apiVersion":3,"method":"getFreePorts","payload":{"count":2,"excludePorts":[18587,9000,18587]}}`)
+	if !response.Success {
+		t.Fatalf("GetFreePorts failed: %s", response.Err)
+	}
+	ports := decodeDataObject[GetFreePortsResponse](t, response).Ports
+	if len(ports) != 2 || ports[0] == ports[1] {
+		t.Fatalf("ports = %v, want two distinct ports", ports)
+	}
+	for _, port := range ports {
+		if port == 18587 || port == 9000 {
+			t.Fatalf("excluded port returned: %d", port)
+		}
+	}
+	response = invokeForTest(t, LibXrayMethodGetFreePorts, GetFreePortsRequest{
+		Count: 1, ExcludePorts: []int{0},
+	})
+	if response.Success || !strings.Contains(response.Err, "excluded port") {
+		t.Fatalf("invalid exclusion response = %+v", response)
+	}
+	response = invokeRawForTest(t, `{"apiVersion":3,"method":"getFreePorts","payload":{"count":1,"excludePorts":["18587"]}}`)
+	if response.Success {
+		t.Fatal("string exclusion should fail JSON decoding")
+	}
+}
+
 func TestInvokeMapResponseShape(t *testing.T) {
 	response := invokeForTest(t, LibXrayMethodGetFreePorts, GetFreePortsRequest{Count: 1})
 	if !response.Success {
