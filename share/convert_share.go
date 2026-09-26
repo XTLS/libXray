@@ -3,7 +3,6 @@ package share
 import (
 	"encoding/json"
 	"errors"
-	"net/url"
 	"strings"
 
 	"github.com/xtls/xray-core/infra/conf"
@@ -64,11 +63,7 @@ func parseShareCandidates(links string, allowBase64 bool) (*conf.Config, error) 
 			if !found || strings.ContainsAny(scheme, " \t#") {
 				continue
 			}
-			parsed, err := url.Parse(line)
-			if err != nil {
-				continue
-			}
-			outbound, err := (xrayShareLink{link: parsed, rawText: line}).outbound()
+			outbound, err := parseOutboundShareLink(line)
 			if err == nil {
 				config.OutboundConfigs = append(config.OutboundConfigs, *outbound)
 			}

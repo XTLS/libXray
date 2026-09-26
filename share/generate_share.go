@@ -44,6 +44,9 @@ func ConvertXrayJsonToShareLinks(xrayBytes []byte) (string, error) {
 }
 
 func shareLink(proxy conf.OutboundDetourConfig) (*url.URL, error) {
+	if proxy.Protocol == "hysteria" {
+		return hysteria2ShareLink(proxy)
+	}
 	shareUrl := &url.URL{}
 
 	switch proxy.Protocol {
