@@ -340,7 +340,7 @@ meaning as the local bind address.
 
 Convert Xray JSON to VMessAEAD / VLESS share links following
 [Xray-core discussion #716](https://github.com/XTLS/Xray-core/discussions/716).
-SS, SOCKS and Trojan share links are also supported. VMess always generates
+Hysteria2, SS, SOCKS and Trojan share links are also supported. VMess always generates
 an AEAD URI, not the legacy QR-code format.
 
 Outbounds without a supported share-link format are skipped. Conversion fails
@@ -348,13 +348,28 @@ if no share links can be generated.
 
 ### parse_share
 
-Parse VMessAEAD / VLESS, SS, SOCKS and Trojan share links into Xray JSON.
+Parse VMessAEAD / VLESS, Hysteria2, SS, SOCKS and Trojan share links into Xray JSON.
 Legacy VMessQrCode links (`vmess://Base64(JSON)`) are not supported.
 
 Xray JSON node input and Base64 / Age subscription wrappers remain supported.
-Clash/Mihomo configurations and `hysteria2://` / `hy2://` URIs are not supported.
-This restriction concerns share-link conversion, not Hysteria2 in native
-Xray JSON configurations.
+Clash/Mihomo configurations remain unsupported.
+
+Hysteria2 accepts `hysteria2://` and `hy2://` using the
+[official URI scheme](https://v2.hysteria.network/docs/developers/URI-Scheme/):
+optional authentication, default port 443, IPv6, SNI, Salamander obfuscation,
+multi-port authorities and fragment names. Export uses `hysteria2://`.
+Port hopping uses Core's `finalmask.udp` with both local and remote interval
+hopping (30 seconds by default; `hop-interval` must be at least 5 seconds).
+Legacy `ports` / `mport` queries are accepted and exported as authority ports.
+Legacy `up` / `down` values are imported as client-local QUIC tuning, not exported.
+
+TLS is mandatory. `insecure=true` / `allowInsecure=true` and `pinSHA256` are
+rejected: the bundled Core cannot preserve those Hysteria TLS semantics.
+Explicit Xray `fp`, `alpn`, `ech`, `pcs` and `vcn` extensions retain their Xray
+meaning. Export rejects TLS/mask settings that cannot be represented, rather
+than silently dropping security or obfuscation. Client-local QUIC tuning is
+not part of the URI. Realm and Gecko are not supported. Hopping requires a
+direct UDP socket; this does not add hopping support over chained proxies.
 
 VMessAEAD / VLESS field mappings follow the
 [Xray share-link proposal](https://github.com/XTLS/Xray-core/discussions/716)

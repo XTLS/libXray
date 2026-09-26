@@ -44,6 +44,7 @@ func decodeBase64Text(text string) (string, error) {
 
 var shareSchemes = []string{
 	"vless://", "vmess://", "socks://", "ss://", "trojan://",
+	"hysteria2://", "hy2://",
 }
 
 func hasShareSchemeLine(text string) bool {
@@ -61,6 +62,17 @@ func hasShareSchemeLine(text string) bool {
 type xrayShareLink struct {
 	link    *url.URL
 	rawText string
+}
+
+func parseOutboundShareLink(text string) (*conf.OutboundDetourConfig, error) {
+	if strings.HasPrefix(text, "hysteria2://") || strings.HasPrefix(text, "hy2://") {
+		return parseHysteria2Link(text)
+	}
+	link, err := url.Parse(text)
+	if err != nil {
+		return nil, err
+	}
+	return (xrayShareLink{link: link, rawText: text}).outbound()
 }
 
 func (proxy xrayShareLink) outbound() (*conf.OutboundDetourConfig, error) {

@@ -18,6 +18,7 @@ func TestConvertXrayJsonToShareLinks_RoundTripProtocols(t *testing.T) {
 		"vmess://" + testShareUUID + "@r4.example:443?encryption=none&type=tcp",
 		"socks://" + base64.StdEncoding.EncodeToString([]byte("u:p")) + "@127.0.0.1:1090",
 		"vmess://" + testShareUUID + "@vm.example:443?encryption=auto&type=ws&path=%2Fws&security=tls#VMessAEAD",
+		"hy2://user:password@hy.example/?sni=hy.example#Hysteria2",
 	}
 	for _, link := range cases {
 		t.Run(link[:12], func(t *testing.T) {
@@ -133,7 +134,7 @@ func TestConvertXrayJsonToShareLinks_Errors(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestConvertXrayJsonToShareLinksRejectsHysteria(t *testing.T) {
+func TestConvertXrayJsonToShareLinksSupportsHysteria(t *testing.T) {
 	links, err := ConvertXrayJsonToShareLinks([]byte(`{
 		"outbounds": [{
 			"protocol": "hysteria",
@@ -144,8 +145,8 @@ func TestConvertXrayJsonToShareLinksRejectsHysteria(t *testing.T) {
 			}
 		}]
 	}`))
-	require.EqualError(t, err, "no valid outbounds")
-	assert.Empty(t, links)
+	require.NoError(t, err)
+	assert.Equal(t, "hysteria2://password@example.com:443#hysteria", links)
 }
 
 func TestConvertXrayJsonToShareLinksSkipsUnsupportedOutbounds(t *testing.T) {

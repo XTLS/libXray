@@ -251,19 +251,30 @@ libXray 使用 `tag` 存储节点名称。`sendThrough` 保留 Xray 原生语义
 ### generate_share
 
 按照 [Xray-core 讨论 #716](https://github.com/XTLS/Xray-core/discussions/716)
-将 Xray JSON 转换为 VMessAEAD / VLESS 分享链接，同时支持 SS、SOCKS 和 Trojan。
+将 Xray JSON 转换为 VMessAEAD / VLESS 分享链接，同时支持 Hysteria2、SS、SOCKS 和 Trojan。
 VMess 始终生成 AEAD URI，不生成旧版二维码格式。
 
 没有对应分享格式的 outbound 会被跳过；无法生成任何分享链接时返回失败。
 
 ### parse_share
 
-将 VMessAEAD / VLESS、SS、SOCKS、Trojan 分享链接解析为 Xray JSON。
+将 VMessAEAD / VLESS、Hysteria2、SS、SOCKS、Trojan 分享链接解析为 Xray JSON。
 不支持旧版 VMessQrCode 链接（`vmess://Base64(JSON)`）。
 
-保留 Xray JSON 节点输入以及 Base64 / Age 订阅包装。Clash/Mihomo 配置和
-`hysteria2://` / `hy2://` URI 不受支持。
-这一限制仅针对分享链接转换，不影响原生 Xray JSON 配置中的 Hysteria2。
+保留 Xray JSON 节点输入以及 Base64 / Age 订阅包装，不支持 Clash/Mihomo 配置。
+
+Hysteria2 接受 `hysteria2://` 和 `hy2://`，遵循
+[官方 URI 格式](https://v2.hysteria.network/docs/developers/URI-Scheme/)：支持可选认证、
+默认端口 443、IPv6、SNI、Salamander 混淆、多端口 authority 与名称 fragment。
+导出统一使用 `hysteria2://`。端口跳跃映射到 Core 的 `finalmask.udp`，同时启用本地与
+远端定时跳跃，默认 30 秒，`hop-interval` 至少为 5 秒。兼容 `ports` / `mport` 查询参数，
+导出时转为 authority 中的多端口。旧 `up` / `down` 仅导入为客户端 QUIC 调优，不导出。
+
+TLS 必须开启。拒绝 `insecure=true` / `allowInsecure=true` 和 `pinSHA256`，
+因为当前 Core 无法等价表达这些 Hysteria 证书校验语义。显式 Xray 扩展 `fp`、`alpn`、
+`ech`、`pcs`、`vcn` 保留 Xray 原有语义。无法表达的 TLS 或 mask 设置拒绝导出，
+不静默丢弃安全或混淆配置。客户端 QUIC 调优不属于 URI。不支持 Realm 或 Gecko。
+端口跳跃需要直接 UDP socket；本次恢复不增加链式代理上的跳跃支持。
 
 VMessAEAD / VLESS 的字段映射遵循
 [Xray 分享链接提案](https://github.com/XTLS/Xray-core/discussions/716)，

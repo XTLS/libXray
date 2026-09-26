@@ -416,13 +416,40 @@ func TestInvokeConvertShareLinksFiltersBuildInvalidOutbounds(t *testing.T) {
 	}
 }
 
+func TestInvokeHysteria2ShareRoundTrip(t *testing.T) {
+	for _, scheme := range []string{"hysteria2", "hy2"} {
+		t.Run(scheme, func(t *testing.T) {
+			response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson,
+				ConvertShareLinksToXrayJsonRequest{Text: scheme + "://password@example.com:443?obfs=salamander&obfs-password=secret#Test"})
+			if !response.Success {
+				t.Fatal(response.Err)
+			}
+			config := decodeShareConfig(t, response)
+			if len(config.OutboundConfigs) != 1 || config.OutboundConfigs[0].Protocol != "hysteria" || config.OutboundConfigs[0].Tag != "Test" {
+				t.Fatalf("unexpected Hysteria2 projection: %s", response.Data)
+			}
+			if result := invokeForTest(t, LibXrayMethodTestXray, TestXrayRequest{XrayJson: string(response.Data)}); !result.Success {
+				t.Fatal(result.Err)
+			}
+			result := invokeForTest(t, LibXrayMethodConvertXrayJsonToShareLinks,
+				ConvertXrayJsonToShareLinksRequest{XrayJson: string(response.Data)})
+			if !result.Success {
+				t.Fatal(result.Err)
+			}
+			links := decodeDataObject[ConvertXrayJsonToShareLinksResponse](t, result)
+			if !strings.HasPrefix(links.Links, "hysteria2://") || !strings.HasSuffix(links.Links, "#Test") {
+				t.Fatalf("unexpected Hysteria2 link: %s", links.Links)
+			}
+		})
+	}
+}
+
 func TestInvokeConvertShareLinksRejectsRemovedFormats(t *testing.T) {
 	for _, test := range []struct {
 		name, text string
 	}{
 		{"Clash", "proxies:\n  - {type: vless, server: example.com, port: 443, uuid: 12345678-abcd-abcd-abcd-123456789abc}"},
-		{"Hysteria2", "hysteria2://password@example.com:443"},
-		{"Hy2", "hy2://password@example.com:443"},
+		{"HysteriaRealm", "hysteria2+realm://token@example.com/realm?auth=password"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			response := invokeForTest(t, LibXrayMethodConvertShareLinksToXrayJson,
