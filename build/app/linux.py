@@ -13,18 +13,20 @@ class LinuxBuilder(Builder):
         create_dir_if_not_exists(self.framework_dir)
         self.lib_file = "libXray.so"
         self.lib_header_file = "libXray.h"
+        self.bin_file = "xray"
 
     def before_build(self):
         super().before_build()
         self.prepare_static_lib()
 
     def build(self):
-        self.before_build()
-        self.build_linux()
-        self.after_build()
-
-        self.build_desktop_bin()
-        self.revert_go_env()
+        self.snapshot_go_env()
+        try:
+            self.before_build()
+            self.build_linux()
+            self.build_desktop_bin(self.bin_file)
+        finally:
+            self.restore_go_env()
 
     def build_linux(self):
         output_dir = self.framework_dir
@@ -43,13 +45,10 @@ class LinuxBuilder(Builder):
             "-s -w",
             f"-o={output_file}",
             "-buildmode=c-shared",
+            self.main_package(),
         ]
         os.chdir(self.lib_dir)
         print(cmd)
         ret = subprocess.run(cmd, env=run_env)
         if ret.returncode != 0:
             raise Exception(f"build_linux failed")
-
-    def after_build(self):
-        super().after_build()
-        self.reset_files()

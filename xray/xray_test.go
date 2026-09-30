@@ -1,0 +1,146 @@
+package xray
+
+import (
+	"errors"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+)
+
+const minimalConfig = `{
+  "log": {"loglevel": "none"},
+  "inbounds": [],
+  "outbounds": [{"protocol": "freedom", "tag": "direct"}]
+}`
+
+func TestTemporaryOperationsRejectManagedOverlap(t *testing.T) {
+	if err := RunXray(minimalConfig); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = StopXray() })
+	const key = "XRAY_LIBXRAY_TEMPORARY_OVERLAP_TEST"
+	t.Setenv(key, "original")
+	config := `{"env":{"` + key + `":"changed"},"outbounds":[{"protocol":"freedom"}]}`
+	for name, operation := range map[string]func() error{
+		"testXray": func() error { return TestXray(config) },
+		"pingBatch": func() error {
+			_, err := PingBatch([]PingBatchItem{{XrayJSON: config}}, 10, "http://127.0.0.1:1/")
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := operation(); err == nil || !strings.Contains(err.Error(), "isolated process") {
+				t.Fatalf("managed overlap was not rejected: %v", err)
+			}
+			if os.Getenv(key) != "original" || !GetXrayState() {
+				t.Fatal("temporary operation changed the active instance or process environment")
+			}
+		})
+	}
+}
+
+func TestRunXrayRejectsDuplicateStart(t *testing.T) {
+	t.Cleanup(func() {
+		if err := StopXray(); err != nil {
+			t.Errorf("stop xray: %v", err)
+		}
+	})
+
+	if err := StopXray(); err != nil {
+		t.Fatalf("reset xray state: %v", err)
+	}
+	if err := RunXray(minimalConfig); err != nil {
+		t.Fatalf("start xray: %v", err)
+	}
+	if !GetXrayState() {
+		t.Fatal("xray should be running")
+	}
+	if err := RunXray(minimalConfig); !errors.Is(err, ErrAlreadyRunning) {
+		t.Fatalf("duplicate start error = %v, want %v", err, ErrAlreadyRunning)
+	}
+}
+
+func TestXrayLifecycleConcurrentStateReads(t *testing.T) {
+	if err := StopXray(); err != nil {
+		t.Fatalf("reset xray state: %v", err)
+	}
+	if err := RunXray(minimalConfig); err != nil {
+		t.Fatalf("start xray: %v", err)
+	}
+
+	var readers sync.WaitGroup
+	for range 32 {
+		readers.Add(1)
+		go func() {
+			defer readers.Done()
+			_ = GetXrayState()
+		}()
+	}
+	readers.Wait()
+
+	if err := StopXray(); err != nil {
+		t.Fatalf("stop xray: %v", err)
+	}
+	if GetXrayState() {
+		t.Fatal("xray should be stopped")
+	}
+}
+
+func TestRunXrayFailureDoesNotPublishInstance(t *testing.T) {
+	if err := StopXray(); err != nil {
+		t.Fatalf("reset xray state: %v", err)
+	}
+	if err := RunXray(`{"outbounds":[`); err == nil {
+		t.Fatal("invalid config should fail")
+	}
+	if GetXrayState() {
+		t.Fatal("failed start must not publish an instance")
+	}
+	if err := RunXray(minimalConfig); err != nil {
+		t.Fatalf("start after failure: %v", err)
+	}
+	if err := StopXray(); err != nil {
+		t.Fatalf("stop xray: %v", err)
+	}
+}
+
+func TestRunXraySerializesConcurrentStarts(t *testing.T) {
+	if err := StopXray(); err != nil {
+		t.Fatalf("reset xray state: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := StopXray(); err != nil {
+			t.Errorf("stop xray: %v", err)
+		}
+	})
+
+	const starts = 8
+	errorsByStart := make(chan error, starts)
+	var starters sync.WaitGroup
+	for range starts {
+		starters.Add(1)
+		go func() {
+			defer starters.Done()
+			errorsByStart <- RunXray(minimalConfig)
+		}()
+	}
+	starters.Wait()
+	close(errorsByStart)
+
+	successes := 0
+	duplicates := 0
+	for err := range errorsByStart {
+		switch {
+		case err == nil:
+			successes++
+		case errors.Is(err, ErrAlreadyRunning):
+			duplicates++
+		default:
+			t.Fatalf("unexpected start error: %v", err)
+		}
+	}
+	if successes != 1 || duplicates != starts-1 {
+		t.Fatalf("successes=%d duplicates=%d", successes, duplicates)
+	}
+}

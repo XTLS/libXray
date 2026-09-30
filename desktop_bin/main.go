@@ -1,29 +1,37 @@
+//go:build windows || (linux && !android)
+
 package main
 
 import (
-	"flag"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/debug"
 	"syscall"
+
+	"github.com/xtls/libxray/dns"
+	"github.com/xtls/libxray/xray"
 )
 
-func main() {
-	configPath := flag.String("configPath", "config.json", "Path of config.json")
-	flag.Parse()
-	err := runXray(*configPath)
+func run(options runOptions) error {
+	config, err := os.ReadFile(options.configPath)
 	if err != nil {
-		os.Exit(1)
+		return err
 	}
-	defer stopXray()
-	// Explicitly triggering GC to remove garbage from config loading.
-	runtime.GC()
-	debug.FreeOSMemory()
+	if err := dns.SetDNS(options.dns, options.interfaceName); err != nil {
+		return err
+	}
+	defer dns.ResetDNS()
 
-	{
-		osSignals := make(chan os.Signal, 1)
-		signal.Notify(osSignals, os.Interrupt, syscall.SIGTERM)
-		<-osSignals
+	if err := xray.RunXray(string(config)); err != nil {
+		return err
 	}
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+	<-signals
+	return xray.StopXray()
+}
+
+func main() {
+	os.Exit(execute(os.Args[1:], run, os.Stdout, os.Stderr))
 }

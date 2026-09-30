@@ -1,0 +1,301 @@
+name: Build libXray
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: build-libxray-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NDK_VERSION: r29
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: linux
+            arch: x64
+            artifact: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: linux
+            arch: arm64
+            artifact: linux-arm64
+          - runner: ubuntu-24.04
+            target: android
+            artifact: android
+          - runner: windows-2025
+            target: windows
+            arch: x64
+            goarch: amd64
+            artifact: windows-x64
+          - runner: windows-11-arm
+            target: windows
+            arch: arm64
+            goarch: arm64
+            artifact: windows-arm64
+          - runner: macos-26
+            target: apple
+            artifact: apple-cgo
+
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    env:
+      CGO_ENABLED: "1"
+
+    steps:
+      # =========================
+      # Checkout
+      # =========================
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      # =========================
+      # Python (build scripts)
+      # =========================
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+          check-latest: true
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+
+      # =========================
+      # Go setup
+      # =========================
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          check-latest: true
+
+      - name: Download Go modules
+        run: go mod download
+
+      # =========================
+      # Windows ARM64 toolchain
+      # =========================
+      - name: Install LLVM-MinGW for Windows ARM64
+        if: matrix.target == 'windows' && matrix.arch == 'arm64'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{
+            Accept = "application/vnd.github+json"
+            Authorization = "Bearer $env:GH_TOKEN"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $release = Invoke-RestMethod `
+            -Headers $headers `
+            -Uri "https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest"
+          $asset = $release.assets |
+            Where-Object { $_.name -match "^llvm-mingw-.+-ucrt-aarch64\.zip$" } |
+            Select-Object -First 1
+          if ($null -eq $asset) {
+            throw "The latest LLVM-MinGW release has no ARM64 UCRT archive"
+          }
+
+          $archivePath = Join-Path $env:RUNNER_TEMP $asset.name
+          $extractPath = Join-Path $env:RUNNER_TEMP "llvm-mingw"
+          Write-Host "Downloading LLVM-MinGW $($release.tag_name): $($asset.name)"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archivePath
+          Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath
+
+          $binPath = Get-ChildItem -LiteralPath $extractPath -Directory |
+            ForEach-Object { Join-Path $_.FullName "bin" } |
+            Where-Object { Test-Path (Join-Path $_ "gcc.exe") } |
+            Select-Object -First 1
+          if ($null -eq $binPath) {
+            throw "LLVM-MinGW bin directory was not found in $extractPath"
+          }
+          $binPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify Windows ARM64 CGo toolchain
+        if: matrix.target == 'windows' && matrix.arch == 'arm64'
+        shell: pwsh
+        run: |
+          where.exe gcc.exe
+          where.exe g++.exe
+
+          $gccTarget = (& gcc.exe -dumpmachine).Trim()
+          $gxxTarget = (& g++.exe -dumpmachine).Trim()
+          $expectedTarget = '^aarch64-w64-(windows-gnu|mingw32)$'
+          if ($gccTarget -notmatch $expectedTarget) {
+            throw "Unexpected gcc target: $gccTarget"
+          }
+          if ($gxxTarget -notmatch $expectedTarget) {
+            throw "Unexpected g++ target: $gxxTarget"
+          }
+
+      # =========================
+      # Apple toolchain
+      # =========================
+      - name: Select Xcode
+        if: matrix.target == 'apple'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # =========================
+      # Android toolchain
+      # =========================
+      - name: Setup Java (Android)
+        if: matrix.target == 'android'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        if: matrix.target == 'android'
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Android NDK
+        if: matrix.target == 'android'
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: true
+
+      # =========================
+      # Build steps
+      # =========================
+
+      - name: Build Linux
+        if: matrix.target == 'linux'
+        run: |
+          python3 build/main.py linux
+
+      - name: Build Android
+        if: matrix.target == 'android'
+        run: |
+          python3 build/main.py android
+
+      - name: Test Windows desktop Core
+        if: matrix.target == 'windows'
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: go test ./dns ./desktop_bin -count=1
+
+      - name: Build Windows
+        if: matrix.target == 'windows'
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          python build/main.py windows
+
+      - name: Verify Windows architecture
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          $expected = switch ("${{ matrix.arch }}") {
+            "x64" { 0x8664 }
+            "arm64" { 0xaa64 }
+            default { throw "unsupported Windows architecture: ${{ matrix.arch }}" }
+          }
+          foreach ($path in @("windows_dll/libXray.dll", "bin/xray.exe")) {
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            $peOffset = [System.BitConverter]::ToInt32($bytes, 0x3c)
+            $machine = [System.BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            if ($machine -ne $expected) {
+              throw ("unexpected PE machine for {0}: 0x{1:X4}; expected 0x{2:X4}" -f $path, $machine, $expected)
+            }
+          }
+
+      - name: Verify Linux desktop Core CLI
+        if: matrix.target == 'linux'
+        run: ./bin/xray -h
+
+      - name: Verify Windows desktop Core CLI
+        if: matrix.target == 'windows'
+        run: ./bin/xray.exe -h
+
+      - name: Build Apple (macOS/iOS)
+        if: matrix.target == 'apple'
+        run: |
+          python3 build/main.py apple go
+
+      # =========================
+      # Collect artifacts
+      # =========================
+      - name: Package artifacts
+        shell: bash
+        run: |
+          set -e
+
+          case "${{ matrix.target }}" in
+            linux)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp linux_so/libXray.so "dist/${{ matrix.artifact }}/"
+              cp linux_so/libXray.h "dist/${{ matrix.artifact }}/"
+              cp bin/xray "dist/${{ matrix.artifact }}/"
+              ;;
+            windows)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp windows_dll/libXray.dll "dist/${{ matrix.artifact }}/"
+              cp windows_dll/libXray.h "dist/${{ matrix.artifact }}/"
+              cp bin/xray.exe "dist/${{ matrix.artifact }}/"
+              ;;
+            android)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp libXray.aar "dist/${{ matrix.artifact }}/"
+              cp libXray-sources.jar "dist/${{ matrix.artifact }}/"
+              ;;
+            apple)
+              mkdir -p "dist/${{ matrix.artifact }}"
+              cp -R LibXray.xcframework "dist/${{ matrix.artifact }}/"
+              ;;
+          esac
+      # =========================
+      # Upload artifacts
+      # =========================
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: libxray-${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}/
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: libxray-*
+          path: dist/
+          merge-multiple: false
+
+      - name: Zip each platform
+        run: |
+          cd dist
+          for d in */ ; do
+            zip -r "${d%/}.zip" "$d"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: libXray ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          prerelease: true
+          files: dist/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -17,148 +17,13 @@ func ssUserB64(cipher, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(cipher + ":" + password))
 }
 
-func parseHy2Link(t *testing.T, link string) *conf.OutboundDetourConfig {
-	t.Helper()
-	config, err := ConvertShareLinksToXrayJson(link)
-	require.NoError(t, err)
-	require.Len(t, config.OutboundConfigs, 1)
-	return &config.OutboundConfigs[0]
-}
-
-func TestHysteria2_Minimal(t *testing.T) {
-	outbound := parseHy2Link(t, "hy2://auth@host:443?sni=example.com")
-
-	assert.Equal(t, "hysteria", outbound.Protocol)
-
-	var settings conf.HysteriaClientConfig
-	require.NoError(t, json.Unmarshal(*outbound.Settings, &settings))
-	assert.Equal(t, int32(2), settings.Version)
-	assert.Equal(t, uint16(443), settings.Port)
-
-	ss := outbound.StreamSetting
-	require.NotNil(t, ss)
-	assert.Equal(t, "tls", ss.Security)
-	require.NotNil(t, ss.TLSSettings)
-	assert.Equal(t, "example.com", ss.TLSSettings.ServerName)
-
-	require.NotNil(t, ss.HysteriaSettings)
-	assert.Equal(t, int32(2), ss.HysteriaSettings.Version)
-	assert.Equal(t, "auth", ss.HysteriaSettings.Auth)
-
-	// No FinalMask for minimal link
-	assert.Nil(t, ss.FinalMask)
-}
-
-func TestHysteria2_WithBandwidth(t *testing.T) {
-	outbound := parseHy2Link(t, "hy2://auth@host:443?up=100+mbps&down=200+mbps&sni=example.com")
-
-	ss := outbound.StreamSetting
-	require.NotNil(t, ss)
-	require.NotNil(t, ss.FinalMask)
-	require.NotNil(t, ss.FinalMask.QuicParams)
-
-	qp := ss.FinalMask.QuicParams
-	assert.Equal(t, "brutal", qp.Congestion)
-	assert.Equal(t, conf.Bandwidth("100 mbps"), qp.BrutalUp)
-	assert.Equal(t, conf.Bandwidth("200 mbps"), qp.BrutalDown)
-
-	// No Salamander
-	assert.Empty(t, ss.FinalMask.Udp)
-}
-
-func TestHysteria2_WithSalamander(t *testing.T) {
-	outbound := parseHy2Link(t, "hy2://auth@host:443?obfs=salamander&obfs-password=secret&sni=example.com")
-
-	ss := outbound.StreamSetting
-	require.NotNil(t, ss)
-	require.NotNil(t, ss.FinalMask)
-
-	// No QuicParams
-	assert.Nil(t, ss.FinalMask.QuicParams)
-
-	// Has Salamander
-	require.Len(t, ss.FinalMask.Udp, 1)
-	assert.Equal(t, "salamander", ss.FinalMask.Udp[0].Type)
-
-	var salamander conf.Salamander
-	require.NoError(t, json.Unmarshal(*ss.FinalMask.Udp[0].Settings, &salamander))
-	assert.Equal(t, "secret", salamander.Password)
-}
-
-func TestHysteria2_WithEverything(t *testing.T) {
-	outbound := parseHy2Link(t, "hy2://auth@host:443?up=50+mbps&down=100+mbps&obfs=salamander&obfs-password=secret&ports=20000-40000&hop-interval=30&sni=example.com")
-
-	ss := outbound.StreamSetting
-	require.NotNil(t, ss)
-	require.NotNil(t, ss.FinalMask)
-
-	// QuicParams with bandwidth and port-hopping
-	require.NotNil(t, ss.FinalMask.QuicParams)
-	qp := ss.FinalMask.QuicParams
-	assert.Equal(t, "brutal", qp.Congestion)
-	assert.Equal(t, conf.Bandwidth("50 mbps"), qp.BrutalUp)
-	assert.Equal(t, conf.Bandwidth("100 mbps"), qp.BrutalDown)
-
-	// UdpHop
-	assert.Equal(t, "20000-40000", qp.UdpHop.PortList.String())
-	assert.Equal(t, int32(30), qp.UdpHop.Interval.From)
-	assert.Equal(t, int32(30), qp.UdpHop.Interval.To)
-
-	// Salamander
-	require.Len(t, ss.FinalMask.Udp, 1)
-	assert.Equal(t, "salamander", ss.FinalMask.Udp[0].Type)
-}
-
-func TestHysteria2_WithTLSParams(t *testing.T) {
-	outbound := parseHy2Link(t, "hy2://auth@host:443?sni=example.com&alpn=h3&fp=chrome")
-
-	ss := outbound.StreamSetting
-	require.NotNil(t, ss)
-	assert.Equal(t, "tls", ss.Security)
-	require.NotNil(t, ss.TLSSettings)
-	assert.Equal(t, "example.com", ss.TLSSettings.ServerName)
-	assert.Equal(t, "chrome", ss.TLSSettings.Fingerprint)
-	require.NotNil(t, ss.TLSSettings.ALPN)
-	assert.Equal(t, conf.StringList{"h3"}, *ss.TLSSettings.ALPN)
-}
-
-func TestHysteria2_PortsOnlyNoCongestion(t *testing.T) {
-	outbound := parseHy2Link(t, "hy2://auth@host:443?ports=20000-40000&hop-interval=10&sni=example.com")
-
-	ss := outbound.StreamSetting
-	require.NotNil(t, ss)
-	require.NotNil(t, ss.FinalMask)
-	require.NotNil(t, ss.FinalMask.QuicParams)
-
-	qp := ss.FinalMask.QuicParams
-	// No Congestion when only ports are set (no bandwidth)
-	assert.Empty(t, qp.Congestion)
-	assert.Empty(t, string(qp.BrutalUp))
-	assert.Empty(t, string(qp.BrutalDown))
-
-	// UdpHop is set
-	assert.Equal(t, "20000-40000", qp.UdpHop.PortList.String())
-	assert.Equal(t, int32(10), qp.UdpHop.Interval.From)
-	assert.Equal(t, int32(10), qp.UdpHop.Interval.To)
-}
-
-func TestHysteria2_TLSDefaultWhenSecurityOmitted(t *testing.T) {
-	// When no security= param is present, hysteria2 should default to TLS
-	outbound := parseHy2Link(t, "hy2://auth@host:443?sni=example.com")
-
-	ss := outbound.StreamSetting
-	require.NotNil(t, ss)
-	assert.Equal(t, "tls", ss.Security)
-	require.NotNil(t, ss.TLSSettings)
-}
-
 func TestFixWindowsReturn(t *testing.T) {
 	in := "a\r\nb\r\nc"
 	assert.Equal(t, "a\nb\nc", FixWindowsReturn(in))
 }
 
 func TestConvertShareLinksToXrayJson_XrayJSONRoundTrip(t *testing.T) {
-	orig, err := ConvertShareLinksToXrayJson(
+	orig, err := convertShareLinksForTest(
 		"vless://" + testShareUUID + "@example.com:443?encryption=none&security=tls&sni=example.com&type=ws&path=%2Fp&host=cdn.example.com#tag1",
 	)
 	require.NoError(t, err)
@@ -167,39 +32,81 @@ func TestConvertShareLinksToXrayJson_XrayJSONRoundTrip(t *testing.T) {
 	raw, err := json.Marshal(orig)
 	require.NoError(t, err)
 
-	again, err := ConvertShareLinksToXrayJson(string(raw))
+	again, err := convertShareLinksForTest(string(raw))
 	require.NoError(t, err)
 	require.Len(t, again.OutboundConfigs, 1)
 	assert.Equal(t, orig.OutboundConfigs[0].Protocol, again.OutboundConfigs[0].Protocol)
 }
 
+func TestConvertShareLinksToXrayJson_XrayJSONKeepsOnlyOutbounds(t *testing.T) {
+	config, err := convertShareLinksForTest(`{
+		"env": {"TEST_ENV": "value"},
+		"log": {"loglevel": "debug"},
+		"routing": {"rules": []},
+		"dns": {"servers": ["8.8.8.8"]},
+		"inbounds": [{"protocol": "http", "listen": "127.0.0.1", "port": 1080, "settings": {}}],
+		"outbounds": [{"protocol": "freedom", "tag": "direct", "settings": {}}],
+		"policy": {"levels": {}},
+		"metrics": {"tag": "metrics"},
+		"stats": {},
+		"fakeDns": {"ipPool": "198.18.0.0/15", "poolSize": 65535}
+	}`)
+	require.NoError(t, err)
+	require.Len(t, config.OutboundConfigs, 1)
+	assert.Equal(t, "direct", config.OutboundConfigs[0].Tag)
+	assert.Equal(t, &conf.Config{OutboundConfigs: config.OutboundConfigs}, config)
+}
+
 func TestConvertShareLinksToXrayJson_XrayJSONInvalid(t *testing.T) {
-	_, err := ConvertShareLinksToXrayJson("{not json")
+	_, err := convertShareLinksForTest("{not json")
 	require.Error(t, err)
 }
 
 func TestConvertShareLinksToXrayJson_XrayJSONNoOutbounds(t *testing.T) {
-	_, err := ConvertShareLinksToXrayJson(`{"outbounds":[]}`)
+	_, err := convertShareLinksForTest(`{"outbounds":[]}`)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "outbound")
 }
 
+func TestConvertShareLinksToXrayJson_FiltersBuildInvalidOutbounds(t *testing.T) {
+	links := "vless://2418d087-648k-4990-86e8-19dca1d006d3@invalid-id.example:443?encryption=none&security=tls&sni=invalid-id.example&fp=chrome\n" +
+		"vless://" + testShareUUID + "@invalid-reality.example:443?encryption=none&security=reality&sni=invalid-reality.example&pbk=invalid&fp=chrome\n" +
+		"vless://" + testShareUUID + "@valid.example:443?encryption=none&security=tls&sni=valid.example&fp=chrome#Valid"
+
+	config, err := convertShareLinksForTest(links)
+	require.NoError(t, err)
+	require.Len(t, config.OutboundConfigs, 1)
+	assert.Equal(t, "Valid", config.OutboundConfigs[0].Tag)
+	assert.Nil(t, config.OutboundConfigs[0].SendThrough)
+}
+
+func TestConvertShareLinksToXrayJson_AllBuildInvalidOutbounds(t *testing.T) {
+	_, err := convertShareLinksForTest(
+		"vless://2418d087-648k-4990-86e8-19dca1d006d3@invalid.example:443?encryption=none&security=tls&sni=invalid.example&fp=chrome",
+	)
+
+	require.Error(t, err)
+	assert.EqualError(t, err, "no valid outbound found")
+}
+
 func TestConvertShareLinksToXrayJson_Base64EncodedLines(t *testing.T) {
 	lines := "trojan://secret@trojan.example.com:443?sni=trojan.example.com\n" +
-		"ss://" + ssUserB64("aes-128-gcm", "pwd") + "@ss.example.com:8388#ssn"
+		"ss://" + ssUserB64("aes-128-gcm", "pwd") + "@ss.example.com:8388#ssn\n" +
+		"vmess://" + testShareUUID + "@vm.example:443?encryption=auto&type=ws#VMessAEAD"
 	blob := base64.StdEncoding.EncodeToString([]byte(lines))
 
-	cfg, err := ConvertShareLinksToXrayJson(blob)
+	cfg, err := convertShareLinksForTest(blob)
 	require.NoError(t, err)
-	require.Len(t, cfg.OutboundConfigs, 2)
+	require.Len(t, cfg.OutboundConfigs, 3)
 	assert.Equal(t, "trojan", cfg.OutboundConfigs[0].Protocol)
 	assert.Equal(t, "shadowsocks", cfg.OutboundConfigs[1].Protocol)
+	assert.Equal(t, "vmess", cfg.OutboundConfigs[2].Protocol)
 }
 
 func TestConvertShareLinksToXrayJson_Base64URLSafeBlob(t *testing.T) {
-	inner := "vless://" + testShareUUID + "@v.example.com:443?encryption=none&security=none"
+	inner := "vless://" + testShareUUID + "@10.0.0.1:443?encryption=none&security=none"
 	b := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString([]byte(inner))
-	cfg, err := ConvertShareLinksToXrayJson(b)
+	cfg, err := convertShareLinksForTest(b)
 	require.NoError(t, err)
 	require.Len(t, cfg.OutboundConfigs, 1)
 	assert.Equal(t, "vless", cfg.OutboundConfigs[0].Protocol)
@@ -207,7 +114,7 @@ func TestConvertShareLinksToXrayJson_Base64URLSafeBlob(t *testing.T) {
 
 func TestConvertShareLinksToXrayJson_Shadowsocks(t *testing.T) {
 	link := "ss://" + ssUserB64("chacha20-ietf-poly1305", "mypass") + "@10.0.0.1:8388#frag"
-	cfg, err := ConvertShareLinksToXrayJson(link)
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	require.Len(t, cfg.OutboundConfigs, 1)
 	ob := cfg.OutboundConfigs[0]
@@ -219,9 +126,40 @@ func TestConvertShareLinksToXrayJson_Shadowsocks(t *testing.T) {
 	assert.Equal(t, uint16(8388), s.Port)
 }
 
+func TestConvertShareLinksToXrayJson_ShadowsocksPlainUserInfo(t *testing.T) {
+	const password = "YctPZ6U7xPPcU+gp3u+0tx/tRizJN9K8y+uKlW2qjlI="
+	link := "ss://2022-blake3-aes-256-gcm:" +
+		url.QueryEscape(password) +
+		"@192.168.100.1:8888#Example3"
+
+	cfg, err := convertShareLinksForTest(link)
+	require.NoError(t, err)
+	require.Len(t, cfg.OutboundConfigs, 1)
+
+	ob := cfg.OutboundConfigs[0]
+	assert.Equal(t, "shadowsocks", ob.Protocol)
+	var settings conf.ShadowsocksClientConfig
+	require.NoError(t, json.Unmarshal(*ob.Settings, &settings))
+	assert.Equal(t, "2022-blake3-aes-256-gcm", settings.Cipher)
+	assert.Equal(t, password, settings.Password)
+	assert.Equal(t, uint16(8888), settings.Port)
+}
+
+func TestParseShadowsocksUserInfo_PlainPercentEncoding(t *testing.T) {
+	link, err := url.Parse(
+		"ss://aes-128-gcm:p%40ss%3Aword%2Fwith%2Bsymbols@ss.example.com:8388",
+	)
+	require.NoError(t, err)
+
+	cipher, password, err := parseShadowsocksUserInfo(link.User)
+	require.NoError(t, err)
+	assert.Equal(t, "aes-128-gcm", cipher)
+	assert.Equal(t, "p@ss:word/with+symbols", password)
+}
+
 func TestConvertShareLinksToXrayJson_VlessWSAndTLS(t *testing.T) {
-	link := "vless://" + testShareUUID + "@edge.example:443?encryption=none&type=ws&path=%2Fws&host=cdn.edge&security=tls&sni=edge.example&alpn=h2%2Ch3&fp=chrome&insecure=1"
-	cfg, err := ConvertShareLinksToXrayJson(link)
+	link := "vless://" + testShareUUID + "@edge.example:443?encryption=none&type=ws&path=%2Fws&host=cdn.edge&security=tls&sni=edge.example&alpn=h2%2Ch3&fp=chrome&vcn=edge.example"
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	require.Len(t, cfg.OutboundConfigs, 1)
 	ss := cfg.OutboundConfigs[0].StreamSetting
@@ -233,16 +171,16 @@ func TestConvertShareLinksToXrayJson_VlessWSAndTLS(t *testing.T) {
 	require.NotNil(t, ss.TLSSettings)
 	assert.Equal(t, "edge.example", ss.TLSSettings.ServerName)
 	assert.Equal(t, "chrome", ss.TLSSettings.Fingerprint)
-	assert.True(t, ss.TLSSettings.AllowInsecure)
+	assert.Equal(t, "edge.example", ss.TLSSettings.VerifyPeerCertByName)
 	require.NotNil(t, ss.TLSSettings.ALPN)
 	assert.Contains(t, []string(*ss.TLSSettings.ALPN), "h2")
 }
 
 func TestConvertShareLinksToXrayJson_VlessReality(t *testing.T) {
-	pbk := "ZXYAbCdEfGhIjKlMnOpQrStUvWxYz0123456789ABCD"
+	pbk := "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 	link := "vless://" + testShareUUID + "@reality.example:443?encryption=none&security=reality&type=tcp&sni=reality.example&pbk=" +
-		pbk + "&sid=abcd&fp=qq&pqv=pqv1&spx=%2F"
-	cfg, err := ConvertShareLinksToXrayJson(link)
+		pbk + "&sid=abcd&fp=chrome&spx=%2F"
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	ss := cfg.OutboundConfigs[0].StreamSetting
 	require.NotNil(t, ss)
@@ -250,14 +188,13 @@ func TestConvertShareLinksToXrayJson_VlessReality(t *testing.T) {
 	require.NotNil(t, ss.REALITYSettings)
 	assert.Equal(t, pbk, ss.REALITYSettings.PublicKey)
 	assert.Equal(t, "abcd", ss.REALITYSettings.ShortId)
-	assert.Equal(t, "qq", ss.REALITYSettings.Fingerprint)
-	assert.Equal(t, "pqv1", ss.REALITYSettings.Mldsa65Verify)
+	assert.Equal(t, "chrome", ss.REALITYSettings.Fingerprint)
 	assert.Equal(t, "/", ss.REALITYSettings.SpiderX)
 }
 
 func TestConvertShareLinksToXrayJson_Trojan(t *testing.T) {
 	link := "trojan://tpw@trojan.host:4443?sni=trojan.host#tname"
-	cfg, err := ConvertShareLinksToXrayJson(link)
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	var s conf.TrojanClientConfig
 	require.NoError(t, json.Unmarshal(*cfg.OutboundConfigs[0].Settings, &s))
@@ -271,7 +208,7 @@ func TestConvertShareLinksToXrayJson_Trojan(t *testing.T) {
 func TestConvertShareLinksToXrayJson_SocksWithAuth(t *testing.T) {
 	u := base64.StdEncoding.EncodeToString([]byte("socksuser:sockspass"))
 	link := "socks://" + u + "@127.0.0.1:1081#sk"
-	cfg, err := ConvertShareLinksToXrayJson(link)
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	var s conf.SocksClientConfig
 	require.NoError(t, json.Unmarshal(*cfg.OutboundConfigs[0].Settings, &s))
@@ -281,7 +218,7 @@ func TestConvertShareLinksToXrayJson_SocksWithAuth(t *testing.T) {
 
 func TestConvertShareLinksToXrayJson_VmessPlainURL(t *testing.T) {
 	link := "vmess://" + testShareUUID + "@vm.example:443?encryption=auto&type=tcp&headerType=http&path=%2Fpath1%2C%2Fpath2&host=h1%2Ch2"
-	cfg, err := ConvertShareLinksToXrayJson(link)
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	var s conf.VMessOutboundConfig
 	require.NoError(t, json.Unmarshal(*cfg.OutboundConfigs[0].Settings, &s))
@@ -292,12 +229,12 @@ func TestConvertShareLinksToXrayJson_VmessPlainURL(t *testing.T) {
 	require.NotNil(t, ss.RAWSettings)
 }
 
-func TestConvertShareLinksToXrayJson_VmessBase64QR(t *testing.T) {
-	qr := `{"ps":"qrname","add":"vm.add","port":"8443","id":"` + testShareUUID + `","scy":"auto","net":"ws","host":"ws.host","path":"/w","tls":"tls","sni":"tls.sni","alpn":"h2,h3","fp":"safari"}`
-	b64 := base64.StdEncoding.EncodeToString([]byte(qr))
-	link := "vmess://" + b64
-	cfg, err := ConvertShareLinksToXrayJson(link)
+func TestConvertShareLinksToXrayJson_VmessAEADWebSocketTLS(t *testing.T) {
+	link := "vmess://" + testShareUUID + "@vm.example:8443?encryption=auto&type=ws&host=ws.host&path=%2Fw&security=tls&sni=tls.sni&alpn=h2%2Ch3&fp=safari#VMessAEAD"
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
+	assert.Equal(t, "VMessAEAD", cfg.OutboundConfigs[0].Tag)
+	assert.Nil(t, cfg.OutboundConfigs[0].SendThrough)
 	var s conf.VMessOutboundConfig
 	require.NoError(t, json.Unmarshal(*cfg.OutboundConfigs[0].Settings, &s))
 	assert.Equal(t, testShareUUID, s.ID)
@@ -313,17 +250,14 @@ func TestConvertShareLinksToXrayJson_VmessBase64QR(t *testing.T) {
 func TestConvertShareLinksToXrayJson_TransportKcpGrpcHttpUpgradeXhttp(t *testing.T) {
 	t.Run("kcp", func(t *testing.T) {
 		link := "vless://" + testShareUUID + "@k.example:443?encryption=none&type=kcp&headerType=srtp&seed=myseed"
-		cfg, err := ConvertShareLinksToXrayJson(link)
+		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
-		ss := cfg.OutboundConfigs[0].StreamSetting
-		require.NotNil(t, ss.KCPSettings)
-		require.NotNil(t, ss.KCPSettings.Seed)
-		assert.Equal(t, "myseed", *ss.KCPSettings.Seed)
+		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.KCPSettings)
 	})
 
 	t.Run("grpc", func(t *testing.T) {
 		link := "vless://" + testShareUUID + "@g.example:443?encryption=none&type=grpc&serviceName=svc&authority=auth.here&mode=multi"
-		cfg, err := ConvertShareLinksToXrayJson(link)
+		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
 		gs := cfg.OutboundConfigs[0].StreamSetting.GRPCSettings
 		require.NotNil(t, gs)
@@ -334,7 +268,7 @@ func TestConvertShareLinksToXrayJson_TransportKcpGrpcHttpUpgradeXhttp(t *testing
 
 	t.Run("httpupgrade", func(t *testing.T) {
 		link := "vless://" + testShareUUID + "@hu.example:443?encryption=none&type=httpupgrade&path=%2Fup&host=hu.host"
-		cfg, err := ConvertShareLinksToXrayJson(link)
+		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
 		h := cfg.OutboundConfigs[0].StreamSetting.HTTPUPGRADESettings
 		require.NotNil(t, h)
@@ -346,59 +280,83 @@ func TestConvertShareLinksToXrayJson_TransportKcpGrpcHttpUpgradeXhttp(t *testing
 		extra := `{"host":"xh.extra"}`
 		link := "vless://" + testShareUUID + "@xh.example:443?encryption=none&type=xhttp&path=%2Fx&host=xh.host&mode=stream-up&extra=" +
 			url.QueryEscape(extra)
-		cfg, err := ConvertShareLinksToXrayJson(link)
+		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
 		x := cfg.OutboundConfigs[0].StreamSetting.XHTTPSettings
 		require.NotNil(t, x)
+		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.SplitHTTPSettings)
 		assert.Equal(t, "stream-up", x.Mode)
 		require.NotNil(t, x.Extra)
 	})
 }
 
 func TestConvertShareLinksToXrayJson_FinalMaskQuery(t *testing.T) {
-	fm := `{"udp":[{"type":"test-mask"}]}`
+	fm := `{"udp":[{"type":"noise","settings":{}}]}`
 	link := "vless://" + testShareUUID + "@fm.example:443?encryption=none&type=tcp&fm=" + url.QueryEscape(fm)
-	cfg, err := ConvertShareLinksToXrayJson(link)
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	ss := cfg.OutboundConfigs[0].StreamSetting
 	require.NotNil(t, ss.FinalMask)
 	require.Len(t, ss.FinalMask.Udp, 1)
-	assert.Equal(t, "test-mask", ss.FinalMask.Udp[0].Type)
-}
-
-func TestConvertShareLinksToXrayJson_Hysteria2InvalidHop(t *testing.T) {
-	_, err := ConvertShareLinksToXrayJson("hy2://auth@host:443?hop-interval=notint&sni=x.com")
-	require.Error(t, err)
+	assert.Equal(t, "noise", ss.FinalMask.Udp[0].Type)
 }
 
 func TestConvertShareLinksToXrayJson_MultiLineSkipsBad(t *testing.T) {
 	bad := "vmess://" + testShareUUID + "@bad.example:notaport?encryption=none"
 	good := "vless://" + testShareUUID + "@ok.example:443?encryption=none"
-	cfg, err := ConvertShareLinksToXrayJson(bad + "\n\n" + good)
+	cfg, err := convertShareLinksForTest(bad + "\n\n" + good)
 	require.NoError(t, err)
 	require.Len(t, cfg.OutboundConfigs, 1)
 	assert.Equal(t, "vless", cfg.OutboundConfigs[0].Protocol)
 }
 
-func TestConvertShareLinksToXrayJson_RawClashYAML(t *testing.T) {
-	yaml := `proxies:
-  - name: clash-ss
-    type: ss
-    server: c.example
-    port: 8390
-    cipher: aes-256-gcm
-    password: yamlpw`
-	cfg, err := ConvertShareLinksToXrayJson(yaml)
+func TestConvertShareLinksToXrayJson_TextHeaderBeforeShareLines(t *testing.T) {
+	good := "vless://" + testShareUUID + "@ok.example:443?encryption=none"
+	text := "Subscription export\n" +
+		"# generated by a client\n" +
+		"\n" +
+		"updated: today\n" +
+		"nodes:\n" +
+		"---\n" +
+		good
+
+	cfg, err := convertShareLinksForTest(text)
 	require.NoError(t, err)
 	require.Len(t, cfg.OutboundConfigs, 1)
-	assert.Equal(t, "shadowsocks", cfg.OutboundConfigs[0].Protocol)
+	assert.Equal(t, "vless", cfg.OutboundConfigs[0].Protocol)
 }
 
-func TestConvertShareLinksToXrayJson_VmessQRGrpcAndKcp(t *testing.T) {
+func TestConvertShareLinksToXrayJson_DetectedShareLinesAllInvalid(t *testing.T) {
+	bad := "vmess://" + testShareUUID + "@bad.example:notaport?encryption=none"
+	_, err := convertShareLinksForTest("Subscription export\n" + bad)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no valid outbound found")
+}
+
+func TestConvertShareLinksToXrayJson_Base64EncodedJSON(t *testing.T) {
+	orig, err := convertShareLinksForTest(
+		"vless://" + testShareUUID + "@json.example:443?encryption=none",
+	)
+	require.NoError(t, err)
+	raw, err := json.Marshal(orig)
+	require.NoError(t, err)
+
+	cfg, err := convertShareLinksForTest(base64.StdEncoding.EncodeToString(raw))
+	require.NoError(t, err)
+	require.Len(t, cfg.OutboundConfigs, 1)
+	assert.Equal(t, "vless", cfg.OutboundConfigs[0].Protocol)
+}
+
+func TestConvertShareLinksToXrayJson_UnsupportedFormat(t *testing.T) {
+	_, err := convertShareLinksForTest("this is not a supported subscription format")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported share format")
+}
+
+func TestConvertShareLinksToXrayJson_VmessAEADGrpcAndKcp(t *testing.T) {
 	t.Run("grpc", func(t *testing.T) {
-		qr := `{"ps":"g","add":"grpc.host","port":"443","id":"` + testShareUUID + `","net":"grpc","path":"svcname","type":"multi"}`
-		link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
-		cfg, err := ConvertShareLinksToXrayJson(link)
+		link := "vmess://" + testShareUUID + "@grpc.host:443?type=grpc&serviceName=svcname&mode=multi#g"
+		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
 		gs := cfg.OutboundConfigs[0].StreamSetting.GRPCSettings
 		require.NotNil(t, gs)
@@ -407,20 +365,16 @@ func TestConvertShareLinksToXrayJson_VmessQRGrpcAndKcp(t *testing.T) {
 	})
 
 	t.Run("kcp", func(t *testing.T) {
-		qr := `{"ps":"k","add":"kcp.host","port":"8391","id":"` + testShareUUID + `","net":"kcp","path":"seedval","type":"wireguard"}`
-		link := "vmess://" + base64.StdEncoding.EncodeToString([]byte(qr))
-		cfg, err := ConvertShareLinksToXrayJson(link)
+		link := "vmess://" + testShareUUID + "@kcp.host:8391?type=kcp#k"
+		cfg, err := convertShareLinksForTest(link)
 		require.NoError(t, err)
-		ks := cfg.OutboundConfigs[0].StreamSetting.KCPSettings
-		require.NotNil(t, ks)
-		require.NotNil(t, ks.Seed)
-		assert.Equal(t, "seedval", *ks.Seed)
+		assert.Nil(t, cfg.OutboundConfigs[0].StreamSetting.KCPSettings)
 	})
 }
 
 func TestConvertShareLinksToXrayJson_ShadowsocksWithStreamQuery(t *testing.T) {
 	link := "ss://" + ssUserB64("aes-128-gcm", "p") + "@ss-ws.example:443?type=ws&path=%2Fws&host=cdn.ws&security=tls&sni=ss-ws.example"
-	cfg, err := ConvertShareLinksToXrayJson(link)
+	cfg, err := convertShareLinksForTest(link)
 	require.NoError(t, err)
 	ss := cfg.OutboundConfigs[0].StreamSetting
 	require.NotNil(t, ss.WSSettings)

@@ -1,17 +1,21 @@
 package xray
 
-// Test Xray Config.
-// datDir means the dir which geosite.dat and geoip.dat are in.
-// configPath means the config.json file path.
-func TestXray(datDir string, configPath string) error {
-	InitEnv(datDir)
-	server, err := StartXray(configPath)
+import (
+	"errors"
+)
+
+// TestXray constructs and closes an instance without calling Start.
+// Constructors may change process state and acquire resources. Callers own any
+// configuration projection; startup resources and connectivity are not tested.
+func TestXray(xrayJSON string) error {
+	coreServerMu.Lock()
+	defer coreServerMu.Unlock()
+	if coreServer != nil {
+		return errors.New("testXray requires an isolated process without a managed Xray instance")
+	}
+	server, err := newXrayInstance(xrayJSON)
 	if err != nil {
 		return err
 	}
-	err = server.Close()
-	if err != nil {
-		return err
-	}
-	return nil
+	return server.Close()
 }

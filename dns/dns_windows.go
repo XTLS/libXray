@@ -3,50 +3,41 @@
 package dns
 
 import (
-	"context"
+	"fmt"
+	"math/bits"
 	"net"
-	"syscall"
-	"time"
+
+	"golang.org/x/sys/windows"
 )
 
 const (
-	IP_UNICAST_IF   = 31
-	IPV6_UNICAST_IF = 31
+	ipUnicastInterface   = 31
+	ipv6UnicastInterface = 31
 )
 
-func InitDns(_ string, deviceName string) {
-	net.DefaultResolver = &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			dialer := makeDialer(deviceName)
-			return dialer.DialContext(ctx, network, address)
-		},
+func bindDNSInterface(network string, fd uintptr, iface *net.Interface) error {
+	var err error
+	switch network {
+	case "tcp4", "udp4", "ip4":
+		index := int(int32(bits.ReverseBytes32(uint32(iface.Index))))
+		err = windows.SetsockoptInt(
+			windows.Handle(fd),
+			windows.IPPROTO_IP,
+			ipUnicastInterface,
+			index,
+		)
+	case "tcp6", "udp6", "ip6":
+		err = windows.SetsockoptInt(
+			windows.Handle(fd),
+			windows.IPPROTO_IPV6,
+			ipv6UnicastInterface,
+			iface.Index,
+		)
+	default:
+		return fmt.Errorf("unsupported DNS network %q for interface %q", network, iface.Name)
 	}
-}
-
-func makeDialer(deviceName string) *net.Dialer {
-	dialer := &net.Dialer{
-		Timeout: time.Second * 16,
+	if err != nil {
+		return fmt.Errorf("bind DNS %s socket to interface %q: %w", network, iface.Name, err)
 	}
-
-	dialer.Control = func(network, address string, c syscall.RawConn) error {
-		err := c.Control(func(fd uintptr) {
-			iface, err := net.InterfaceByName(deviceName)
-			if err != nil {
-				return
-			}
-			switch network {
-			case "tcp4", "udp4":
-				syscall.SetsockoptInt(syscall.Handle(fd), syscall.IPPROTO_IP, IP_UNICAST_IF, iface.Index)
-			case "tcp6", "udp6":
-				syscall.SetsockoptInt(syscall.Handle(fd), syscall.IPPROTO_IPV6, IPV6_UNICAST_IF, iface.Index)
-			default:
-				syscall.SetsockoptInt(syscall.Handle(fd), syscall.IPPROTO_IP, IP_UNICAST_IF, iface.Index)
-				syscall.SetsockoptInt(syscall.Handle(fd), syscall.IPPROTO_IPV6, IPV6_UNICAST_IF, iface.Index)
-			}
-		})
-		return err
-	}
-
-	return dialer
+	return nil
 }

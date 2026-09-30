@@ -20,13 +20,13 @@ class WindowsBuilder(Builder):
         self.prepare_static_lib()
 
     def build(self):
-        self.before_build()
-        self.build_windows()
-
-        self.after_build()
-
-        self.build_desktop_bin()
-        self.revert_go_env()
+        self.snapshot_go_env()
+        try:
+            self.before_build()
+            self.build_windows()
+            self.build_desktop_bin(self.bin_file)
+        finally:
+            self.restore_go_env()
 
     def build_windows(self):
         output_dir = self.framework_dir
@@ -45,13 +45,10 @@ class WindowsBuilder(Builder):
             "-s -w",
             f"-o={output_file}",
             "-buildmode=c-shared",
+            self.main_package(),
         ]
         os.chdir(self.lib_dir)
         print(cmd)
         ret = subprocess.run(cmd, env=run_env)
         if ret.returncode != 0:
             raise Exception(f"run_build_cmd failed")
-
-    def after_build(self):
-        super().after_build()
-        self.reset_files()
