@@ -239,7 +239,10 @@ func hysteria2ShareLink(outbound conf.OutboundDetourConfig) (*url.URL, error) {
 				query.Set("obfs", "salamander")
 				query.Set("obfs-password", obfs.Password)
 			case "udphop":
-				var hop conf.UDPHop
+				var hop struct {
+					conf.UDPHop
+					Sockopt *json.RawMessage `json:"sockopt"`
+				}
 				if err := json.Unmarshal(*entry.Settings, &hop); err != nil || index != len(mask.Udp)-1 ||
 					hop.Mode != "intervalLocal,intervalRemote" || len(hop.RemoteIPs) > 0 || hop.Sockopt != nil ||
 					hop.Interval.From < 5 || hop.Interval.From != hop.Interval.To {
