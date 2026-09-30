@@ -34,7 +34,17 @@ python3 build/main.py windows
 python3 build/main.py windows local
 ```
 
-构建成功或失败后都会恢复 `go.mod` 和 `go.sum`。gomobile 默认解析 `latest`，
+默认会为 `go.mod` 和 `go.sum` 保存快照，并在构建成功或失败后恢复。
+传入 `--no-snapshot` 可跳过快照和恢复；初始化 Go 依赖前会先删除现有的
+`go.mod` 和 `go.sum`，再重新初始化模块，即使构建失败也会保留重新生成的文件。
+所有构建目标均支持此参数，可以与 `local` 组合使用，顺序不限：
+
+```shell
+python3 build/main.py android --no-snapshot
+python3 build/main.py apple go local --no-snapshot
+```
+
+gomobile 默认解析 `latest`，
 也可通过环境变量 `LIBXRAY_GOMOBILE_VERSION` 指定 Go 模块版本；`gomobile` 与
 `gobind` 使用同一个解析版本。
 

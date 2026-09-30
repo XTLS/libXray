@@ -15,10 +15,16 @@ LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
 class Builder(object):
-    def __init__(self, build_dir: str, use_local_xray_core: bool = False):
+    def __init__(
+        self,
+        build_dir: str,
+        use_local_xray_core: bool = False,
+        keep_go_env_snapshot: bool = True,
+    ):
         self.build_dir = build_dir
         self.lib_dir = os.path.abspath(os.path.join(self.build_dir, ".."))
         self.use_local_xray_core = use_local_xray_core
+        self.keep_go_env_snapshot = keep_go_env_snapshot
         self.xray_core_replace_path = f"../{LOCAL_XRAY_CORE_DIR_NAME}"
         self.xray_core_dir = os.path.abspath(
             os.path.join(self.lib_dir, self.xray_core_replace_path)
@@ -26,6 +32,8 @@ class Builder(object):
         self._go_env_snapshot = None
 
     def snapshot_go_env(self):
+        if not self.keep_go_env_snapshot:
+            return
         paths = [
             os.path.join(self.lib_dir, "go.mod"),
             os.path.join(self.lib_dir, "go.sum"),
@@ -68,6 +76,8 @@ class Builder(object):
 
     def init_go_env(self):
         os.chdir(self.lib_dir)
+        if not self.keep_go_env_snapshot:
+            self.clean_lib_files(["go.mod", "go.sum"])
         if not os.path.exists(os.path.join(self.lib_dir, "go.mod")):
             ret = subprocess.run(["go", "mod", "init", LIBXRAY_MOD_NAME])
             if ret.returncode != 0:

@@ -6,8 +6,13 @@ from app.cmd import create_dir_if_not_exists, delete_dir_if_exists
 
 
 class WindowsBuilder(Builder):
-    def __init__(self, build_dir: str, use_local_xray_core: bool = False):
-        super().__init__(build_dir, use_local_xray_core)
+    def __init__(
+        self,
+        build_dir: str,
+        use_local_xray_core: bool = False,
+        keep_go_env_snapshot: bool = True,
+    ):
+        super().__init__(build_dir, use_local_xray_core, keep_go_env_snapshot)
         self.framework_dir = os.path.join(self.lib_dir, "windows_dll")
         delete_dir_if_exists(self.framework_dir)
         create_dir_if_not_exists(self.framework_dir)

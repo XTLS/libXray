@@ -66,7 +66,19 @@ python3 build/main.py windows local
 
 ```
 
-Builds restore `go.mod` and `go.sum` on success or failure. Gomobile builds
+Builds snapshot and restore `go.mod` and `go.sum` on success or failure by default.
+Pass `--no-snapshot` to skip both the snapshot and restoration. Before initializing
+Go dependencies, the script deletes existing `go.mod` and `go.sum` and creates a
+fresh module. The resulting files are retained even if the build fails.
+This option is supported by every target
+and can be combined with `local` in either order:
+
+```shell
+python3 build/main.py android --no-snapshot
+python3 build/main.py apple go local --no-snapshot
+```
+
+Gomobile builds
 resolve `latest` by default; set `LIBXRAY_GOMOBILE_VERSION` to select a Go module
 version. Both `gomobile` and `gobind` use that resolved version.
 

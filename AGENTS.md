@@ -44,7 +44,8 @@ and the relevant platform/controller section in README.
   process resolver and `ResetDNS` follows managed-instance shutdown.
 - Use `build/main.py` to generate native artifacts; do not edit generated
   headers, archives, or binaries. Verify temporary module edits are restored
-  after a build and check the build command's success and resulting artifacts.
+  after a build by default, or retained when `--no-snapshot` is explicitly used.
+  Check the build command's success and resulting artifacts.
 - Modify an adjacent Xray-core checkout only when explicitly requested.
 
 Targets and local-core options are documented in [build usage](README.md#usage).
