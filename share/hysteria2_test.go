@@ -1,6 +1,7 @@
 package share
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	xnet "github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/infra/conf"
 	"github.com/xtls/xray-core/transport/internet/finalmask"
 )
@@ -155,6 +157,10 @@ func TestHysteria2ExportRejectsUnrepresentableSecurityAndMasks(t *testing.T) {
 			raw := json.RawMessage(`{"mode":"intervalRemote","interval":30,"remotePorts":"443,444"}`)
 			s.FinalMask = &conf.FinalMask{Udp: []conf.Mask{{Type: "udphop", Settings: &raw}}}
 		},
+		func(s *conf.StreamConfig) {
+			raw := json.RawMessage(`{"mode":"intervalLocal,intervalRemote","interval":30,"remotePorts":"443,444","sockopt":{}}`)
+			s.FinalMask = &conf.FinalMask{Udp: []conf.Mask{{Type: "udphop", Settings: &raw}}}
+		},
 	} {
 		config, err := convertShareLinksForTest("hy2://auth@host?sni=host")
 		require.NoError(t, err)
@@ -189,19 +195,22 @@ func TestHysteria2PortHoppingReceivesAfterHop(t *testing.T) {
 	mask := config.OutboundConfigs[0].StreamSetting.FinalMask.Udp[0]
 	built, err := mask.Build(false)
 	require.NoError(t, err)
-	raw, err := net.ListenPacket("udp", "127.0.0.1:0")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = raw.Close() })
-	conn, err := finalmask.NewUdpmaskManager([]finalmask.Udpmask{built.(finalmask.Udpmask)}).WrapPacketConnClient(raw)
+	manager := finalmask.NewFinalMask(nil, []finalmask.UDPMask{built.(finalmask.UDPMask)}, nil, nil,
+		func(context.Context, xnet.Destination) (net.PacketConn, net.Addr, error) {
+			raw, err := net.ListenPacket("udp", "127.0.0.1:0")
+			return raw, server.LocalAddr(), err
+		}, nil)
+	dest := xnet.UDPDestination(xnet.IPAddress(net.IPv4(127, 0, 0, 1)), xnet.Port(port))
+	conn, err := manager.DialUDP(context.Background(), dest)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	exchange := func() string {
 		t.Helper()
 		require.NoError(t, conn.SetDeadline(time.Now().Add(2*time.Second)))
-		_, err := conn.WriteTo([]byte("echo"), server.LocalAddr())
+		_, err := conn.Write([]byte("echo"))
 		require.NoError(t, err)
 		buf := make([]byte, 128)
-		n, _, err := conn.ReadFrom(buf)
+		n, err := conn.Read(buf)
 		require.NoError(t, err)
 		assert.True(t, strings.HasSuffix(string(buf[:n]), ":echo"))
 		return string(buf[:n])
