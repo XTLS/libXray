@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NDK_VERSION: r29
+  NDK_VERSION: r30
 
 jobs:
   build:
@@ -154,16 +154,18 @@ jobs:
       # =========================
       - name: Setup Java (Android)
         if: matrix.target == 'android'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: latest
+          check-latest: true
 
       - name: Setup Android SDK
         if: matrix.target == 'android'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Setup Android NDK
+        id: ndk
         if: matrix.target == 'android'
         uses: nttld/setup-ndk@v1
         with:
@@ -181,6 +183,8 @@ jobs:
 
       - name: Build Android
         if: matrix.target == 'android'
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           python3 build/main.py android
 
@@ -277,7 +281,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: libxray-*
           path: dist/

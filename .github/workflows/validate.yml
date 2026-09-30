@@ -23,6 +23,12 @@ jobs:
           go-version: stable
           check-latest: true
 
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+          check-latest: true
+
       - name: Download modules
         run: go mod download
 
