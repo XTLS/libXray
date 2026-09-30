@@ -16,15 +16,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v7.0.0
+      - uses: actions/setup-go@v7
         with:
           go-version: stable
           check-latest: true
 
       - name: Setup Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
           check-latest: true
