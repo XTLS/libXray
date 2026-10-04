@@ -28,7 +28,9 @@ class AndroidBuilder(Builder):
                     "android",
                     "-androidapi",
                     "21",
-                    "-ldflags=-checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384",
+                    "-trimpath",
+                    "-ldflags=-checklinkname=0 -s -w -buildid= "
+                    "-extldflags=-Wl,-z,max-page-size=16384",
                 ]
             )
             if ret.returncode != 0:
