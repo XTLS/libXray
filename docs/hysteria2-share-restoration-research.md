@@ -318,7 +318,7 @@ These checks confirm the current sharing baseline, native Hysteria JSON build
 coverage, and intentional `unsupported share format` results for Hysteria2 URI
 input. They are not tests of a restored implementation or real VPN traffic.
 
-[issue-201]: https://github.com/OneXray/OneXray/issues/201
+[issue-201]: https://github.com/YuanDevTeam/OneXray/issues/201
 [core-update]: https://github.com/XTLS/libXray/commit/36351d7530b2233f3c8d404e6f58cffda0cbc8e5
 [removal]: https://github.com/XTLS/libXray/commit/613752d75f41629e8a43d043cf2e4c14592690fd
 [main-release]: https://github.com/XTLS/libXray/commit/50b95979f5db551bd273165cf469e5daaf791341
