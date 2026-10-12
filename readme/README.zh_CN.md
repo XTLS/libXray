@@ -168,11 +168,13 @@ void CGoFree(char* value);
 5. 完整的 UTF-8 编码 Invoke 请求和响应 JSON 包体限制为 16 MiB。任一方向超过限制时，Invoke 将返回 `success: false`、`data: null` 和对应的大小限制错误。
 6. `convertShareLinksToXrayJson` 会使用当前 Xray-core 配置构建器校验每个已解析的 outbound。无效 outbound 会被忽略；如果没有剩余的有效 outbound，该方法返回失败。校验不会创建或启动 Xray instance。Xray JSON 输入仅作为节点来源，只保留根级 `outbounds`，忽略其他根字段。响应仅包含 libXray 分享链接支持的字段，不支持的字段和生成的空字段会被省略；XHTTP `extra` 与 FinalMask mask `settings` 中的原始 JSON 保持不变。每次成功响应仅包含投影后的 `outbounds` 列表。可选的 `age.secretKey` 会在现有解析流程前于内存中解密官方 age ASCII armor；明文输入保持原有行为。
 7. Xray-core 的系统拨号 DNS client 和 outbound manager 属于进程级状态。`pingBatch`、`testXray` 及对应导出的 Go 入口均取得受管理生命周期锁，在加载/构建配置前拒绝同进程已运行的 `runXray` instance。批量测速在全部 worker 和临时核心关闭后才释放锁，这些操作也彼此串行。由管理 API 之外创建的 instance 不在检测或恢复范围内；可能与它们重叠的调用仍须使用独立进程。
+8. `decodeSubscriptionText` 在可选的 Age 解密后返回完整明文，不解析订阅格式、不投影 outbound、不构造 Xray instance；分类和配置校验由调用方负责。
 
 支持的 method：
 
 ```text
 getFreePorts
+decodeSubscriptionText
 convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
 generateAgeKeyPair
@@ -315,9 +317,38 @@ outbound，不做节点 hash 比较、去重或失败节点计数。
 返回 `success: false` 与 `data: null`。错误文案不含被拒绝的候选或解密明文。
 调用方不得在可用节点为零时导入或覆盖订阅。
 
+### decodeSubscriptionText
+
+返回完整订阅文本，包括完整 Xray JSON 对象或数组及其中的 DNS、路由、均衡器
+和未知字段。该方法只解开 Age armor；未加密文本（包括 URI 列表和 Base64
+字符串）原样返回，不校验 JSON，也不解码 Base64。
+
+```json
+{
+  "apiVersion": 3,
+  "method": "decodeSubscriptionText",
+  "payload": {
+    "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
+    "age": {
+      "secretKey": "AGE-SECRET-KEY-1..."
+    }
+  }
+}
+```
+
+成功返回 `data: {"text": "<完整明文>"}`，空文本也始终包含 `text`。失败返回
+`data: null` 和既有 Age 密钥、armor、解密或明文大小错误。未加密和解密后的
+明文均限制为 16 MiB UTF-8 字节；完整 Invoke 请求和编码后的响应仍各有 16 MiB
+上限，因此包体或转义开销可能使未达到明文上限的文本被拒绝。Go helper 为
+`share.DecodeSubscriptionText(text, secretKey)`。
+
+调用方先分类返回文本，再选择节点导入或完整配置存储流程。此方法不创建临时
+Core，可在受管理 instance 运行时调用。
+
 ### age 加密订阅
 
-`convertShareLinksToXrayJson` 接受可选的 age 原生私钥。仅支持 X25519
+`decodeSubscriptionText` 和 `convertShareLinksToXrayJson` 接受可选的 age 原生
+私钥。仅支持 X25519
 （`AGE-SECRET-KEY-1...`）和 ML-KEM-768 + X25519 hybrid
 （`AGE-SECRET-KEY-PQ-1...`）identity。识别到 age armor 后会在内存中完成
 解密，解密后明文上限为 16 MiB。
@@ -352,8 +383,8 @@ outbound，不做节点 hash 比较、去重或失败节点计数。
 
 响应同时包含 `secretKey` 和 `publicKey`。接入 App 必须持久化该密钥对，并且
 只将 `publicKey` 作为 `X-Age-Public-Key` 发送。libXray 不负责订阅 HTTP 请求、
-密钥持久化或请求 Header；严禁通过 HTTP 发送私钥，也不能把解密后的订阅文本
-写入磁盘。
+密钥持久化或请求 Header；严禁通过 HTTP 发送私钥，不能记录私钥或解密后的
+订阅文本日志。配置持久化由接入 App 负责。
 
 ### xray_json
 
@@ -382,8 +413,7 @@ outbound，不做节点 hash 比较、去重或失败节点计数。
       }
     ],
     "timeout": 5,
-    "url": "https://cp.cloudflare.com/",
-    "locationUrl": "https://ip-check-perf.radar.cloudflare.com/"
+    "url": "https://cp.cloudflare.com/"
   }
 }
 ```
@@ -398,17 +428,9 @@ outbound，不做节点 hash 比较、去重或失败节点计数。
 通过 `streamSettings.sockopt.dialerProxy` 引用的 outbound 依赖会被自动包含。
 已废弃的 `proxySettings` 字段由 Xray-core 拒绝。
 
-`locationUrl` 为可选的绝对 HTTP(S) 地址。省略时不请求位置、不返回位置字段；
-传入时，每个完成准备的配置先执行测速 HEAD，再执行位置 GET，两者使用同一个
-强制经过当前所选 outbound 及其依赖的 client。每个请求各有一次配置的超时，
-因此单项最多可能使用两倍超时时间。位置请求时间不计入 `delay`；两个结果独立：
-`success`、`delay`、`error` 只表示延迟结果，位置失败不影响成功的延迟，延迟
-失败后仍尝试位置 GET。
-
-GET 成功后把响应正文原样放入 `locationJson` 字符串。JSON 解析和数据源专属字段
-处理由 App 负责。数据源必须返回 HTTP 200，正文最大 64 KiB；传输或正文读取失败
-改为返回 `locationError`。错误不回显 URL、凭据或响应正文。无效 outbound 保留
-原有逐项失败结果，不发出这两个请求。
+每个完成准备的配置使用指定超时，通过其所选 outbound 及依赖发送一次延迟
+HEAD。逐项结果仅包含 `success`、`delay` 和可选的 `error`；无效 outbound
+保留逐项失败，不发送请求。
 
 ### testXray
 

@@ -31,11 +31,9 @@ type PingBatchItem struct {
 }
 
 type PingBatchResult struct {
-	Success       bool
-	Delay         int64
-	Error         string
-	LocationJSON  *string
-	LocationError string
+	Success bool
+	Delay   int64
+	Error   string
 }
 
 type pingOutboundConfig struct {
@@ -52,19 +50,8 @@ func PingBatch(
 	timeout int,
 	targetURL string,
 ) ([]PingBatchResult, error) {
-	return PingBatchWithLocation(items, timeout, targetURL, "")
-}
-
-// PingBatchWithLocation uses the same forced-outbound client for latency and
-// optional location probes. The two probe results are independent.
-func PingBatchWithLocation(items []PingBatchItem, timeout int, targetURL, locationURL string) ([]PingBatchResult, error) {
 	if err := validatePingBatchRequest(items, timeout, targetURL); err != nil {
 		return nil, err
-	}
-	if locationURL != "" {
-		if err := validatePingBatchRequest(items, timeout, locationURL); err != nil {
-			return nil, errors.New("ping batch location URL must be an absolute HTTP or HTTPS URL")
-		}
 	}
 	coreServerMu.Lock()
 	defer coreServerMu.Unlock()
@@ -122,7 +109,6 @@ func PingBatchWithLocation(items []PingBatchItem, timeout int, targetURL, locati
 					item.outboundTag,
 					timeout,
 					targetURL,
-					locationURL,
 				)
 			}
 		}()
@@ -367,7 +353,6 @@ func probeOutbound(
 	outboundTag string,
 	timeout int,
 	targetURL string,
-	locationURL string,
 ) PingBatchResult {
 	httpTimeout := time.Second * time.Duration(timeout)
 	transport := &http.Transport{
@@ -399,33 +384,7 @@ func probeOutbound(
 	if err != nil {
 		result = failedPingBatchResult(delay, err)
 	}
-	if locationURL != "" {
-		locationJSON, err := probeLocation(client, locationURL)
-		if err != nil {
-			result.LocationError = err.Error()
-		} else {
-			result.LocationJSON = &locationJSON
-		}
-	}
 	return result
-}
-
-func probeLocation(client *http.Client, locationURL string) (string, error) {
-	response, err := client.Get(locationURL)
-	if err != nil {
-		// Do not include a provider URL, credentials or response body in errors.
-		return "", errors.New("location request failed")
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("location request returned HTTP %d", response.StatusCode)
-	}
-	const maxLocationBytes = 64 * 1024
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxLocationBytes+1))
-	if err != nil || len(body) > maxLocationBytes {
-		return "", errors.New("unable to read location response")
-	}
-	return string(body), nil
 }
 
 func failedPingBatchResult(delay int64, err error) PingBatchResult {

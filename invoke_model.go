@@ -11,6 +11,7 @@ const LibXrayAPIVersion = 3
 
 const (
 	LibXrayMethodGetFreePorts                LibXrayMethod = "getFreePorts"
+	LibXrayMethodDecodeSubscriptionText      LibXrayMethod = "decodeSubscriptionText"
 	LibXrayMethodConvertShareLinksToXrayJson LibXrayMethod = "convertShareLinksToXrayJson"
 	LibXrayMethodConvertXrayJsonToShareLinks LibXrayMethod = "convertXrayJsonToShareLinks"
 	LibXrayMethodGenerateAgeKeyPair          LibXrayMethod = "generateAgeKeyPair"
@@ -40,6 +41,15 @@ type GetFreePortsResponse struct {
 
 type AgeDecryptConfig struct {
 	SecretKey string `json:"secretKey,omitempty"`
+}
+
+type DecodeSubscriptionTextRequest struct {
+	Text string            `json:"text,omitempty"`
+	Age  *AgeDecryptConfig `json:"age,omitempty"`
+}
+
+type DecodeSubscriptionTextResponse struct {
+	Text string `json:"text"`
 }
 
 type ConvertShareLinksToXrayJsonRequest struct {
@@ -78,10 +88,9 @@ type CountGeoDataRequest struct {
 }
 
 type PingBatchRequest struct {
-	Configs     []PingBatchItemRequest `json:"configs,omitempty"`
-	Timeout     int                    `json:"timeout,omitempty"`
-	URL         string                 `json:"url,omitempty"`
-	LocationURL string                 `json:"locationUrl,omitempty"`
+	Configs []PingBatchItemRequest `json:"configs,omitempty"`
+	Timeout int                    `json:"timeout,omitempty"`
+	URL     string                 `json:"url,omitempty"`
 }
 
 type PingBatchItemRequest struct {
@@ -94,11 +103,9 @@ type PingBatchResponse struct {
 }
 
 type PingBatchItemResponse struct {
-	Success       bool    `json:"success"`
-	Delay         int64   `json:"delay"`
-	Error         string  `json:"error,omitempty"`
-	LocationJSON  *string `json:"locationJson,omitempty"`
-	LocationError string  `json:"locationError,omitempty"`
+	Success bool   `json:"success"`
+	Delay   int64  `json:"delay"`
+	Error   string `json:"error,omitempty"`
 }
 
 type RunXrayRequest struct {

@@ -2,10 +2,9 @@ package libXray
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -35,7 +34,7 @@ func TestInvokeShareOutboundsResponseShape(t *testing.T) {
 	}
 }
 
-func TestInvokePingLocationAndZeroDelayWireFields(t *testing.T) {
+func TestInvokePingZeroDelayWireField(t *testing.T) {
 	raw, err := json.Marshal(PingBatchItemResponse{Success: true, Delay: 0})
 	if err != nil {
 		t.Fatal(err)
@@ -43,40 +42,31 @@ func TestInvokePingLocationAndZeroDelayWireFields(t *testing.T) {
 	if string(raw) != `{"success":true,"delay":0}` {
 		t.Fatalf("zero latency response = %s", raw)
 	}
-	empty := ""
-	raw, err = json.Marshal(PingBatchItemResponse{Success: true, Delay: 0, LocationJSON: &empty})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(raw) != `{"success":true,"delay":0,"locationJson":""}` {
-		t.Fatalf("empty location response = %s", raw)
-	}
-	locationBody := `{"ip_address":"203.0.113.1","country":"SG"}`
+}
+
+func TestInvokePingBatchUsesOnlyLatencyHeadRequests(t *testing.T) {
+	var heads, unexpected atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, locationBody)
+		if r.Method == http.MethodHead {
+			heads.Add(1)
+		} else {
+			unexpected.Add(1)
+		}
 	}))
 	defer server.Close()
 	request := PingBatchRequest{
 		Configs: []PingBatchItemRequest{{XrayJson: `{"outbounds":[{"protocol":"freedom"}]}`}},
-		Timeout: 1, URL: server.URL, LocationURL: server.URL,
+		Timeout: 1, URL: server.URL,
 	}
 	response := invokeForTest(t, LibXrayMethodPingBatch, request)
 	if !response.Success {
 		t.Fatalf("error = %s", response.Err)
 	}
 	result := decodeDataObject[PingBatchResponse](t, response).Results[0]
-	if !result.Success || result.LocationJSON == nil || *result.LocationJSON != `{"ip_address":"203.0.113.1","country":"SG"}` {
+	if !result.Success || result.Error != "" {
 		t.Fatalf("result = %+v", result)
 	}
-	locationBody = ""
-	response = invokeForTest(t, LibXrayMethodPingBatch, request)
-	result = decodeDataObject[PingBatchResponse](t, response).Results[0]
-	if !response.Success || result.LocationJSON == nil || *result.LocationJSON != "" {
-		t.Fatalf("empty location response = %+v", response)
-	}
-	request.LocationURL = ""
-	response = invokeForTest(t, LibXrayMethodPingBatch, request)
-	if !response.Success || strings.Contains(string(response.Data), "location") {
-		t.Fatalf("latency-only response = %+v", response)
+	if heads.Load() != 1 || unexpected.Load() != 0 {
+		t.Fatalf("requests = HEAD %d, other %d", heads.Load(), unexpected.Load())
 	}
 }

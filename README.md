@@ -234,11 +234,15 @@ Design notes:
    also serializes these operations with one another. Instances
    created outside the managed APIs are not detected or restored; callers
    requiring overlap with them must still use separate processes.
+8. `decodeSubscriptionText` returns the complete plaintext after optional Age
+   decryption. It does not parse subscription formats, project outbounds or
+   construct an Xray instance; callers own classification and validation.
 
 Supported methods:
 
 ```text
 getFreePorts
+decodeSubscriptionText
 convertShareLinksToXrayJson
 convertXrayJsonToShareLinks
 generateAgeKeyPair
@@ -415,9 +419,42 @@ container or a decryption failure returns `success: false` with `data: null`.
 Error text never includes rejected candidates or decrypted subscription text.
 Callers must not import/replace a subscription when no usable nodes remain.
 
+### decodeSubscriptionText
+
+Returns the complete subscription text, including full Xray JSON objects or
+arrays and their DNS, routing, balancers and unknown fields. This method only
+unwraps Age armor: unencrypted text, including URI lists and Base64 strings,
+is returned exactly as supplied. It does not validate JSON or decode Base64.
+
+```json
+{
+  "apiVersion": 3,
+  "method": "decodeSubscriptionText",
+  "payload": {
+    "text": "-----BEGIN AGE ENCRYPTED FILE-----\n...",
+    "age": {
+      "secretKey": "AGE-SECRET-KEY-1..."
+    }
+  }
+}
+```
+
+Success returns `data: {"text": "<complete plaintext>"}`; the `text` field is
+present even for empty text. Errors return `data: null` and the existing Age
+key, armor, decryption or plaintext-size error. Both unencrypted and decrypted
+plaintext are limited to 16 MiB of UTF-8 bytes. The complete Invoke request and
+encoded response retain their separate 16 MiB limits, so envelope or escaping
+overhead can reject text below the plaintext limit. The Go helper is
+`share.DecodeSubscriptionText(text, secretKey)`.
+
+The caller must classify the returned text before importing nodes or storing a
+complete configuration. This method does not create a temporary Core and can
+be called while a managed instance is running.
+
 ### age-encrypted subscriptions
 
-`convertShareLinksToXrayJson` accepts an optional native age secret key. Only
+`decodeSubscriptionText` and `convertShareLinksToXrayJson` accept an optional
+native age secret key. Only
 X25519 (`AGE-SECRET-KEY-1...`) and ML-KEM-768 + X25519 hybrid
 (`AGE-SECRET-KEY-PQ-1...`) identities are accepted. Recognized age armor is
 decrypted in memory and limited to 16 MiB of plaintext.
@@ -454,7 +491,8 @@ The response contains both `secretKey` and `publicKey`. The integrating
 application must persist the pair and send only `publicKey` as
 `X-Age-Public-Key`. libXray does not perform the subscription HTTP request,
 persist keys, or add headers. Applications must never send the secret key over
-HTTP or write decrypted subscription text to disk.
+HTTP or log secret keys or decrypted subscription text. Configuration
+persistence belongs to the integrating application.
 
 ### xray_json
 
@@ -484,8 +522,7 @@ by the `proxy` tag, and finally by the first outbound.
       }
     ],
     "timeout": 5,
-    "url": "https://cp.cloudflare.com/",
-    "locationUrl": "https://ip-check-perf.radar.cloudflare.com/"
+    "url": "https://cp.cloudflare.com/"
   }
 }
 ```
@@ -501,22 +538,10 @@ The result array has the same length and order as the input config array.
 Outbound dependencies referenced by `streamSettings.sockopt.dialerProxy` are
 included automatically. Xray-core rejects the removed `proxySettings` field.
 
-`locationUrl` is optional and must be an absolute HTTP(S) URL. When omitted,
-no location request is made and no location fields are returned. When supplied,
-each prepared item sends its latency HEAD and then its location GET using the
-same client forced through that item's selected outbound and dependencies.
-Each request has the configured timeout (so an item may take up to twice it).
-Location time is not included in `delay`, and the two results are independent:
-`success`, `delay` and `error` describe latency only; a location failure does not
-invalidate a successful latency result, and GET is still attempted after a
-latency failure.
-
-A successful GET adds the unmodified response body as the `locationJson`
-string. The App owns JSON parsing and provider-specific field handling. The
-provider must return HTTP 200 and at most 64 KiB; transport or body-read
-failures instead add `locationError`. Errors do not echo the URL, credentials
-or response body. Invalid outbound configs retain their ordinary per-item
-failure and do not perform either request.
+Each prepared item sends one latency HEAD through its selected outbound and
+dependencies, using the configured timeout. Its result contains only
+`success`, `delay` and an optional `error`. Invalid outbound configurations
+retain their per-item failure and do not send a request.
 
 ### testXray
 

@@ -23,9 +23,8 @@ changes need the relevant implementation and tests, not the entire API guide.
   managed-instance overlap before loading configuration and hold the lifecycle
   lock through worker completion and instance cleanup. Close temporary instances
   on every exit path; unmanaged overlaps require caller-owned process isolation.
-- When changing [batch probes](README.md#pingbatch), preserve input order,
-  per-item failure isolation, and raw `locationJson`; provider parsing belongs
-  to the App.
+- When changing [batch probes](README.md#pingbatch), preserve the five-item
+  limit, input order, per-item failure isolation, and delay-only results.
 - Traffic comes directly from [Xray metrics](README.md#metrics). The library
   manages the Core lifecycle only; it does not sample or persist traffic.
 - When changing [age subscriptions](README.md#age-encrypted-subscriptions),
