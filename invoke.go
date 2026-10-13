@@ -37,6 +37,8 @@ func Invoke(requestJSON string) string {
 	switch request.Method {
 	case LibXrayMethodGetFreePorts:
 		return invokeGetFreePorts(request.Payload)
+	case LibXrayMethodDecodeSubscriptionText:
+		return invokeDecodeSubscriptionText(request.Payload)
 	case LibXrayMethodConvertShareLinksToXrayJson:
 		return invokeConvertShareLinksToXrayJson(request.Payload)
 	case LibXrayMethodConvertXrayJsonToShareLinks:
@@ -130,6 +132,22 @@ func invokeGetFreePorts(payload json.RawMessage) string {
 	return encodeInvokeResponse(&GetFreePortsResponse{Ports: ports}, nil)
 }
 
+func invokeDecodeSubscriptionText(payload json.RawMessage) string {
+	request, err := decodePayload[DecodeSubscriptionTextRequest](payload)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	secretKey := ""
+	if request.Age != nil {
+		secretKey = request.Age.SecretKey
+	}
+	text, err := share.DecodeSubscriptionText(request.Text, secretKey)
+	if err != nil {
+		return encodeInvokeResponse(nil, err)
+	}
+	return encodeInvokeResponse(&DecodeSubscriptionTextResponse{Text: text}, nil)
+}
+
 func invokeConvertShareLinksToXrayJson(payload json.RawMessage) string {
 	request, err := decodePayload[ConvertShareLinksToXrayJsonRequest](payload)
 	if err != nil {
@@ -196,11 +214,10 @@ func invokePingBatch(payload json.RawMessage) string {
 		}
 	}
 
-	results, err := xray.PingBatchWithLocation(
+	results, err := xray.PingBatch(
 		configs,
 		request.Timeout,
 		request.URL,
-		request.LocationURL,
 	)
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
@@ -209,11 +226,9 @@ func invokePingBatch(payload json.RawMessage) string {
 	responseResults := make([]PingBatchItemResponse, len(results))
 	for i, result := range results {
 		responseResults[i] = PingBatchItemResponse{
-			Success:       result.Success,
-			Delay:         result.Delay,
-			Error:         result.Error,
-			LocationJSON:  result.LocationJSON,
-			LocationError: result.LocationError,
+			Success: result.Success,
+			Delay:   result.Delay,
+			Error:   result.Error,
 		}
 	}
 	return encodeInvokeResponse(&PingBatchResponse{Results: responseResults}, nil)
