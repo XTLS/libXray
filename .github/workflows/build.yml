@@ -30,17 +30,17 @@ jobs:
           - runner: ubuntu-24.04
             target: android
             artifact: android
-          - runner: windows-2025
+          - runner: windows-2025-vs2026
             target: windows
             arch: x64
             goarch: amd64
             artifact: windows-x64
-          - runner: windows-11-arm
+          - runner: windows-11-vs2026-arm
             target: windows
             arch: arm64
             goarch: arm64
             artifact: windows-arm64
-          - runner: macos-26
+          - runner: xcode-27 # macOS 27 preview
             target: apple
             artifact: apple-cgo
 
