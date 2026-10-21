@@ -5,7 +5,7 @@ go 1.27.2
 require (
 	github.com/metacubex/age v0.0.0-20260603010618-28d156b4ea78
 	github.com/stretchr/testify v1.12.1
-	github.com/xtls/xray-core v1.260327.1-0.20261017152356-92ccc939aaf4
+	github.com/xtls/xray-core v1.260327.1-0.20261021115930-1b1647cd9ddf
 	golang.org/x/mobile v0.0.0-20261011034528-197770444867
 	golang.org/x/sys v0.49.0
 	google.golang.org/protobuf v1.36.12
@@ -48,7 +48,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb // indirect
 	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/crypto/x509roots/fallback v0.0.0-20261016151342-0ae6809b7559 // indirect
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20261020153306-9f2b28d4331a // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.61.0 // indirect
