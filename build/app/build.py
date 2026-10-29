@@ -9,8 +9,8 @@ from app.cmd import (
 
 LIBXRAY_MOD_NAME = "github.com/xtls/libxray"
 XRAY_CORE_MOD_NAME = "github.com/xtls/xray-core"
-# Go modules resolve the Xray-core v26.10.21 release tag through this version.
-DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20261021115930-1b1647cd9ddf"
+# Go modules resolve the Xray-core v26.10.29 release tag through this version.
+DEFAULT_XRAY_CORE_VERSION = "v1.260327.1-0.20261029083850-0afec66085a8"
 LOCAL_XRAY_CORE_DIR_NAME = "Xray-core"
 
 
