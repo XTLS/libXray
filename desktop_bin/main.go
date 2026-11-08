@@ -16,10 +16,12 @@ func run(options runOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := dns.SetDNS(options.dns, options.interfaceName); err != nil {
-		return err
+	if options.setDNS {
+		if err := dns.SetDNS(options.dns, options.interfaceName); err != nil {
+			return err
+		}
+		defer dns.ResetDNS()
 	}
-	defer dns.ResetDNS()
 
 	if err := xray.RunXray(string(config)); err != nil {
 		return err

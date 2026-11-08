@@ -49,14 +49,25 @@ gomobile 默认解析 `latest`，
 `gobind` 使用同一个解析版本。
 
 Linux 和 Windows 构建还会生成 `bin/xray` 或 `bin/xray.exe`。该会话 Core
-会保护 Go DNS 查询不被 VPN 路由重新捕获，并且只接受以下命令：
+可保护 Go DNS 查询不被 VPN 路由重新捕获，并接受以下命令：
 
 ```shell
-xray run -dns <IP:port> -interface <网卡名> -config <xray.json> [-error-file <路径>]
+xray run -config <xray.json> [-set-dns=true|false] [-dns <IP:port> -interface <网卡名>] [-error-file <路径>]
 ```
 
-`-dns`、`-interface`、`-config` 均必须提供。`-dns` 必须是 IP endpoint，`-config` 直接指向 Xray
-JSON 配置。
+`-config` 始终必须提供，直接指向 Xray JSON 配置。`-set-dns` 默认为 `true`，
+保留现有行为：必须提供 `-dns` 和 `-interface`，`-dns` 必须是 IP endpoint；Core
+停止或启动失败后恢复原解析器。
+
+使用 `-set-dns=false` 可同时跳过 `SetDNS` 和 `ResetDNS`，由 Core 管理解析器。
+此时可以省略 `-dns`、`-interface`，即使提供也不会使用。布尔参数使用等号传值：
+
+```shell
+xray run -set-dns=false -config xray.json
+```
+
+该开关仅控制 libXray 的进程解析器覆盖；Core 的 DNS、TUN、出站网卡和 WFP
+设置仍由 JSON 配置决定。
 
 可选的 `-error-file` 将命令失败时打印到 stderr 的原始错误同时写入 UTF-8 文件，
 随后退出。运行前清空文件，成功时保持为空；父目录必须已经存在。通过提权启动 Core

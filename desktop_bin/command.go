@@ -11,6 +11,7 @@ import (
 )
 
 type runOptions struct {
+	setDNS        bool
 	dns           string
 	interfaceName string
 	configPath    string
@@ -25,6 +26,7 @@ func parseRunOptions(args []string) (runOptions, error) {
 
 	flags := flag.NewFlagSet("run", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
+	flags.BoolVar(&options.setDNS, "set-dns", true, "override the process DNS resolver")
 	flags.StringVar(&options.dns, "dns", "", "DNS server IP endpoint")
 	flags.StringVar(&options.interfaceName, "interface", "", "outbound network interface")
 	flags.StringVar(&options.configPath, "config", "", "Xray JSON configuration path")
@@ -35,15 +37,19 @@ func parseRunOptions(args []string) (runOptions, error) {
 	if flags.NArg() != 0 {
 		return options, errors.New("unexpected positional arguments")
 	}
-	if options.dns == "" || options.interfaceName == "" || options.configPath == "" {
-		return options, errors.New("dns, interface, and config are required")
+	if options.configPath == "" {
+		return options, errors.New("config is required")
+	}
+	if options.setDNS && (options.dns == "" || options.interfaceName == "") {
+		return options, errors.New("dns and interface are required when set-dns is enabled")
 	}
 	return options, nil
 }
 
 func execute(args []string, run func(runOptions) error, stdout, stderr io.Writer) int {
 	usage := func() {
-		fmt.Fprintln(stdout, "Usage: xray run -dns <IP:port> -interface <name> -config <xray.json> [-error-file <path>]")
+		fmt.Fprintln(stdout, "Usage: xray run -config <xray.json> [-set-dns=true|false] [-dns <IP:port> -interface <name>] [-error-file <path>]")
+		fmt.Fprintln(stdout, "SetDNS is enabled by default; -dns and -interface are required unless -set-dns=false.")
 	}
 	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
 		usage()
