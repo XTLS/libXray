@@ -83,14 +83,27 @@ resolve `latest` by default; set `LIBXRAY_GOMOBILE_VERSION` to select a Go modul
 version. Both `gomobile` and `gobind` use that resolved version.
 
 Linux and Windows builds also produce `bin/xray` or `bin/xray.exe`. This
-session Core protects Go DNS lookups from the VPN route and accepts only:
+session Core can protect Go DNS lookups from the VPN route and accepts:
 
 ```shell
-xray run -dns <IP:port> -interface <name> -config <xray.json> [-error-file <path>]
+xray run -config <xray.json> [-set-dns=true|false] [-dns <IP:port> -interface <name>] [-error-file <path>]
 ```
 
-The `-dns`, `-interface`, and `-config` options are required. `-dns` must be an IP endpoint, and `-config`
-points directly to the Xray JSON configuration.
+The `-config` option is always required and points directly to the Xray JSON
+configuration. `-set-dns` defaults to `true`, preserving existing behavior:
+`-dns` and `-interface` are required, `-dns` must be an IP endpoint, and the
+process resolver is restored after Core shutdown or a startup failure.
+
+Use `-set-dns=false` to skip both `SetDNS` and `ResetDNS` and leave resolver
+management to the Core. In this mode, `-dns` and `-interface` may be omitted;
+if supplied, they are ignored. Use the equals-sign form for this boolean flag:
+
+```shell
+xray run -set-dns=false -config xray.json
+```
+
+This flag controls libXray's process-resolver override only; Core DNS, TUN,
+outbound-interface and WFP settings continue to come from the JSON configuration.
 
 The optional `-error-file` also writes command failures to a UTF-8 file before
 exiting, preserving the same error printed to stderr. The file is cleared before

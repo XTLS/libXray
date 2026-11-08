@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/xtls/libxray/xray"
 )
 
 func TestParseRunOptions(t *testing.T) {
@@ -20,12 +22,92 @@ func TestParseRunOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if options.dns != "8.8.8.8:53" || options.interfaceName != "Ethernet" || options.configPath != `C:\run\xray.json` {
+	if !options.setDNS || options.dns != "8.8.8.8:53" || options.interfaceName != "Ethernet" || options.configPath != `C:\run\xray.json` {
 		t.Fatalf("unexpected options: %#v", options)
 	}
 
 	if _, err := parseRunOptions([]string{"run", "-config", "xray.json"}); err == nil {
 		t.Fatal("missing DNS protection options were accepted")
+	}
+}
+
+func TestParseRunOptionsSetDNS(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{
+			name: "explicitly enabled",
+			args: []string{"run", "-set-dns=true", "-dns", "8.8.8.8:53", "-interface", "Ethernet", "-config", "xray.json"},
+			want: true,
+		},
+		{
+			name: "disabled without DNS options",
+			args: []string{"run", "-set-dns=false", "-config", "xray.json"},
+		},
+		{
+			name: "disabled with unused DNS options",
+			args: []string{"run", "-set-dns=false", "-dns", "unused", "-interface", "unused", "-config", "xray.json"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			options, err := parseRunOptions(test.args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if options.setDNS != test.want || options.configPath != "xray.json" {
+				t.Fatalf("unexpected options: %#v", options)
+			}
+		})
+	}
+}
+
+func TestParseRunOptionsRejectsInvalidSetDNSOptions(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		args []string
+	}{
+		{"enabled without DNS", []string{"run", "-set-dns=true", "-interface", "Ethernet", "-config", "xray.json"}},
+		{"enabled without interface", []string{"run", "-set-dns=true", "-dns", "8.8.8.8:53", "-config", "xray.json"}},
+		{"disabled without config", []string{"run", "-set-dns=false"}},
+		{"invalid boolean", []string{"run", "-set-dns=invalid", "-config", "xray.json"}},
+		{"separated boolean value", []string{"run", "-set-dns", "false", "-config", "xray.json"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := parseRunOptions(test.args); err == nil {
+				t.Fatal("invalid options were accepted")
+			}
+		})
+	}
+}
+
+func TestCommandWithSetDNSDisabledReachesConfigParsing(t *testing.T) {
+	// Malformed JSON fails before constructing or starting a Core/TUN instance.
+	// Matching the real parser error proves DNS setup did not fail first.
+	const invalidConfig = "{"
+	wantErr := xray.RunXray(invalidConfig)
+	if wantErr == nil {
+		t.Fatal("malformed JSON was accepted")
+	}
+	path := filepath.Join(commandTestDirectory(t), "xray.json")
+	if err := os.WriteFile(path, []byte(invalidConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		args []string
+	}{
+		{"without DNS options", []string{"run", "-set-dns=false", "-config", path}},
+		{"with unused DNS options", []string{"run", "-set-dns=false", "-dns", "not-an-endpoint", "-interface", "unused-interface", "-config", path}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := execute(test.args, run, &stdout, &stderr)
+			if code != 1 || stderr.String() != wantErr.Error()+"\n" {
+				t.Fatalf("expected configuration error, got code=%d stderr=%q", code, stderr.String())
+			}
+		})
 	}
 }
 
