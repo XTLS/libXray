@@ -48,6 +48,10 @@ gomobile 默认解析 `latest`，
 也可通过环境变量 `LIBXRAY_GOMOBILE_VERSION` 指定 Go 模块版本；`gomobile` 与
 `gobind` 使用同一个解析版本。
 
+设置 `LIBXRAY_ANDROID_API` 可提高 Android API 级别（默认 21），该值也是 AAR 的
+`minSdkVersion`。此时库的重定位占用空间更小：不低于 23 时为压缩格式
+（`--pack-dyn-relocs=android`），不低于 28 时为 RELR（`DT_ANDROID_RELR`）。
+
 Linux 和 Windows 构建还会生成 `bin/xray` 或 `bin/xray.exe`。该会话 Core
 可保护 Go DNS 查询不被 VPN 路由重新捕获，并接受以下命令：
 

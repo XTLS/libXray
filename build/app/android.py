@@ -12,6 +12,12 @@ class AndroidBuilder(Builder):
         self.prepare_gomobile()
 
     def build(self):
+        api = int(os.environ.get("LIBXRAY_ANDROID_API") or 21)
+        extldflags = "-Wl,-z,max-page-size=16384"
+        if api >= 28:  # DT_ANDROID_RELR, which Android loads since API 28
+            extldflags += ",--pack-dyn-relocs=relr,--use-android-relr-tags"
+        elif api >= 23:  # DT_ANDROID_REL(A), which Android loads since API 23
+            extldflags += ",--pack-dyn-relocs=android"
         self.snapshot_go_env()
         try:
             self.before_build()
@@ -27,10 +33,10 @@ class AndroidBuilder(Builder):
                     "-target",
                     "android",
                     "-androidapi",
-                    "21",
+                    str(api),
                     "-trimpath",
                     "-ldflags=-checklinkname=0 -s -w -buildid= "
-                    "-extldflags=-Wl,-z,max-page-size=16384",
+                    f"-extldflags={extldflags}",
                 ]
             )
             if ret.returncode != 0:

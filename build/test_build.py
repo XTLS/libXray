@@ -188,6 +188,25 @@ class BuildTest(unittest.TestCase):
                     )
                     builder.return_value.build.assert_called_once_with()
 
+    def test_android_api_selects_relocation_packing(self):
+        for value, api, packing in (
+            ("", "21", ""),
+            ("22", "22", ""),
+            ("23", "23", ",--pack-dyn-relocs=android"),
+            ("28", "28", ",--pack-dyn-relocs=relr,--use-android-relr-tags"),
+        ):
+            with (
+                self.subTest(value=value),
+                patch.dict("app.android.os.environ", {"LIBXRAY_ANDROID_API": value}),
+                patch.object(self.builder, "before_build"),
+                patch("app.android.os.chdir"),
+                patch("app.android.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as run,
+            ):
+                self.builder.build()
+                args = run.call_args.args[0]
+                self.assertEqual(args[args.index("-androidapi") + 1], api)
+                self.assertTrue(args[-1].endswith("-extldflags=-Wl,-z,max-page-size=16384" + packing))
+
     def test_gomobile_and_gobind_use_the_same_resolved_version(self):
         version = "v0.0.0-20260821190718-4776eadac327"
         for requested in ("", version):
