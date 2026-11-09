@@ -82,6 +82,10 @@ Gomobile builds
 resolve `latest` by default; set `LIBXRAY_GOMOBILE_VERSION` to select a Go module
 version. Both `gomobile` and `gobind` use that resolved version.
 
+Set `LIBXRAY_ANDROID_API` to raise the Android API level (default 21), which is
+also the AAR's `minSdkVersion`. The libraries' relocations then take less space:
+packed (`--pack-dyn-relocs=android`) from 23, RELR (`DT_ANDROID_RELR`) from 28.
+
 Linux and Windows builds also produce `bin/xray` or `bin/xray.exe`. This
 session Core can protect Go DNS lookups from the VPN route and accepts:
 
