@@ -45,10 +45,12 @@ type preparedPingItem struct {
 	outboundTag string
 }
 
+// PingBatch with warm times the second of two HEAD requests on one connection.
 func PingBatch(
 	items []PingBatchItem,
 	timeout int,
 	targetURL string,
+	warm bool,
 ) ([]PingBatchResult, error) {
 	if err := validatePingBatchRequest(items, timeout, targetURL); err != nil {
 		return nil, err
@@ -109,6 +111,7 @@ func PingBatch(
 					item.outboundTag,
 					timeout,
 					targetURL,
+					warm,
 				)
 			}
 		}()
@@ -353,10 +356,9 @@ func probeOutbound(
 	outboundTag string,
 	timeout int,
 	targetURL string,
+	warm bool,
 ) PingBatchResult {
-	httpTimeout := time.Second * time.Duration(timeout)
 	transport := &http.Transport{
-		DisableKeepAlives: true,
 		DialContext: func(
 			ctx context.Context,
 			network string,
@@ -374,17 +376,36 @@ func probeOutbound(
 		},
 	}
 	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport}
 
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   httpTimeout,
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		time.Second*time.Duration(timeout),
+	)
+	defer cancel()
+
+	requests := 1
+	if warm {
+		requests = 2
 	}
-	delay, err := nodep.PingHTTPRequest(client, targetURL, timeout)
-	result := PingBatchResult{Success: true, Delay: delay}
-	if err != nil {
-		result = failedPingBatchResult(delay, err)
+	var delay int64
+	for range requests {
+		request, err := http.NewRequestWithContext(ctx, http.MethodHead, targetURL, nil)
+		if err != nil {
+			return failedPingBatchResult(nodep.PingDelayError, err)
+		}
+		start := time.Now()
+		response, err := client.Do(request)
+		if err != nil {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return failedPingBatchResult(nodep.PingDelayTimeout, err)
+			}
+			return failedPingBatchResult(nodep.PingDelayError, err)
+		}
+		response.Body.Close()
+		delay = time.Since(start).Milliseconds()
 	}
-	return result
+	return PingBatchResult{Success: true, Delay: delay}
 }
 
 func failedPingBatchResult(delay int64, err error) PingBatchResult {

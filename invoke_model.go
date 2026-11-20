@@ -91,6 +91,7 @@ type PingBatchRequest struct {
 	Configs []PingBatchItemRequest `json:"configs,omitempty"`
 	Timeout int                    `json:"timeout,omitempty"`
 	URL     string                 `json:"url,omitempty"`
+	Warm    bool                   `json:"warm,omitempty"`
 }
 
 type PingBatchItemRequest struct {

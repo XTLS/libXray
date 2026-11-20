@@ -428,7 +428,8 @@ Core，可在受管理 instance 运行时调用。
       }
     ],
     "timeout": 5,
-    "url": "https://cp.cloudflare.com/"
+    "url": "https://cp.cloudflare.com/",
+    "warm": true
   }
 }
 ```
@@ -446,6 +447,11 @@ Core，可在受管理 instance 运行时调用。
 每个完成准备的配置使用指定超时，通过其所选 outbound 及依赖发送一次延迟
 HEAD。逐项结果仅包含 `success`、`delay` 和可选的 `error`；无效 outbound
 保留逐项失败，不发送请求。
+
+可选的 `warm` 标志在同一连接上发送两次 HEAD，并以第二次的耗时作为 `delay`。
+该延迟不包含第一次请求承担的 TCP、代理和 TLS 握手，因此接近经由 outbound 的
+往返时间。两次请求共用所配置的超时，任一次失败即视为该项失败。未设置 `warm`
+时，`delay` 为在新连接上发送一次请求的耗时。
 
 ### testXray
 

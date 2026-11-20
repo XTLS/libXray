@@ -218,6 +218,7 @@ func invokePingBatch(payload json.RawMessage) string {
 		configs,
 		request.Timeout,
 		request.URL,
+		request.Warm,
 	)
 	if err != nil {
 		return encodeInvokeResponse(nil, err)

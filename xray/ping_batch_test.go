@@ -2,12 +2,15 @@ package xray
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/xtls/libxray/nodep"
 	"github.com/xtls/xray-core/infra/conf"
 )
 
@@ -192,6 +195,7 @@ func TestPingBatchRunsRequestsConcurrently(t *testing.T) {
 			},
 			2,
 			server.URL,
+			false,
 		)
 		done <- batchResult{results: results, err: err}
 	}()
@@ -223,6 +227,80 @@ func TestPingBatchRunsRequestsConcurrently(t *testing.T) {
 	}
 }
 
+func warmServer(firstDelay time.Duration) (*httptest.Server, *atomic.Int32) {
+	var requests, connections atomic.Int32
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(
+		response http.ResponseWriter,
+		request *http.Request,
+	) {
+		if requests.Add(1) == 1 {
+			select {
+			case <-time.After(firstDelay):
+			case <-request.Context().Done():
+			}
+		}
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			connections.Add(1)
+		}
+	}
+	server.Start()
+	return server, &connections
+}
+
+func TestPingBatchWarmTimesSecondRequestOnOneConnection(t *testing.T) {
+	const firstDelay = 300 * time.Millisecond
+	server, connections := warmServer(firstDelay)
+	defer server.Close()
+
+	results, err := PingBatch(
+		[]PingBatchItem{{XrayJSON: `{"outbounds":[{"protocol":"freedom"}]}`}},
+		2,
+		server.URL,
+		true,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !results[0].Success {
+		t.Fatalf("warm probe failed: %s", results[0].Error)
+	}
+	if results[0].Delay >= firstDelay.Milliseconds() {
+		t.Fatalf("delay = %d, want the second request only", results[0].Delay)
+	}
+	if got := connections.Load(); got != 1 {
+		t.Fatalf("connections = %d, want 1", got)
+	}
+}
+
+func TestPingBatchTimesOutWithinOneTimeout(t *testing.T) {
+	for _, warm := range []bool{false, true} {
+		t.Run(fmt.Sprintf("warm=%t", warm), func(t *testing.T) {
+			server, _ := warmServer(5 * time.Second)
+			defer server.Close()
+
+			start := time.Now()
+			results, err := PingBatch(
+				[]PingBatchItem{{XrayJSON: `{"outbounds":[{"protocol":"freedom"}]}`}},
+				1,
+				server.URL,
+				warm,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if results[0].Success || results[0].Delay != nodep.PingDelayTimeout {
+				t.Fatalf("result = %+v, want a timeout", results[0])
+			}
+			if elapsed := time.Since(start); elapsed > 2*time.Second {
+				t.Fatalf("batch took %s, want one timeout", elapsed)
+			}
+		})
+	}
+}
+
 func TestPingBatchKeepsPerItemConfigErrorsInInputOrder(t *testing.T) {
 	results, err := PingBatch(
 		[]PingBatchItem{
@@ -231,6 +309,7 @@ func TestPingBatchKeepsPerItemConfigErrorsInInputOrder(t *testing.T) {
 		},
 		1,
 		"https://example.com",
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -330,6 +409,7 @@ func ExamplePingBatch() {
 		[]PingBatchItem{{XrayJSON: `{"outbounds":[{"protocol":"freedom"}]}`}},
 		5,
 		"https://cp.cloudflare.com/",
+		true,
 	)
 	fmt.Println(len(results))
 }
