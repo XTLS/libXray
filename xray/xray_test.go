@@ -25,7 +25,7 @@ func TestTemporaryOperationsRejectManagedOverlap(t *testing.T) {
 	for name, operation := range map[string]func() error{
 		"testXray": func() error { return TestXray(config) },
 		"pingBatch": func() error {
-			_, err := PingBatch([]PingBatchItem{{XrayJSON: config}}, 10, "http://127.0.0.1:1/", false)
+			_, err := PingBatch([]PingBatchItem{{XrayJSON: config}}, 10, "http://127.0.0.1:1/")
 			return err
 		},
 	} {

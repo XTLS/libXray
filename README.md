@@ -565,7 +565,11 @@ The optional `warm` flag sends two HEAD requests on one connection and reports
 the second as `delay`. That delay leaves out the TCP, proxy and TLS handshakes
 the first request pays, so it stays close to the round trip through the
 outbound. Both requests share the configured timeout, and the item fails if
-either does. Without `warm`, `delay` covers one request on a new connection.
+either does. A warm probe does not follow redirects, so a redirect response
+counts as the answer. The item fails when the second request cannot reuse the
+first connection, for example after `Connection: close`. Without `warm`,
+`delay` covers one request on a new connection. Go callers use `PingBatchWarm`
+for the warm probe.
 
 ### testXray
 

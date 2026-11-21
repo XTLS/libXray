@@ -214,12 +214,11 @@ func invokePingBatch(payload json.RawMessage) string {
 		}
 	}
 
-	results, err := xray.PingBatch(
-		configs,
-		request.Timeout,
-		request.URL,
-		request.Warm,
-	)
+	pingBatch := xray.PingBatch
+	if request.Warm {
+		pingBatch = xray.PingBatchWarm
+	}
+	results, err := pingBatch(configs, request.Timeout, request.URL)
 	if err != nil {
 		return encodeInvokeResponse(nil, err)
 	}
