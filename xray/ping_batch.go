@@ -8,10 +8,10 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httptrace"
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xtls/libxray/nodep"
@@ -376,6 +376,7 @@ func probeOutbound(
 	warm bool,
 ) PingBatchResult {
 	httpTimeout := time.Second * time.Duration(timeout)
+	var dialed atomic.Bool
 	transport := &http.Transport{
 		DisableKeepAlives: !warm,
 		DialContext: func(
@@ -385,6 +386,9 @@ func probeOutbound(
 		) (net.Conn, error) {
 			if network != "tcp" && network != "tcp4" && network != "tcp6" {
 				return nil, fmt.Errorf("unsupported ping network %q", network)
+			}
+			if warm && dialed.Swap(true) {
+				return nil, errors.New("warm ping requires a kept-alive connection")
 			}
 			destination, err := xrayNet.ParseDestination("tcp:" + address)
 			if err != nil {
@@ -411,55 +415,38 @@ func probeOutbound(
 	return result
 }
 
-// probeWarm does not follow redirects, so each request is one round trip.
-// The item fails when the second request does not reuse the first connection.
+// probeWarm sends both requests through the transport, so a redirect is the
+// answer. The transport dials once, so the second request cannot open a new
+// connection.
 func probeWarm(
-	transport *http.Transport,
+	transport http.RoundTripper,
 	timeout time.Duration,
 	targetURL string,
 ) PingBatchResult {
-	client := &http.Client{
-		Transport: transport,
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	if result := timeHead(ctx, client, targetURL); !result.Success {
+	if result := timeHead(ctx, transport, targetURL); !result.Success {
 		return result
 	}
-	// The transport may retry on a new connection after a reused one fails.
-	newConnection := false
-	trace := &httptrace.ClientTrace{
-		GotConn: func(info httptrace.GotConnInfo) {
-			if !info.Reused {
-				newConnection = true
-			}
-		},
-	}
-	result := timeHead(httptrace.WithClientTrace(ctx, trace), client, targetURL)
-	if result.Success && newConnection {
-		return failedPingBatchResult(
-			nodep.PingDelayError,
-			errors.New("warm ping requires a kept-alive connection"),
-		)
-	}
-	return result
+	return timeHead(ctx, transport, targetURL)
 }
 
 func timeHead(
 	ctx context.Context,
-	client *http.Client,
+	transport http.RoundTripper,
 	targetURL string,
 ) PingBatchResult {
 	request, err := http.NewRequestWithContext(ctx, http.MethodHead, targetURL, nil)
 	if err != nil {
 		return failedPingBatchResult(nodep.PingDelayError, err)
 	}
+	if user := request.URL.User; user != nil {
+		password, _ := user.Password()
+		request.SetBasicAuth(user.Username(), password)
+	}
 	start := time.Now()
-	response, err := client.Do(request)
+	response, err := transport.RoundTrip(request)
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return failedPingBatchResult(nodep.PingDelayTimeout, err)

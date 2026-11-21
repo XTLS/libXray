@@ -285,10 +285,14 @@ func TestPingBatchWarmTimesSecondRequestOnOneConnection(t *testing.T) {
 }
 
 func TestPingBatchWarmFailsWithoutKeepAlive(t *testing.T) {
+	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(
 		response http.ResponseWriter,
-		_ *http.Request,
+		request *http.Request,
 	) {
+		if requests.Add(1) > 1 {
+			<-request.Context().Done()
+		}
 		response.Header().Set("Connection", "close")
 		response.WriteHeader(http.StatusNoContent)
 	}))
@@ -305,17 +309,22 @@ func TestPingBatchWarmFailsWithoutKeepAlive(t *testing.T) {
 	if results[0].Success || results[0].Delay != nodep.PingDelayError {
 		t.Fatalf("result = %+v, want an error", results[0])
 	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("requests = %d, want 1", got)
+	}
 }
 
 func TestPingBatchRedirects(t *testing.T) {
 	for _, test := range []struct {
 		name        string
 		ping        func([]PingBatchItem, int, string) ([]PingBatchResult, error)
+		location    string
 		requests    int32
 		connections int32
 	}{
-		{"default follows on a new connection", PingBatch, 2, 2},
-		{"warm answers with the redirect", PingBatchWarm, 2, 1},
+		{"default follows on a new connection", PingBatch, "/next", 2, 2},
+		{"warm answers with the redirect", PingBatchWarm, "/next", 2, 1},
+		{"warm ignores a malformed location", PingBatchWarm, "/%", 2, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var requests atomic.Int32
@@ -325,7 +334,8 @@ func TestPingBatchRedirects(t *testing.T) {
 			) {
 				requests.Add(1)
 				if request.URL.Path == "/" {
-					http.Redirect(response, request, "/next", http.StatusFound)
+					response.Header().Set("Location", test.location)
+					response.WriteHeader(http.StatusFound)
 					return
 				}
 				response.WriteHeader(http.StatusNoContent)
@@ -353,6 +363,45 @@ func TestPingBatchRedirects(t *testing.T) {
 	}
 }
 
+func TestPingBatchSendsURLCredentials(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		ping func([]PingBatchItem, int, string) ([]PingBatchResult, error)
+	}{
+		{"default", PingBatch},
+		{"warm", PingBatchWarm},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var anonymous atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(
+				response http.ResponseWriter,
+				request *http.Request,
+			) {
+				if user, password, _ := request.BasicAuth(); user != "user" || password != "pass" {
+					anonymous.Add(1)
+				}
+				response.WriteHeader(http.StatusNoContent)
+			}))
+			defer server.Close()
+
+			results, err := test.ping(
+				[]PingBatchItem{{XrayJSON: minimalConfig}},
+				2,
+				strings.Replace(server.URL, "http://", "http://user:pass@", 1),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !results[0].Success {
+				t.Fatalf("probe failed: %s", results[0].Error)
+			}
+			if got := anonymous.Load(); got != 0 {
+				t.Fatalf("requests without credentials = %d, want 0", got)
+			}
+		})
+	}
+}
+
 func TestPingBatchTimesOutWithinOneTimeout(t *testing.T) {
 	for _, test := range []struct {
 		name     string
@@ -370,7 +419,7 @@ func TestPingBatchTimesOutWithinOneTimeout(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			server, requests, _ := delayServer(test.delays...)
+			server, requests, connections := delayServer(test.delays...)
 			defer server.Close()
 
 			start := time.Now()
@@ -390,6 +439,9 @@ func TestPingBatchTimesOutWithinOneTimeout(t *testing.T) {
 			}
 			if got := requests.Load(); got != test.requests {
 				t.Fatalf("requests = %d, want %d", got, test.requests)
+			}
+			if got := connections.Load(); got != 1 {
+				t.Fatalf("connections = %d, want 1", got)
 			}
 		})
 	}

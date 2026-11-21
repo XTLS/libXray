@@ -566,10 +566,10 @@ the second as `delay`. That delay leaves out the TCP, proxy and TLS handshakes
 the first request pays, so it stays close to the round trip through the
 outbound. Both requests share the configured timeout, and the item fails if
 either does. A warm probe does not follow redirects, so a redirect response
-counts as the answer. The item fails when the second request cannot reuse the
-first connection, for example after `Connection: close`. Without `warm`,
-`delay` covers one request on a new connection. Go callers use `PingBatchWarm`
-for the warm probe.
+counts as the answer. The second request never opens a new connection: the item
+fails when the first one was not kept alive, for example after
+`Connection: close`. Without `warm`, `delay` covers one request on a new
+connection. Go callers use `PingBatchWarm` for the warm probe.
 
 ### testXray
 

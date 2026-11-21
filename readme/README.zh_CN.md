@@ -451,9 +451,9 @@ HEAD。逐项结果仅包含 `success`、`delay` 和可选的 `error`；无效 o
 可选的 `warm` 标志在同一连接上发送两次 HEAD，并以第二次的耗时作为 `delay`。
 该延迟不包含第一次请求承担的 TCP、代理和 TLS 握手，因此接近经由 outbound 的
 往返时间。两次请求共用所配置的超时，任一次失败即视为该项失败。warm 探测不跟随
-重定向，重定向响应即视为应答。第二次请求无法复用第一次的连接时（例如收到
-`Connection: close`），该项失败。未设置 `warm` 时，`delay` 为在新连接上发送一次
-请求的耗时。Go 调用方使用 `PingBatchWarm` 进行 warm 探测。
+重定向，重定向响应即视为应答。第二次请求不会新建连接：第一次的连接未保持时
+（例如收到 `Connection: close`），该项失败。未设置 `warm` 时，`delay` 为在新
+连接上发送一次请求的耗时。Go 调用方使用 `PingBatchWarm` 进行 warm 探测。
 
 ### testXray
 
