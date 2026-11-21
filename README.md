@@ -539,7 +539,8 @@ by the `proxy` tag, and finally by the first outbound.
       }
     ],
     "timeout": 5,
-    "url": "https://cp.cloudflare.com/"
+    "url": "https://cp.cloudflare.com/",
+    "warm": true
   }
 }
 ```
@@ -559,6 +560,16 @@ Each prepared item sends one latency HEAD through its selected outbound and
 dependencies, using the configured timeout. Its result contains only
 `success`, `delay` and an optional `error`. Invalid outbound configurations
 retain their per-item failure and do not send a request.
+
+The optional `warm` flag sends two HEAD requests on one connection and reports
+the second as `delay`. That delay leaves out the TCP, proxy and TLS handshakes
+the first request pays, so it stays close to the round trip through the
+outbound. Both requests share the configured timeout, and the item fails if
+either does. A warm probe does not follow redirects, so a redirect response
+counts as the answer. The item fails when the second request cannot reuse the
+first connection, for example after `Connection: close`. Without `warm`,
+`delay` covers one request on a new connection. Go callers use `PingBatchWarm`
+for the warm probe.
 
 ### testXray
 
