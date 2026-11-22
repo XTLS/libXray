@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xtls/libxray/nodep"
@@ -49,6 +50,24 @@ func PingBatch(
 	items []PingBatchItem,
 	timeout int,
 	targetURL string,
+) ([]PingBatchResult, error) {
+	return pingBatch(items, timeout, targetURL, false)
+}
+
+// PingBatchWarm times the second of two HEAD requests on one connection.
+func PingBatchWarm(
+	items []PingBatchItem,
+	timeout int,
+	targetURL string,
+) ([]PingBatchResult, error) {
+	return pingBatch(items, timeout, targetURL, true)
+}
+
+func pingBatch(
+	items []PingBatchItem,
+	timeout int,
+	targetURL string,
+	warm bool,
 ) ([]PingBatchResult, error) {
 	if err := validatePingBatchRequest(items, timeout, targetURL); err != nil {
 		return nil, err
@@ -109,6 +128,7 @@ func PingBatch(
 					item.outboundTag,
 					timeout,
 					targetURL,
+					warm,
 				)
 			}
 		}()
@@ -353,10 +373,12 @@ func probeOutbound(
 	outboundTag string,
 	timeout int,
 	targetURL string,
+	warm bool,
 ) PingBatchResult {
 	httpTimeout := time.Second * time.Duration(timeout)
+	var dialed atomic.Bool
 	transport := &http.Transport{
-		DisableKeepAlives: true,
+		DisableKeepAlives: !warm,
 		DialContext: func(
 			ctx context.Context,
 			network string,
@@ -364,6 +386,9 @@ func probeOutbound(
 		) (net.Conn, error) {
 			if network != "tcp" && network != "tcp4" && network != "tcp6" {
 				return nil, fmt.Errorf("unsupported ping network %q", network)
+			}
+			if warm && dialed.Swap(true) {
+				return nil, errors.New("warm ping requires a kept-alive connection")
 			}
 			destination, err := xrayNet.ParseDestination("tcp:" + address)
 			if err != nil {
@@ -374,6 +399,9 @@ func probeOutbound(
 		},
 	}
 	defer transport.CloseIdleConnections()
+	if warm {
+		return probeWarm(transport, httpTimeout, targetURL)
+	}
 
 	client := &http.Client{
 		Transport: transport,
@@ -385,6 +413,48 @@ func probeOutbound(
 		result = failedPingBatchResult(delay, err)
 	}
 	return result
+}
+
+// probeWarm sends both requests through the transport, so a redirect is the
+// answer. The transport dials once, so the second request cannot open a new
+// connection.
+func probeWarm(
+	transport http.RoundTripper,
+	timeout time.Duration,
+	targetURL string,
+) PingBatchResult {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if result := timeHead(ctx, transport, targetURL); !result.Success {
+		return result
+	}
+	return timeHead(ctx, transport, targetURL)
+}
+
+func timeHead(
+	ctx context.Context,
+	transport http.RoundTripper,
+	targetURL string,
+) PingBatchResult {
+	request, err := http.NewRequestWithContext(ctx, http.MethodHead, targetURL, nil)
+	if err != nil {
+		return failedPingBatchResult(nodep.PingDelayError, err)
+	}
+	if user := request.URL.User; user != nil {
+		password, _ := user.Password()
+		request.SetBasicAuth(user.Username(), password)
+	}
+	start := time.Now()
+	response, err := transport.RoundTrip(request)
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return failedPingBatchResult(nodep.PingDelayTimeout, err)
+		}
+		return failedPingBatchResult(nodep.PingDelayError, err)
+	}
+	response.Body.Close()
+	return PingBatchResult{Success: true, Delay: time.Since(start).Milliseconds()}
 }
 
 func failedPingBatchResult(delay int64, err error) PingBatchResult {

@@ -5,10 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/metacubex/age"
 	"github.com/metacubex/age/armor"
@@ -653,6 +657,41 @@ func TestInvokePingBatchReturnsPerItemFailures(t *testing.T) {
 	}
 	if result.Error == "" {
 		t.Fatal("missing config has no error")
+	}
+}
+
+func TestInvokePingBatchWarmTimesSecondRequest(t *testing.T) {
+	const firstDelay = 300 * time.Millisecond
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(
+		response http.ResponseWriter,
+		_ *http.Request,
+	) {
+		if requests.Add(1) == 1 {
+			time.Sleep(firstDelay)
+		}
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	response := invokeForTest(
+		t,
+		LibXrayMethodPingBatch,
+		PingBatchRequest{
+			Configs: []PingBatchItemRequest{
+				{XrayJson: `{"outbounds":[{"protocol":"freedom"}]}`},
+			},
+			Timeout: 2,
+			URL:     server.URL,
+			Warm:    true,
+		},
+	)
+	if !response.Success {
+		t.Fatalf("PingBatch failed: %s", response.Err)
+	}
+	result := decodeDataObject[PingBatchResponse](t, response).Results[0]
+	if !result.Success || result.Delay >= firstDelay.Milliseconds() {
+		t.Fatalf("result = %+v, want the second request's delay", result)
 	}
 }
 
